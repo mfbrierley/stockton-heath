@@ -18,10 +18,6 @@ const mapTweetToBridgeAlert = (tweet: any): BridgeAlert => {
   };
 };
 
-const isSwingBridgeAlert = (tweetText: string): boolean => {
-  return tweetText.includes("Swingbridge Alert");
-};
-
 const app = express();
 const port = 3001;
 
@@ -29,6 +25,7 @@ app.use(express.json());
 
 const adapter = new PrismaLibSql({
   url: process.env.DATABASE_URL ?? "file:./dev.db",
+  authToken: process.env.TURSO_AUTH_TOKEN,
 });
 const prisma = new PrismaClient({ adapter });
 
@@ -66,8 +63,21 @@ const syncLatestBridgeAlert = async (
       `[${new Date().toISOString()}] Checking for new bridge alerts...`,
     );
 
+    const lastStored = await prisma.bridgeAlert.findFirst({
+      orderBy: { id: "desc" },
+    });
+
+    let query = `"Swingbridge Alert" from:${userName}`;
+
+    // if (lastStored) {
+    //   const sinceTime =
+    //     Math.floor(new Date(lastStored.postedAt).getTime() / 1000) + 1;
+    //   query += ` since_time:${sinceTime}`;
+    // }
+
+    const params = new URLSearchParams({ query, queryType: "Latest" });
     const response = await fetch(
-      `https://api.twitterapi.io/twitter/user/last_tweets?userName=${encodeURIComponent(userName)}`,
+      `https://api.twitterapi.io/twitter/tweet/advanced_search?${params.toString()}`,
       {
         method: "GET",
         headers: {
@@ -82,37 +92,35 @@ const syncLatestBridgeAlert = async (
     }
 
     const data = await response.json();
-    const tweets = data?.data?.tweets ?? [];
-    const latestTweet = tweets[0];
+    const tweets: any[] = data?.tweets ?? [];
 
-    console.log("Latest tweet:", latestTweet?.text?.slice(0, 50));
+    console.log(
+      `Found ${tweets.length} new tweet(s). Query: ${query}. Time: ${new Date().toISOString()}`,
+    );
 
-    if (!latestTweet) return null;
+    console.log("Raw API response:", JSON.stringify(data, null, 2));
 
-    const latestAlert = mapTweetToBridgeAlert(latestTweet);
+    if (tweets.length === 0) return null;
 
-    if (!isSwingBridgeAlert(latestAlert.tweetText)) return null;
-
-    const existingAlert = await prisma.bridgeAlert.findUnique({
-      where: {
-        tweetId: latestAlert.tweetId,
-      },
-    });
-
-    if (!existingAlert) {
-      await prisma.bridgeAlert.create({
-        data: {
-          tweetId: latestAlert.tweetId,
-          tweetText: latestAlert.tweetText,
-          postedAt: latestAlert.postedAt,
-          detectedAt: latestAlert.detectedAt,
-        },
+    for (const tweet of tweets) {
+      const alert = mapTweetToBridgeAlert(tweet);
+      const existingAlert = await prisma.bridgeAlert.findUnique({
+        where: { tweetId: alert.tweetId },
       });
-
-      console.log("New bridge alert saved:", latestAlert.tweetText);
+      if (!existingAlert) {
+        await prisma.bridgeAlert.create({
+          data: {
+            tweetId: alert.tweetId,
+            tweetText: alert.tweetText,
+            postedAt: alert.postedAt,
+            detectedAt: alert.detectedAt,
+          },
+        });
+        console.log("New bridge alert saved:", alert.tweetText);
+      }
     }
 
-    return latestAlert;
+    return mapTweetToBridgeAlert(tweets[0]);
   } catch (error) {
     console.error("Polling error:", error);
     return null;
@@ -184,16 +192,17 @@ app.get("/bridge-alerts/latest", async (req: Request, res: Response) => {
   }
 });
 
-const SWING_BRIDGE_USER_NAME = "trafficwarr";
+const SWING_BRIDGE_USER_NAME = "bridgetestwa";
 
 void syncLatestBridgeAlert(SWING_BRIDGE_USER_NAME);
 
-// setInterval(
-//   () => {
-//     void syncLatestBridgeAlert(SWING_BRIDGE_USER_NAME);
-//   },
-//   10 * 60 * 1000,
-// );
+setInterval(
+  () => {
+    void syncLatestBridgeAlert(SWING_BRIDGE_USER_NAME);
+  },
+  // 10 * 60 * 1000,
+  10000,
+);
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
