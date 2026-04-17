@@ -69,11 +69,11 @@ const syncLatestBridgeAlert = async (
 
     let query = `"Swingbridge Alert" from:${userName}`;
 
-    // if (lastStored) {
-    //   const sinceTime =
-    //     Math.floor(new Date(lastStored.postedAt).getTime() / 1000) + 1;
-    //   query += ` since_time:${sinceTime}`;
-    // }
+    if (lastStored) {
+      const sinceTime =
+        Math.floor(new Date(lastStored.postedAt).getTime() / 1000) + 1;
+      query += ` since_time:${sinceTime}`;
+    }
 
     const params = new URLSearchParams({ query, queryType: "Latest" });
     const response = await fetch(
