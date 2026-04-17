@@ -200,8 +200,7 @@ setInterval(
   () => {
     void syncLatestBridgeAlert(SWING_BRIDGE_USER_NAME);
   },
-  // 10 * 60 * 1000,
-  10000,
+  10 * 60 * 1000,
 );
 
 app.listen(port, () => {
