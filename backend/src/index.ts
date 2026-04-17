@@ -195,7 +195,7 @@ app.get("/bridge-alerts/latest", async (req: Request, res: Response) => {
   }
 });
 
-const SWING_BRIDGE_USER_NAME = "bridgetestwa";
+const SWING_BRIDGE_USER_NAME = "trafficwarr";
 
 void syncLatestBridgeAlert(SWING_BRIDGE_USER_NAME);
 
