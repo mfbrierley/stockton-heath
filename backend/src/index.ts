@@ -103,7 +103,7 @@ const syncLatestBridgeAlert = async (
 
     if (tweets.length === 0) return null;
 
-    for (const tweet of tweets) {
+    for (const tweet of [...tweets].reverse()) {
       const alert = mapTweetToBridgeAlert(tweet);
       const existingAlert = await prisma.bridgeAlert.findUnique({
         where: { tweetId: alert.tweetId },
