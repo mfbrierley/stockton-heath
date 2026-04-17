@@ -101,8 +101,6 @@ const syncLatestBridgeAlert = async (
       `Found ${tweets.length} new tweet(s). Query: ${query}. Time: ${new Date().toISOString()}`,
     );
 
-    console.log("Raw API response:", JSON.stringify(data, null, 2));
-
     if (tweets.length === 0) return null;
 
     for (const tweet of tweets) {
