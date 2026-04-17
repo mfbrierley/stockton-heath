@@ -87,7 +87,10 @@ const syncLatestBridgeAlert = async (
     );
 
     if (!response.ok) {
-      console.error("twitterapi.io request failed");
+      const errorBody = await response.text();
+      console.error(
+        `twitterapi.io request failed: ${response.status} ${errorBody}`,
+      );
       return null;
     }
 
