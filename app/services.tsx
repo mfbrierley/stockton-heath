@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView } from "react-native";
 import PostcodeSection from "../components/PostcodeSection";
+import RecyclingCentreSection from "../components/RecyclingCentreSection";
 import WasteCollectionSection from "../components/WasteCollectionSection";
 import { theme } from "./styles/theme";
 import { AddressesResponse, UPRN } from "./types/binCollections";
@@ -103,7 +104,9 @@ export default function Services() {
       <WasteCollectionSection
         binCollectionsData={binCollections}
         isLoading={loading}
+        isAddressSet={!!userAddress}
       />
+      <RecyclingCentreSection />
     </ScrollView>
   );
 }

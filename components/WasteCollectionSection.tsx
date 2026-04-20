@@ -20,6 +20,7 @@ const BIN_ICONS: Record<string, React.FC<SvgProps>> = {
 interface WasteCollectionProps {
   binCollectionsData: any;
   isLoading: boolean;
+  isAddressSet: boolean;
 }
 
 interface NextBinCollections {
@@ -48,10 +49,11 @@ const BinCollectionInfo = (props: {
         <Text
           style={{
             fontSize: theme.fontSizes.largeBody,
-            color: theme.colors.neutral800,
+            color: theme.colors.primary,
+            marginTop: 16,
           }}
         >
-          N/A
+          -
         </Text>
       </View>
     );
@@ -158,21 +160,32 @@ export default function WasteCollectionSection(props: WasteCollectionProps) {
     });
   }, [props?.binCollectionsData?.schedule]);
 
-  const nextCollections: NextBinCollections = useMemo(
-    () => ({
-      blueBin: getNextCollectionDate(allBlueBinJobs),
-      greenBin: getNextCollectionDate(allGreenBinJobs),
-      blackBin: getNextCollectionDate(allBlackBinJobs),
-      foodWasteBin: getNextCollectionDate(allFoodBinJobs),
-    }),
-    [allBlueBinJobs, allGreenBinJobs, allBlackBinJobs, allFoodBinJobs],
-  );
+  const nextCollections: NextBinCollections = useMemo(() => {
+    return {
+      blueBin: props?.isAddressSet
+        ? getNextCollectionDate(allBlueBinJobs)
+        : null,
+      greenBin: props?.isAddressSet
+        ? getNextCollectionDate(allGreenBinJobs)
+        : null,
+      blackBin: props?.isAddressSet
+        ? getNextCollectionDate(allBlackBinJobs)
+        : null,
+      foodWasteBin: props?.isAddressSet
+        ? getNextCollectionDate(allFoodBinJobs)
+        : null,
+    };
+  }, [
+    allBlueBinJobs,
+    allGreenBinJobs,
+    allBlackBinJobs,
+    allFoodBinJobs,
+    props?.isAddressSet,
+  ]);
 
   return (
     <View>
-      <Text style={[globalStyles.heading, globalStyles.headingBold]}>
-        Next Waste Collection
-      </Text>
+      <Text style={[globalStyles.heading]}>Next Waste Collection</Text>
 
       <View style={[globalStyles.tilesRow, styles.tileRow]}>
         <BinCollectionTile

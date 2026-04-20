@@ -18,6 +18,34 @@ const mapTweetToBridgeAlert = (tweet: any): BridgeAlert => {
   };
 };
 
+const sendPushNotifications = async (alert: BridgeAlert): Promise<void> => {
+  const tokens = await prisma.pushToken.findMany();
+  if (tokens.length === 0) return;
+
+  const messages = tokens.map((t) => ({
+    to: t.token,
+    sound: "default",
+    title: "Stockton Heath Bridge Alert",
+    body: alert.tweetText,
+    data: { tweetId: alert.tweetId },
+  }));
+
+  const response = await fetch("https://exp.host/push/send", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(messages),
+  });
+
+  if (!response.ok) {
+    console.error("Failed to send push notifications:", await response.text());
+  } else {
+    console.log(`Push notifications sent to ${tokens.length} device(s).`);
+  }
+};
+
 const app = express();
 const port = 3001;
 
@@ -118,6 +146,7 @@ const syncLatestBridgeAlert = async (
           },
         });
         console.log("New bridge alert saved:", alert.tweetText);
+        await sendPushNotifications(alert);
       }
     }
 
@@ -187,6 +216,24 @@ app.get("/bridge-alerts/latest", async (req: Request, res: Response) => {
     return res.json({
       latestAlert,
     });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Something went wrong" });
+  }
+});
+
+app.post("/push-tokens", async (req: Request, res: Response) => {
+  try {
+    const { token } = req.body as { token: string };
+    if (!token || typeof token !== "string") {
+      return res.status(400).json({ error: "Invalid token" });
+    }
+    await prisma.pushToken.upsert({
+      where: { token },
+      update: {},
+      create: { token },
+    });
+    return res.json({ ok: true });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Something went wrong" });

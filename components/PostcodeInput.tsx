@@ -31,15 +31,23 @@ export default function PostcodeInput({
             borderRadius: 16,
           }}
         >
+          <Ionicons
+            name="location-sharp"
+            size={24}
+            color={theme.colors.neutral400}
+            style={{ marginLeft: 16 }}
+          />
           <TextInput
-            placeholder="Postcode"
+            placeholder="e.g. WA4 5XX"
             placeholderTextColor={theme.colors.neutral600}
             value={postcode}
             onChangeText={onChangePostcode}
             autoCapitalize="characters"
             style={{
               flex: 1,
-              padding: 16,
+              paddingVertical: 16,
+              paddingLeft: 8,
+              paddingRight: 16,
               fontFamily: theme.fonts.body,
               fontSize: theme.fontSizes.body,
               color: theme.colors.neutral1000,

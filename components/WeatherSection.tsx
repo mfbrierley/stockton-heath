@@ -159,9 +159,7 @@ export function WeatherSection({
           marginBottom: 16,
         }}
       >
-        <Text style={[globalStyles.heading, globalStyles.headingBold]}>
-          Today&apos;s Weather
-        </Text>
+        <Text style={[globalStyles.heading]}>Today&apos;s Weather</Text>
         <LiveDot />
       </View>
       {loading ? (

@@ -19,3 +19,8 @@ model BridgeAlert {
   postedAt   String
   detectedAt String
 }
+
+model PushToken {
+  id    Int    @id @default(autoincrement())
+  token String @unique
+}

@@ -24,6 +24,7 @@ interface PostcodeSectionProps {
 export default function PostcodeSection({
   onFetchCollectionSchedule,
   onReset,
+  onSelectAddress,
   ...props
 }: PostcodeSectionProps) {
   const [postcode, setPostcode] = useState("");
@@ -35,6 +36,12 @@ export default function PostcodeSection({
     onFetchCollectionSchedule();
   }, [onFetchCollectionSchedule, props.userAddress]);
 
+  useEffect(() => {
+    if (!postcode) {
+      onSelectAddress(null);
+    }
+  }, [onSelectAddress, postcode]);
+
   return (
     <View style={{ gap: 32 }}>
       {props.userAddress ? (
@@ -42,10 +49,12 @@ export default function PostcodeSection({
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <Ionicons name="home" size={18} color={theme.colors.primary} />
             <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
               style={[
                 globalStyles.body,
                 globalStyles.bodyBold,
-                { marginHorizontal: 8 },
+                { flex: 1, marginHorizontal: 8 },
               ]}
             >
               {props.userAddress.address}
@@ -53,6 +62,7 @@ export default function PostcodeSection({
             <Button
               size="small"
               variant="neutral"
+              style={{ marginLeft: "auto" }}
               icon={
                 <Feather name="edit" size={16} color={theme.colors.primary} />
               }
@@ -61,13 +71,16 @@ export default function PostcodeSection({
                 onReset();
               }}
             >
-              Change
+              Edit
             </Button>
           </View>
         </>
       ) : (
-        <>
-          <Text style={globalStyles.largeBody}>
+        <View>
+          <Text style={[globalStyles.heading, globalStyles.headingBold]}>
+            Your local service guide
+          </Text>
+          <Text style={[globalStyles.body, { marginTop: 8, marginBottom: 16 }]}>
             Enter your postcode to see local collection schedules.
           </Text>
           <PostcodeInput
@@ -80,75 +93,90 @@ export default function PostcodeSection({
             error={props.error}
           />
           {props.addresses.length > 0 && (
-            <DropDownPicker
-              open={dropdownOpen}
-              setOpen={setDropdownOpen}
-              value={props.selectedAddress?.uprn ?? null}
-              setValue={(val) => {
-                const uprn =
-                  typeof val === "function"
-                    ? val(props.selectedAddress?.uprn ?? null)
-                    : val;
-                const item = props.addresses.find(
-                  (entry) => Object.values(entry)[0] === uprn,
-                );
-                const address = item ? Object.keys(item)[0] : "";
-                props.onSelectAddress(uprn ? { address, uprn } : null);
-              }}
-              items={props.addresses.map((entry) => {
-                const address = Object.keys(entry)[0];
-                return { label: address, value: entry[address] };
-              })}
-              placeholder="Select your address..."
-              listMode="SCROLLVIEW"
-              style={{
-                backgroundColor: theme.colors.white,
-                borderWidth: 0,
-                borderRadius: 16,
-                paddingHorizontal: 16,
-                minHeight: 52,
-              }}
-              dropDownContainerStyle={{
-                backgroundColor: theme.colors.white,
-                borderWidth: 0,
-                borderRadius: 16,
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.08,
-                shadowRadius: 8,
-                elevation: 4,
-              }}
-              textStyle={{
-                fontFamily: theme.fonts.body,
-                fontSize: theme.fontSizes.body,
-                color: theme.colors.neutral1000,
-              }}
-              placeholderStyle={{
-                color: theme.colors.neutral600,
-              }}
-              selectedItemContainerStyle={{
-                backgroundColor: theme.colors.green100,
-              }}
-              selectedItemLabelStyle={{
-                color: theme.colors.green800,
-                fontFamily: theme.fonts.body,
-              }}
-              listItemLabelStyle={{
-                fontFamily: theme.fonts.body,
-                fontSize: theme.fontSizes.body,
-              }}
-            />
+            <View style={{ position: "relative", marginVertical: 16 }}>
+              <Ionicons
+                name="home"
+                size={20}
+                color={theme.colors.neutral400}
+                style={{
+                  position: "absolute",
+                  left: 16,
+                  top: 16,
+                  zIndex: 99999,
+                }}
+              />
+              <DropDownPicker
+                open={dropdownOpen}
+                setOpen={setDropdownOpen}
+                value={props.selectedAddress?.uprn ?? null}
+                setValue={(val) => {
+                  const uprn =
+                    typeof val === "function"
+                      ? val(props.selectedAddress?.uprn ?? null)
+                      : val;
+                  const item = props.addresses.find(
+                    (entry) => Object.values(entry)[0] === uprn,
+                  );
+                  const address = item ? Object.keys(item)[0] : "";
+                  onSelectAddress(uprn ? { address, uprn } : null);
+                }}
+                items={props.addresses.map((entry) => {
+                  const address = Object.keys(entry)[0];
+                  return { label: address, value: entry[address] };
+                })}
+                placeholder="Select your address..."
+                listMode="SCROLLVIEW"
+                style={{
+                  backgroundColor: theme.colors.white,
+                  borderWidth: 0,
+                  borderRadius: 16,
+                  paddingLeft: 48,
+                  paddingRight: 16,
+                  minHeight: 52,
+                }}
+                dropDownContainerStyle={{
+                  backgroundColor: theme.colors.white,
+                  borderWidth: 0,
+                  borderRadius: 16,
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 8,
+                  elevation: 4,
+                }}
+                textStyle={{
+                  fontFamily: theme.fonts.body,
+                  fontSize: theme.fontSizes.body,
+                  color: theme.colors.neutral1000,
+                }}
+                placeholderStyle={{
+                  color: theme.colors.neutral600,
+                }}
+                selectedItemContainerStyle={{
+                  backgroundColor: theme.colors.green100,
+                }}
+                selectedItemLabelStyle={{
+                  color: theme.colors.green800,
+                  fontFamily: theme.fonts.body,
+                }}
+                listItemLabelStyle={{
+                  fontFamily: theme.fonts.body,
+                  fontSize: theme.fontSizes.body,
+                }}
+              />
+            </View>
           )}
           {props.addresses.length > 0 && (
             <Button
               variant="tertiary"
+              width="full"
               onPress={() => props.onSetAddress(props.selectedAddress)}
               disabled={!props.selectedAddress}
             >
               Set Address
             </Button>
           )}
-        </>
+        </View>
       )}
     </View>
   );

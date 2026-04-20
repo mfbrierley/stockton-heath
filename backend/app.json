@@ -1,3 +1,7 @@
 {
-  "expo": {}
+  "expo": {
+    "ios": {
+      "bundleIdentifier": "com.mattbrierley1.backend"
+    }
+  }
 }

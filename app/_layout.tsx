@@ -8,12 +8,59 @@ import {
 } from "@expo-google-fonts/plus-jakarta-sans";
 import Feather from "@expo/vector-icons/Feather";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import Constants from "expo-constants";
 import { useFonts } from "expo-font";
+import * as Notifications from "expo-notifications";
 import { Tabs } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Text, View } from "react-native";
+import { useEffect } from "react";
+import { Platform, Text, View } from "react-native";
 import { globalStyles } from "./styles/globalStyles";
 import { theme } from "./styles/theme";
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+const registerForPushNotifications = async (): Promise<void> => {
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "default",
+      importance: Notifications.AndroidImportance.MAX,
+    });
+  }
+
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+
+  if (existingStatus !== "granted") {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+
+  if (finalStatus !== "granted") return;
+
+  const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+  if (!projectId) return;
+
+  const { data: token } = await Notifications.getExpoPushTokenAsync({
+    projectId,
+  });
+
+  const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
+  if (!backendUrl) return;
+
+  await fetch(`${backendUrl}/push-tokens`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+};
 
 const customHeader = () => {
   return (
@@ -32,6 +79,10 @@ const customHeader = () => {
 };
 
 export default function RootLayout() {
+  useEffect(() => {
+    void registerForPushNotifications();
+  }, []);
+
   const [fontsLoaded] = useFonts({
     NotoSerif: NotoSerif_400Regular,
     NotoSerifBold: NotoSerif_700Bold,
