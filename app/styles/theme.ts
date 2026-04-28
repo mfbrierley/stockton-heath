@@ -35,7 +35,9 @@ export const theme = {
   },
   fonts: {
     heading: "NotoSerif",
+    headingBold: "NotoSerifBold",
     body: "PlusJakartaSans",
+    bodyBold: "PlusJakartaSansBold",
   },
   fontSizes: {
     heading: 24,

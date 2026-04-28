@@ -43,6 +43,7 @@ export const globalStyles = StyleSheet.create({
   body: {
     fontFamily: theme.fonts.body,
     fontSize: theme.fontSizes.body,
+    lineHeight: 22,
     fontWeight: theme.fontWeights.regular,
     color: theme.colors.neutral1000,
   },

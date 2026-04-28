@@ -1,12 +1,12 @@
 import { Image } from "expo-image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, View } from "react-native";
-import { GreetingCard } from "../components/GreetingCard";
+import { GreetingCard } from "../../components/GreetingCard";
 import {
   WeatherApiResponse,
   WeatherSection,
-} from "../components/WeatherSection";
-import { theme } from "./styles/theme";
+} from "../../components/WeatherSection";
+import { theme } from "../styles/theme";
 
 const LATITUDE = 53.3705;
 const LONGITUDE = -2.5811;
@@ -108,7 +108,7 @@ export default function Index() {
         }}
       >
         <Image
-          source={require("../assets/images/stockton-heath-photo.jpg")}
+          source={require("../../assets/images/stockton-heath-photo.jpg")}
           style={{ width: "100%", height: 250 }}
           contentFit="cover"
         />

@@ -1,7 +1,7 @@
 import { Text, View } from "react-native";
-import { theme } from "./styles/theme";
+import { theme } from "../styles/theme";
 
-export default function Bridge() {
+export default function Discounts() {
   return (
     <View
       style={{
@@ -11,7 +11,7 @@ export default function Bridge() {
         alignItems: "center",
       }}
     >
-      <Text>Welcome to the Bridge page!</Text>
+      <Text>Welcome to the Discounts page!</Text>
     </View>
   );
 }

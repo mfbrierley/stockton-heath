@@ -13,7 +13,8 @@ type Variant =
   | "tertiary"
   | "neutral"
   | "ghost"
-  | "white";
+  | "white"
+  | "whiteTransparent";
 type Width = "full" | "auto";
 type Size = "large" | "small";
 
@@ -40,6 +41,10 @@ const variantStyles: Record<
   },
   ghost: { background: undefined, text: theme.colors.neutral1000 },
   white: { background: theme.colors.white, text: theme.colors.green1000 },
+  whiteTransparent: {
+    background: "rgba(255, 255, 255, 0.1)",
+    text: theme.colors.white,
+  },
 };
 
 export default function Button({
@@ -137,9 +142,8 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   label: {
-    fontFamily: theme.fonts.body,
+    fontFamily: theme.fonts.bodyBold,
     fontSize: theme.fontSizes.body,
-    fontWeight: theme.fontWeights.regular,
   },
   labelSmall: {
     fontSize: theme.fontSizes.body,
