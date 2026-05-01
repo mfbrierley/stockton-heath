@@ -2,6 +2,7 @@ import { Image } from "expo-image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, View } from "react-native";
 import { GreetingCard } from "../../components/GreetingCard";
+import { LocalFuelSection } from "../../components/LocalFuelSection";
 import {
   WeatherApiResponse,
   WeatherSection,
@@ -135,6 +136,7 @@ export default function Index() {
           error={error}
           windMph={windMph}
         />
+        <LocalFuelSection />
       </Animated.ScrollView>
     </View>
   );
