@@ -1,7 +1,10 @@
 import { PrismaLibSql } from "@prisma/adapter-libsql";
+import { setDefaultResultOrder } from "dns";
 import "dotenv/config";
 import express, { Request, Response } from "express";
 import { PrismaClient } from "./generated/prisma/client";
+
+setDefaultResultOrder("ipv4first");
 
 // ── Fuel Finder ────────────────────────────────────────────────────────────────
 
