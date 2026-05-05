@@ -7,19 +7,19 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://stockton-heath-production.up.railway.app/"
+        "EXPO_PUBLIC_BACKEND_URL": "https://stockton-heath-backend.fly.dev"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://stockton-heath-production.up.railway.app/"
+        "EXPO_PUBLIC_BACKEND_URL": "https://stockton-heath-backend.fly.dev"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://stockton-heath-production.up.railway.app/"
+        "EXPO_PUBLIC_BACKEND_URL": "https://stockton-heath-backend.fly.dev"
       }
     }
   },
