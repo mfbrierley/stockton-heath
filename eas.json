@@ -1,25 +1,26 @@
 {
   "cli": {
-    "version": ">= 16.0.0"
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://stockton-heath-backend.fly.dev"
+        "EXPO_PUBLIC_BACKEND_URL": "https://stocktonheath.duckdns.org"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://stockton-heath-backend.fly.dev"
+        "EXPO_PUBLIC_BACKEND_URL": "https://stocktonheath.duckdns.org"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://stockton-heath-backend.fly.dev"
+        "EXPO_PUBLIC_BACKEND_URL": "https://stocktonheath.duckdns.org"
       }
     }
   },
