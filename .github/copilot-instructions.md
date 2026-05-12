@@ -134,6 +134,22 @@ model PushToken {
 - **Push notifications:** Expo Push Notification service (`exp.host/push/send`)
 - **App distribution:** EAS Build / EAS Submit
 
+### Backend Deployment
+
+The repo is cloned at `/opt/stockton-heath` on the droplet. The backend runs as a plain `docker run` container (no compose) named `stockton-heath-backend` on port 3001. To redeploy after backend changes:
+
+```bash
+cd /opt/stockton-heath && git pull
+docker build -t stockton-heath-backend ./backend
+docker stop stockton-heath-backend && docker rm stockton-heath-backend
+docker run -d \
+  --name stockton-heath-backend \
+  --restart unless-stopped \
+  -p 3001:3001 \
+  --env-file ./backend/.env \
+  stockton-heath-backend
+```
+
 ---
 
 ## Design Tokens (theme.ts)
