@@ -1,3 +1,5 @@
+import { theme } from "@/app/styles/theme";
+import { Feather } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 
@@ -10,6 +12,8 @@ type FuelPrice = {
 type StationPrices = {
   node_id: string;
   trading_name: string;
+  display_name: string;
+  location: string;
   fuel_prices: FuelPrice[];
 };
 
@@ -57,13 +61,29 @@ export function LocalFuelSection() {
     return entry ? `${entry.price}p` : "—";
   }
 
+  function getPriceValue(station: StationPrices, fuelType: string): number {
+    const entry = station.fuel_prices.find((p) => p.fuel_type === fuelType);
+    return entry ? entry.price : Infinity;
+  }
+
+  const sortedStations = [...stations].sort(
+    (a, b) => getPriceValue(a, "E10") - getPriceValue(b, "E10"),
+  );
+
+  const lowestPetrol = Math.min(
+    ...stations.map((s) => getPriceValue(s, "E10")),
+  );
+  const lowestDiesel = Math.min(
+    ...stations.map((s) => getPriceValue(s, "B7_STANDARD")),
+  );
+
   return (
     <View>
       <Text
         style={{
           fontSize: 24,
           fontFamily: "NotoSerif",
-          color: "#1B4332",
+          color: theme.colors.primary,
           marginBottom: 16,
         }}
       >
@@ -73,16 +93,31 @@ export function LocalFuelSection() {
       {loading ? (
         <ActivityIndicator />
       ) : error ? (
-        <Text style={{ color: "#DC2626" }}>{error}</Text>
+        <Text style={{ color: theme.colors.statusRed }}>{error}</Text>
       ) : (
-        <View style={{ gap: 8 }}>
-          <View style={{ flexDirection: "row", paddingBottom: 4 }}>
+        <View
+          style={{
+            backgroundColor: theme.colors.white,
+            borderRadius: 24,
+            overflow: "hidden",
+          }}
+        >
+          {/* Header row */}
+          <View
+            style={{
+              flexDirection: "row",
+              paddingHorizontal: 24,
+              paddingTop: 24,
+              paddingBottom: 12,
+            }}
+          >
             <Text
               style={{
                 flex: 2,
                 fontFamily: "PlusJakartaSansBold",
-                fontSize: 12,
-                color: "#453B30",
+                fontSize: 11,
+                color: theme.colors.neutral600,
+                letterSpacing: 0.6,
               }}
             >
               STATION
@@ -91,69 +126,168 @@ export function LocalFuelSection() {
               style={{
                 flex: 1,
                 fontFamily: "PlusJakartaSansBold",
-                fontSize: 12,
-                color: "#453B30",
-                textAlign: "right",
+                fontSize: 11,
+                color: theme.colors.neutral600,
+                letterSpacing: 0.6,
+                textAlign: "center",
               }}
             >
-              PETROL
+              PETROL E10
             </Text>
             <Text
               style={{
                 flex: 1,
                 fontFamily: "PlusJakartaSansBold",
-                fontSize: 12,
-                color: "#453B30",
-                textAlign: "right",
+                fontSize: 11,
+                color: theme.colors.neutral600,
+                letterSpacing: 0.6,
+                textAlign: "center",
               }}
             >
-              DIESEL
+              DIESEL B7
             </Text>
           </View>
-          {stations.map((station) => (
-            <View
-              key={station.node_id}
+
+          {/* Station rows */}
+          {sortedStations.map((station) => {
+            const isLowestPetrol =
+              getPriceValue(station, "E10") === lowestPetrol;
+            const isLowestDiesel =
+              getPriceValue(station, "B7_STANDARD") === lowestDiesel;
+            return (
+              <View
+                key={station.node_id}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingHorizontal: 24,
+                  paddingVertical: 14,
+                  borderTopWidth: 1,
+                  borderTopColor: theme.colors.neutral300,
+                }}
+              >
+                <View style={{ flex: 2 }}>
+                  <Text
+                    style={{
+                      fontFamily: "PlusJakartaSansBold",
+                      fontSize: 14,
+                      color: theme.colors.neutral1100,
+                    }}
+                  >
+                    {station.display_name}
+                  </Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 3,
+                    }}
+                  >
+                    <Feather
+                      name="map-pin"
+                      size={11}
+                      color={theme.colors.neutral600}
+                    />
+                    <Text
+                      style={{
+                        fontFamily: "PlusJakartaSans",
+                        fontSize: 12,
+                        color: theme.colors.neutral600,
+                      }}
+                    >
+                      {station.location}
+                    </Text>
+                  </View>
+                </View>
+                <View style={{ flex: 1, alignItems: "center", gap: 4 }}>
+                  <Text
+                    style={{
+                      fontFamily: "PlusJakartaSansBold",
+                      fontSize: 20,
+                      color: theme.colors.neutral1100,
+                    }}
+                  >
+                    {getPrice(station, "E10")}
+                  </Text>
+                  {isLowestPetrol && (
+                    <View
+                      style={{
+                        backgroundColor: theme.colors.primary,
+                        borderRadius: 20,
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: "PlusJakartaSansBold",
+                          fontSize: 9,
+                          color: theme.colors.white,
+                          letterSpacing: 0.6,
+                        }}
+                      >
+                        LOWEST
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <View style={{ flex: 1, alignItems: "center", gap: 4 }}>
+                  <Text
+                    style={{
+                      fontFamily: "PlusJakartaSansBold",
+                      fontSize: 20,
+                      color: theme.colors.neutral1100,
+                    }}
+                  >
+                    {getPrice(station, "B7_STANDARD")}
+                  </Text>
+                  {isLowestDiesel && (
+                    <View
+                      style={{
+                        backgroundColor: theme.colors.primary,
+                        borderRadius: 20,
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: "PlusJakartaSansBold",
+                          fontSize: 9,
+                          color: theme.colors.white,
+                          letterSpacing: 0.6,
+                        }}
+                      >
+                        LOWEST
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            );
+          })}
+
+          {/* Footer */}
+          <View
+            style={{
+              borderTopWidth: 1,
+              borderTopColor: theme.colors.neutral300,
+              paddingHorizontal: 24,
+              paddingBottom: 24,
+              paddingTop: 12,
+            }}
+          >
+            <Text
               style={{
-                flexDirection: "row",
-                paddingVertical: 8,
-                borderTopWidth: 1,
-                borderTopColor: "#DFD5CA",
+                fontFamily: "PlusJakartaSansBold",
+                fontSize: 11,
+                color: theme.colors.neutral600,
+                letterSpacing: 0.6,
               }}
             >
-              <Text
-                style={{
-                  flex: 2,
-                  fontFamily: "PlusJakartaSans",
-                  fontSize: 14,
-                  color: "#453B30",
-                }}
-              >
-                {station.trading_name}
-              </Text>
-              <Text
-                style={{
-                  flex: 1,
-                  fontFamily: "PlusJakartaSansBold",
-                  fontSize: 14,
-                  color: "#453B30",
-                  textAlign: "right",
-                }}
-              >
-                {getPrice(station, "E10")}
-              </Text>
-              <Text
-                style={{
-                  flex: 1,
-                  fontFamily: "PlusJakartaSansBold",
-                  fontSize: 14,
-                  color: "#453B30",
-                  textAlign: "right",
-                }}
-              >
-                {getPrice(station, "B7_STANDARD")}
-              </Text>
-            </View>
-          ))}
+              UPDATED EVERY 30 MINS
+            </Text>
+          </View>
         </View>
       )}
     </View>

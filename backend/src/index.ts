@@ -19,6 +19,24 @@ const LOCAL_STATION_NODE_IDS = new Set([
   "0ee49af1acdf5301f588d07afc3d9c274bfbffd56a3cb25cf830dfd336b6d7ae", // Morrisons
 ]);
 
+const STATION_DISPLAY_INFO: Record<
+  string,
+  { display_name: string; location: string }
+> = {
+  "78e106b10ddec09572a290959030b50fbe237f6913711e24d5a465fbe6220e61": {
+    display_name: "ASDA Causeway",
+    location: "Wilderspool Causeway",
+  },
+  "751b9cfbdf59cba708c06226acef37f63dae67b933732d7c67976daf58af7d39": {
+    display_name: "ESSO Latchford",
+    location: "Knutsford Road",
+  },
+  "0ee49af1acdf5301f588d07afc3d9c274bfbffd56a3cb25cf830dfd336b6d7ae": {
+    display_name: "Morrisons",
+    location: "Stockton Heath",
+  },
+};
+
 const DISPLAY_FUEL_TYPES = new Set(["E10", "B7_STANDARD"]);
 
 type FuelPrice = {
@@ -31,6 +49,8 @@ type FuelPrice = {
 type StationPrices = {
   node_id: string;
   trading_name: string;
+  display_name: string;
+  location: string;
   public_phone_number: string | null;
   fuel_prices: FuelPrice[];
 };
@@ -100,8 +120,11 @@ async function syncFuelPrices(): Promise<void> {
 
       for (const station of data) {
         if (LOCAL_STATION_NODE_IDS.has(station.node_id)) {
+          const displayInfo = STATION_DISPLAY_INFO[station.node_id];
           results.push({
             ...station,
+            display_name: displayInfo?.display_name ?? station.trading_name,
+            location: displayInfo?.location ?? "",
             fuel_prices: station.fuel_prices.filter((p) =>
               DISPLAY_FUEL_TYPES.has(p.fuel_type),
             ),
