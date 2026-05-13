@@ -136,6 +136,8 @@ model PushToken {
 
 ### Backend Deployment
 
+Run ssh stockton-heath and use the following commands to redeploy the backend after changes.
+
 The repo is cloned at `/opt/stockton-heath` on the droplet. The backend runs as a plain `docker run` container (no compose) named `stockton-heath-backend` on port 3001. To redeploy after backend changes:
 
 ```bash
