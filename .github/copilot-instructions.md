@@ -134,6 +134,16 @@ model PushToken {
 - **Push notifications:** Expo Push Notification service (`exp.host/push/send`)
 - **App distribution:** EAS Build / EAS Submit
 
+### iOS / TestFlight Deployment
+
+Run `npm run testflight` from the repo root to build and submit to TestFlight in one step:
+
+```bash
+npm run testflight
+# equivalent to:
+eas build --platform ios --profile production && eas submit --platform ios --latest
+```
+
 ### Backend Deployment
 
 Run ssh stockton-heath and use the following commands to redeploy the backend after changes.
