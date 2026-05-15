@@ -102,6 +102,7 @@ async function syncFuelPrices(): Promise<void> {
     const token = await getFuelFinderToken();
     const results: StationPrices[] = [];
     let batch = 1;
+    let syncFailed = false;
 
     while (true) {
       const res = await fetch(
@@ -110,7 +111,11 @@ async function syncFuelPrices(): Promise<void> {
       );
 
       if (!res.ok) {
-        console.error(`Fuel Finder prices request failed: ${res.status}`);
+        const body = await res.text().catch(() => "(unreadable)");
+        console.error(
+          `Fuel Finder prices request failed: ${res.status} — ${body}`,
+        );
+        syncFailed = true;
         break;
       }
 
@@ -135,6 +140,13 @@ async function syncFuelPrices(): Promise<void> {
       if (results.length === LOCAL_STATION_NODE_IDS.size) break;
 
       batch++;
+    }
+
+    if (syncFailed) {
+      console.warn(
+        `[${new Date().toISOString()}] Fuel price sync failed — retaining last cached data.`,
+      );
+      return;
     }
 
     cachedFuelPrices = { data: results, fetchedAt: Date.now() };
@@ -385,16 +397,11 @@ app.post("/push-tokens", async (req: Request, res: Response) => {
   }
 });
 
-app.get("/fuel-prices", async (req: Request, res: Response) => {
-  try {
-    if (!cachedFuelPrices) {
-      await syncFuelPrices();
-    }
-    return res.json(cachedFuelPrices);
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Failed to fetch fuel prices" });
+app.get("/fuel-prices", (req: Request, res: Response) => {
+  if (!cachedFuelPrices) {
+    return res.status(503).json({ error: "Fuel prices not yet available" });
   }
+  return res.json(cachedFuelPrices);
 });
 
 const SWING_BRIDGE_USER_NAME = "trafficwarr";

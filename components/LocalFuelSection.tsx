@@ -36,6 +36,8 @@ export function LocalFuelSection() {
         if (!backendUrl) throw new Error("EXPO_PUBLIC_BACKEND_URL is not set");
 
         const res = await fetch(`${backendUrl}/fuel-prices`);
+        if (res.status === 503)
+          throw new Error("Fuel prices loading, try again shortly");
         if (!res.ok) throw new Error(`${res.status}`);
 
         const json = (await res.json()) as FuelPricesResponse;
