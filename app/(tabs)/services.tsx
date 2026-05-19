@@ -1,9 +1,13 @@
+import Feather from "@expo/vector-icons/Feather";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ScrollView } from "react-native";
+import { ScrollView, Text } from "react-native";
 import PostcodeSection from "../../components/PostcodeSection";
+import QuickLinkCard from "../../components/QuickLinkCard";
 import RecyclingCentreSection from "../../components/RecyclingCentreSection";
 import WasteCollectionSection from "../../components/WasteCollectionSection";
+import { globalStyles } from "../styles/globalStyles";
 import { theme } from "../styles/theme";
 import { AddressesResponse, UPRN } from "../types/binCollections";
 
@@ -45,7 +49,9 @@ export default function Services() {
     setLoading(true);
     setSearchError(null);
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: { Referer: "https://www.warrington.gov.uk/" },
+      });
       if (!response.ok)
         throw new Error("Could not find addresses for that postcode.");
       const data: AddressesResponse = await response.json();
@@ -71,7 +77,9 @@ export default function Services() {
     const url = `https://www.warrington.gov.uk/bin-collections/get-jobs/${userAddress.uprn}`;
     setLoading(true);
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: { Referer: "https://www.warrington.gov.uk/" },
+      });
       const data = await response.json();
       setBinCollections(data);
       console.log("Collection schedule data:", data);
@@ -107,6 +115,27 @@ export default function Services() {
         isAddressSet={!!userAddress}
       />
       <RecyclingCentreSection />
+      <Text
+        style={[
+          globalStyles.body,
+          globalStyles.bodyBold,
+          { color: theme.colors.neutral800 },
+        ]}
+      >
+        Local Places
+      </Text>
+      <QuickLinkCard
+        icon={
+          <Feather name="activity" size={22} color={theme.colors.primary} />
+        }
+        title="Broomfields Leisure Centre"
+        onPress={() => router.push("/broomfields-leisure-centre")}
+      />
+      <QuickLinkCard
+        icon={<Feather name="mail" size={22} color={theme.colors.primary} />}
+        title="Post Office"
+        onPress={() => router.push("/post-office")}
+      />
     </ScrollView>
   );
 }

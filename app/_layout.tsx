@@ -49,6 +49,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="recycling-centre" />
+        <Stack.Screen name="broomfields-leisure-centre" />
       </Stack>
     </>
   );
