@@ -136,6 +136,11 @@ export default function Services() {
         title="Post Office"
         onPress={() => router.push("/post-office")}
       />
+      <QuickLinkCard
+        icon={<Feather name="heart" size={22} color={theme.colors.primary} />}
+        title="Medical Centre"
+        onPress={() => router.push("/medical-centre")}
+      />
     </ScrollView>
   );
 }

@@ -68,16 +68,6 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="discounts"
-        options={{
-          title: "Discounts",
-          headerTitle: customHeader,
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="tag" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="bridge"
         options={{
           title: "Bridge",
