@@ -6,6 +6,7 @@ COPY package*.json ./
 RUN npm ci
 
 COPY tsconfig.json ./
+COPY prisma.config.ts ./
 COPY src/ ./src/
 COPY prisma/ ./prisma/
 
@@ -15,4 +16,4 @@ RUN npm prune --omit=dev
 
 EXPOSE 3001
 
-CMD ["node", "dist/index.js"]
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && node dist/index.js"]
