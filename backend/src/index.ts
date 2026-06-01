@@ -348,6 +348,28 @@ app.get("/test-key", (req: Request, res: Response) => {
   });
 });
 
+app.post(
+  "/bridge-alerts/test-notification",
+  async (req: Request, res: Response) => {
+    const fakeAlert: BridgeAlert = {
+      tweetId: `test-${Date.now()}`,
+      tweetText:
+        "⚠️ Swingbridge Alert: Chester Road, London Road & Knutsford Road swing bridges will be closing at 14:00 today for approximately 20 minutes. [TEST]",
+      postedAt: new Date().toISOString(),
+      detectedAt: new Date().toISOString(),
+    };
+    try {
+      await sendPushNotifications(fakeAlert);
+      return res.json({ ok: true, alert: fakeAlert });
+    } catch (error) {
+      console.error("Test notification error:", error);
+      return res
+        .status(500)
+        .json({ error: "Failed to send test notification" });
+    }
+  },
+);
+
 app.get(
   "/bridge-alerts/check/:userName",
   async (req: Request, res: Response) => {
