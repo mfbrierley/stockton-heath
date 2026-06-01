@@ -176,9 +176,11 @@ const mapTweetToBridgeAlert = (tweet: any): BridgeAlert => {
 };
 
 const sendPushNotifications = async (alert: BridgeAlert): Promise<void> => {
-  const tokens = await prisma.pushToken.findMany();
+  const tokens = await prisma.bridgeSubscription.findMany();
   if (tokens.length === 0) {
-    console.log("No push tokens registered — skipping notification send.");
+    console.log(
+      "No bridge subscriptions registered — skipping notification send.",
+    );
     return;
   }
 
@@ -421,17 +423,68 @@ app.get("/bridge-alerts/latest", async (req: Request, res: Response) => {
   }
 });
 
-app.post("/push-tokens", async (req: Request, res: Response) => {
+app.post("/bridge-subscriptions", async (req: Request, res: Response) => {
   try {
     const { token } = req.body as { token: string };
     if (!token || typeof token !== "string") {
       return res.status(400).json({ error: "Invalid token" });
     }
-    await prisma.pushToken.upsert({
+    await prisma.bridgeSubscription.upsert({
       where: { token },
       update: {},
       create: { token },
     });
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Something went wrong" });
+  }
+});
+
+app.delete("/bridge-subscriptions", async (req: Request, res: Response) => {
+  try {
+    const { token } = req.body as { token: string };
+    if (!token || typeof token !== "string") {
+      return res.status(400).json({ error: "Invalid token" });
+    }
+    await prisma.bridgeSubscription.deleteMany({ where: { token } });
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Something went wrong" });
+  }
+});
+
+app.post("/bin-subscriptions", async (req: Request, res: Response) => {
+  try {
+    const { token, uprn } = req.body as { token: string; uprn: string };
+    if (
+      !token ||
+      typeof token !== "string" ||
+      !uprn ||
+      typeof uprn !== "string"
+    ) {
+      return res.status(400).json({ error: "Invalid token or uprn" });
+    }
+    await prisma.binSubscription.upsert({
+      where: { token },
+      update: { uprn },
+      create: { token, uprn },
+    });
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Something went wrong" });
+  }
+});
+
+app.delete("/bin-subscriptions", async (req: Request, res: Response) => {
+  try {
+    const { token } = req.body as { token: string };
+    if (!token || typeof token !== "string") {
+      return res.status(400).json({ error: "Invalid token" });
+    }
+    await prisma.binSubscription.deleteMany({ where: { token } });
     return res.json({ ok: true });
   } catch (error) {
     console.error(error);
@@ -445,6 +498,135 @@ app.get("/fuel-prices", (req: Request, res: Response) => {
   }
   return res.json(cachedFuelPrices);
 });
+
+// ── Bin Notifications ─────────────────────────────────────────────────────────
+
+const BIN_NAME_MAP: { keyword: string; label: string }[] = [
+  { keyword: "blue", label: "blue bin" },
+  { keyword: "green", label: "green bin" },
+  { keyword: "black", label: "black bin" },
+  { keyword: "food", label: "food waste caddy" },
+];
+
+const friendlyBinNames = (jobNames: string[]): string => {
+  const matched = BIN_NAME_MAP.filter(({ keyword }) =>
+    jobNames.some((name) => name.toLowerCase().includes(keyword)),
+  ).map(({ label }) => label);
+  if (matched.length === 0) return "bins";
+  if (matched.length === 1) return matched[0];
+  const last = matched[matched.length - 1];
+  return `${matched.slice(0, -1).join(", ")} and ${last}`;
+};
+
+const getUKDateString = (date: Date): string =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+
+let lastBinNotificationDate: string | null = null;
+
+const checkBinNotifications = async (): Promise<void> => {
+  const ukHour = parseInt(
+    new Intl.DateTimeFormat("en-GB", {
+      hour: "numeric",
+      hour12: false,
+      timeZone: "Europe/London",
+    }).format(new Date()),
+    10,
+  );
+  if (ukHour !== 18) return;
+
+  const todayUK = getUKDateString(new Date());
+  if (lastBinNotificationDate === todayUK) return;
+  lastBinNotificationDate = todayUK;
+
+  console.log(
+    `[${new Date().toISOString()}] Running 6pm bin notification check...`,
+  );
+
+  try {
+    const subscriptions = await prisma.binSubscription.findMany();
+    if (subscriptions.length === 0) {
+      console.log("No bin subscriptions — skipping.");
+      return;
+    }
+
+    const uprnMap = new Map<string, string[]>();
+    for (const sub of subscriptions) {
+      const existing = uprnMap.get(sub.uprn) ?? [];
+      existing.push(sub.token);
+      uprnMap.set(sub.uprn, existing);
+    }
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowUK = getUKDateString(tomorrow);
+
+    for (const [uprn, tokens] of uprnMap) {
+      try {
+        const response = await fetch(
+          `https://www.warrington.gov.uk/bin-collections/get-jobs/${uprn}`,
+          { headers: { Referer: "https://www.warrington.gov.uk/" } },
+        );
+        if (!response.ok) {
+          console.error(`Bin API error for UPRN ${uprn}: ${response.status}`);
+          continue;
+        }
+        const data = await response.json();
+        const schedule: { Name: string; ScheduledStart: string }[] =
+          data?.schedule ?? [];
+        const tomorrowCollections = schedule.filter(
+          (job) => getUKDateString(new Date(job.ScheduledStart)) === tomorrowUK,
+        );
+        if (tomorrowCollections.length === 0) continue;
+
+        const binNames = friendlyBinNames(
+          tomorrowCollections.map((j) => j.Name),
+        );
+        const body = `Put out your ${binNames} tonight`;
+        const messages = tokens.map((token) => ({
+          to: token,
+          sound: "default",
+          title: "Bin collection tomorrow",
+          body,
+        }));
+
+        const pushResponse = await fetch(
+          "https://exp.host/--/api/v2/push/send",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              "Accept-Encoding": "gzip, deflate",
+            },
+            body: JSON.stringify(messages),
+          },
+        );
+
+        if (!pushResponse.ok) {
+          console.error(
+            `Bin push failed for UPRN ${uprn}:`,
+            await pushResponse.text(),
+          );
+        } else {
+          console.log(
+            `Bin notification sent for UPRN ${uprn}: "${body}" to ${tokens.length} device(s)`,
+          );
+        }
+      } catch (error) {
+        console.error(`Bin notification error for UPRN ${uprn}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error("checkBinNotifications error:", error);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const SWING_BRIDGE_USER_NAME = "trafficwarr";
 
@@ -464,6 +646,11 @@ setInterval(
   },
   30 * 60 * 1000,
 );
+
+void checkBinNotifications();
+setInterval(() => {
+  void checkBinNotifications();
+}, 60 * 1000);
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);

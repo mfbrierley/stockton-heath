@@ -1,55 +1,13 @@
-import Constants from "expo-constants";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import { useEffect, useRef, useState } from "react";
-import {
-  AppState,
-  Linking,
-  Platform,
-  ScrollView,
-  StyleSheet,
-} from "react-native";
+import { AppState, Linking, ScrollView, StyleSheet } from "react-native";
 import BridgeAlertSection from "../../components/BridgeAlertSection";
 import BridgeAlertSubscribeSection from "../../components/BridgeAlertSubscribeSection";
+import { registerForPushNotifications } from "../../hooks/usePushNotifications";
 import { theme } from "../styles/theme";
 
-const registerForPushNotifications = async (): Promise<boolean> => {
-  if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync("default", {
-      name: "default",
-      importance: Notifications.AndroidImportance.MAX,
-    });
-  }
-
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-
-  if (existingStatus !== "granted") {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-
-  if (finalStatus !== "granted") return false;
-
-  const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-  if (!projectId) return false;
-
-  const { data: token } = await Notifications.getExpoPushTokenAsync({
-    projectId,
-  });
-
-  console.log("Expo push token:", token);
-
-  const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
-  if (!backendUrl) return false;
-
-  await fetch(`${backendUrl}/push-tokens`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token }),
-  });
-
-  return true;
-};
+const BRIDGE_NOTIFICATIONS_KEY = "bridgeNotificationsEnabled";
 
 export default function Bridge() {
   const [notificationsEnabled, setNotificationsEnabled] = useState<
@@ -61,15 +19,33 @@ export default function Bridge() {
 
   const checkPermissions = async () => {
     const { status } = await Notifications.getPermissionsAsync();
-    setNotificationsEnabled(status === "granted");
     setPermissionDenied(status === "denied");
-    // If permission is already granted, always re-register the token.
-    // Expo push tokens can change across installations. Permissions persist on
-    // iOS between TestFlight builds so the Enable button is never pressed on a
-    // fresh install — meaning the token would otherwise never reach the backend.
-    if (status === "granted") {
-      void registerForPushNotifications();
+
+    const storedEnabled = await AsyncStorage.getItem(BRIDGE_NOTIFICATIONS_KEY);
+    const isSubscribed = storedEnabled === "true";
+    setNotificationsEnabled(isSubscribed && status === "granted");
+
+    // Self-heal: if user has opted in and permission is still granted,
+    // silently re-register in case the token has rotated since last launch.
+    if (isSubscribed && status === "granted") {
+      void registerAndSubscribeBridge();
     }
+  };
+
+  const registerAndSubscribeBridge = async (): Promise<boolean> => {
+    const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
+    if (!backendUrl) return false;
+
+    const { granted, token } = await registerForPushNotifications();
+    if (!granted || !token) return false;
+
+    await fetch(`${backendUrl}/bridge-subscriptions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+
+    return true;
   };
 
   useEffect(() => {
@@ -94,10 +70,28 @@ export default function Bridge() {
       return;
     }
     setLoading(true);
-    const granted = await registerForPushNotifications();
-    setNotificationsEnabled(granted);
-    if (!granted) setPermissionDenied(true);
+    const success = await registerAndSubscribeBridge();
+    if (success) {
+      await AsyncStorage.setItem(BRIDGE_NOTIFICATIONS_KEY, "true");
+      setNotificationsEnabled(true);
+    } else {
+      setPermissionDenied(true);
+    }
     setLoading(false);
+  };
+
+  const handleDisableNotifications = async () => {
+    const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
+    const { token } = await registerForPushNotifications();
+    if (backendUrl && token) {
+      await fetch(`${backendUrl}/bridge-subscriptions`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+    }
+    await AsyncStorage.setItem(BRIDGE_NOTIFICATIONS_KEY, "false");
+    setNotificationsEnabled(false);
   };
 
   return (
@@ -107,6 +101,7 @@ export default function Bridge() {
         notificationsEnabled={notificationsEnabled}
         loading={loading}
         onPress={() => void handleEnableNotifications()}
+        onDisable={() => void handleDisableNotifications()}
       />
     </ScrollView>
   );

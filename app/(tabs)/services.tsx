@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, Text } from "react-native";
+import BinNotificationSection from "../../components/BinNotificationSection";
 import PostcodeSection from "../../components/PostcodeSection";
 import QuickLinkCard from "../../components/QuickLinkCard";
 import RecyclingCentreSection from "../../components/RecyclingCentreSection";
@@ -114,6 +115,7 @@ export default function Services() {
         isLoading={loading}
         isAddressSet={!!userAddress}
       />
+      {userAddress && <BinNotificationSection uprn={userAddress.uprn} />}
       <RecyclingCentreSection />
       <Text
         style={[

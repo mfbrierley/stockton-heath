@@ -20,7 +20,13 @@ model BridgeAlert {
   detectedAt String
 }
 
-model PushToken {
+model BridgeSubscription {
   id    Int    @id @default(autoincrement())
   token String @unique
+}
+
+model BinSubscription {
+  id    Int    @id @default(autoincrement())
+  token String @unique
+  uprn  String
 }

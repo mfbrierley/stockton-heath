@@ -1,7 +1,7 @@
 import { globalStyles } from "@/app/styles/globalStyles";
 import Feather from "@expo/vector-icons/Feather";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { Image, Linking, StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 import { theme } from "../app/styles/theme";
 import Button from "./Button";
 
@@ -9,17 +9,19 @@ interface Props {
   notificationsEnabled: boolean | null;
   loading: boolean;
   onPress: () => void;
+  onDisable: () => void;
 }
 
 export default function BridgeAlertSubscribeSection({
   notificationsEnabled,
   loading,
   onPress,
+  onDisable,
 }: Props) {
   const isEnabled = notificationsEnabled === true;
 
   const handleManage = async () => {
-    await Linking.openSettings();
+    onDisable();
   };
 
   return (
