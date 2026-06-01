@@ -16,4 +16,4 @@ RUN npm prune --omit=dev
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && node dist/index.js"]
+CMD ["node", "dist/index.js"]
