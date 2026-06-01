@@ -177,7 +177,10 @@ const mapTweetToBridgeAlert = (tweet: any): BridgeAlert => {
 
 const sendPushNotifications = async (alert: BridgeAlert): Promise<void> => {
   const tokens = await prisma.pushToken.findMany();
-  if (tokens.length === 0) return;
+  if (tokens.length === 0) {
+    console.log("No push tokens registered — skipping notification send.");
+    return;
+  }
 
   const messages = tokens.map((t) => ({
     to: t.token,
@@ -187,20 +190,37 @@ const sendPushNotifications = async (alert: BridgeAlert): Promise<void> => {
     data: { tweetId: alert.tweetId },
   }));
 
-  const response = await fetch("https://exp.host/push/send", {
+  const response = await fetch("https://exp.host/--/api/v2/push/send", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
+      "Accept-Encoding": "gzip, deflate",
     },
     body: JSON.stringify(messages),
   });
 
   if (!response.ok) {
     console.error("Failed to send push notifications:", await response.text());
-  } else {
-    console.log(`Push notifications sent to ${tokens.length} device(s).`);
+    return;
   }
+
+  const result = (await response.json()) as {
+    data: { status: string; message?: string; details?: unknown }[];
+  };
+
+  const errors = result.data?.filter((r) => r.status !== "ok") ?? [];
+  if (errors.length > 0) {
+    console.error(
+      `Push notification delivery errors (${errors.length}/${tokens.length}):`,
+      JSON.stringify(errors),
+    );
+  }
+
+  const successCount = (result.data?.length ?? 0) - errors.length;
+  console.log(
+    `Push notifications: ${successCount}/${tokens.length} delivered successfully.`,
+  );
 };
 
 const app = express();

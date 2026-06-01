@@ -63,6 +63,13 @@ export default function Bridge() {
     const { status } = await Notifications.getPermissionsAsync();
     setNotificationsEnabled(status === "granted");
     setPermissionDenied(status === "denied");
+    // If permission is already granted, always re-register the token.
+    // Expo push tokens can change across installations. Permissions persist on
+    // iOS between TestFlight builds so the Enable button is never pressed on a
+    // fresh install — meaning the token would otherwise never reach the backend.
+    if (status === "granted") {
+      void registerForPushNotifications();
+    }
   };
 
   useEffect(() => {
