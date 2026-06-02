@@ -549,7 +549,7 @@ const BIN_NAME_MAP: { keyword: string; label: string }[] = [
   { keyword: "blue", label: "blue bin" },
   { keyword: "green", label: "green bin" },
   { keyword: "black", label: "black bin" },
-  { keyword: "food", label: "food waste caddy" },
+  { keyword: "food", label: "food waste bin" },
 ];
 
 const friendlyBinNames = (jobNames: string[]): string => {
@@ -634,7 +634,7 @@ const checkBinNotifications = async (): Promise<void> => {
         const messages = tokens.map((token) => ({
           to: token,
           sound: "default",
-          title: "Bin collection tomorrow",
+          title: "🚛 Bin collection tomorrow",
           body,
         }));
 
