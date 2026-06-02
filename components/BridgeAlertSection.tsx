@@ -1,6 +1,8 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ACTIVE_CLOSURE_KEY } from "../app/_layout";
 import { theme } from "../app/styles/theme";
 
 type BridgeAlert = {
@@ -9,6 +11,11 @@ type BridgeAlert = {
   tweetText: string;
   postedAt: string;
   detectedAt: string;
+};
+
+type ActiveClosure = {
+  firstBridge: string | null;
+  expiresAt: number;
 };
 
 const parseTwitterDate = (dateStr: string): Date => {
@@ -70,6 +77,34 @@ export default function BridgeAlertSection() {
   const [latestAlert, setLatestAlert] = useState<BridgeAlert | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [activeClosure, setActiveClosure] = useState<ActiveClosure | null>(
+    null,
+  );
+
+  const checkActiveClosure = async () => {
+    try {
+      const stored = await AsyncStorage.getItem(ACTIVE_CLOSURE_KEY);
+      if (!stored) {
+        setActiveClosure(null);
+        return;
+      }
+      const parsed: ActiveClosure = JSON.parse(stored);
+      if (Date.now() > parsed.expiresAt) {
+        await AsyncStorage.removeItem(ACTIVE_CLOSURE_KEY);
+        setActiveClosure(null);
+      } else {
+        setActiveClosure(parsed);
+      }
+    } catch {
+      setActiveClosure(null);
+    }
+  };
+
+  useEffect(() => {
+    void checkActiveClosure();
+    const interval = setInterval(() => void checkActiveClosure(), 30_000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -92,6 +127,44 @@ export default function BridgeAlertSection() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  if (activeClosure) {
+    const minsRemaining = Math.max(
+      0,
+      Math.ceil((activeClosure.expiresAt - Date.now()) / 60_000),
+    );
+    const directionText = activeClosure.firstBridge
+      ? `${activeClosure.firstBridge} first`
+      : "direction unknown";
+
+    return (
+      <View style={[styles.card, styles.cardActive]}>
+        <View style={[styles.iconContainer, styles.iconContainerActive]}>
+          <MaterialCommunityIcons
+            name="bridge"
+            size={24}
+            color={theme.colors.white}
+          />
+        </View>
+        <View style={styles.details}>
+          <Text style={[styles.title, { color: theme.colors.white }]}>
+            Closure in progress
+          </Text>
+          <Text style={[styles.subtitle, { color: theme.colors.neutral300 }]}>
+            {directionText}
+          </Text>
+        </View>
+        <View style={styles.timeContainer}>
+          <Text style={[styles.time, { color: theme.colors.white }]}>
+            ~{minsRemaining} min
+          </Text>
+          <Text style={[styles.status, { color: theme.colors.neutral300 }]}>
+            remaining
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   if (loading) {
     return (
@@ -136,6 +209,12 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
     width: "100%",
+  },
+  cardActive: {
+    backgroundColor: theme.colors.statusRed,
+  },
+  iconContainerActive: {
+    backgroundColor: "rgba(255,255,255,0.2)",
   },
   iconContainer: {
     width: 44,

@@ -6,11 +6,15 @@ import {
   PlusJakartaSans_400Regular,
   PlusJakartaSans_700Bold,
 } from "@expo-google-fonts/plus-jakarta-sans";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts } from "expo-font";
 import * as Notifications from "expo-notifications";
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 import { Text, View } from "react-native";
+
+export const ACTIVE_CLOSURE_KEY = "activeBridgeClosure";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -28,6 +32,36 @@ export default function RootLayout() {
     PlusJakartaSans: PlusJakartaSans_400Regular,
     PlusJakartaSansBold: PlusJakartaSans_700Bold,
   });
+
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const data = response.notification.request.content.data as {
+          tweetId?: string;
+          firstBridge?: string | null;
+          closureMinutes?: number | null;
+        };
+
+        if (data?.tweetId) {
+          const closureMinutes =
+            typeof data.closureMinutes === "number" ? data.closureMinutes : 45;
+          const expiresAt = Date.now() + (closureMinutes + 15) * 60 * 1000;
+
+          void AsyncStorage.setItem(
+            ACTIVE_CLOSURE_KEY,
+            JSON.stringify({
+              firstBridge: data.firstBridge ?? null,
+              expiresAt,
+            }),
+          );
+
+          router.push("/(tabs)/bridge");
+        }
+      },
+    );
+
+    return () => subscription.remove();
+  }, []);
 
   if (!fontsLoaded) {
     return (

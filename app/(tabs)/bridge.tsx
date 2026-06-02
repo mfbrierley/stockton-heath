@@ -95,7 +95,7 @@ export default function Bridge() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.screen}>
+    <ScrollView contentContainerStyle={styles.screen} style={{ backgroundColor: theme.colors.neutral200, flex: 1 }}>
       <BridgeAlertSection />
       <BridgeAlertSubscribeSection
         notificationsEnabled={notificationsEnabled}

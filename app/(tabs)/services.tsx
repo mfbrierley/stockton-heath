@@ -36,7 +36,14 @@ export default function Services() {
     const loadStoredAddress = async () => {
       try {
         const stored = await AsyncStorage.getItem("userAddress");
-        if (stored) setUserAddress(JSON.parse(stored));
+        if (stored) {
+          const address = JSON.parse(stored);
+          setUserAddress(address);
+          const today = new Date().toISOString().slice(0, 10);
+          const cacheKey = `binCollections_${address.uprn}_${today}`;
+          const cached = await AsyncStorage.getItem(cacheKey);
+          if (cached) setBinCollections(JSON.parse(cached));
+        }
       } catch (error) {
         console.error("Failed to load stored address:", error);
       }
@@ -75,6 +82,17 @@ export default function Services() {
 
   const fetchCollectionSchedule = useCallback(async () => {
     if (!userAddress) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const cacheKey = `binCollections_${userAddress.uprn}_${today}`;
+    try {
+      const cached = await AsyncStorage.getItem(cacheKey);
+      if (cached) {
+        setBinCollections(JSON.parse(cached));
+        return;
+      }
+    } catch {
+      // ignore cache read errors and fall through to network
+    }
     const url = `https://www.warrington.gov.uk/bin-collections/get-jobs/${userAddress.uprn}`;
     setLoading(true);
     try {
@@ -83,7 +101,7 @@ export default function Services() {
       });
       const data = await response.json();
       setBinCollections(data);
-      console.log("Collection schedule data:", data);
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
     } catch (error) {
       console.error("Failed to fetch collection schedule:", error);
     } finally {

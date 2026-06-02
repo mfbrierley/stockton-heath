@@ -175,6 +175,44 @@ const mapTweetToBridgeAlert = (tweet: any): BridgeAlert => {
   };
 };
 
+const BRIDGE_ORDER = [
+  { pattern: /Knutsford Road/i, name: "Knutsford Road" },
+  { pattern: /London Road/i, name: "London Road" },
+  { pattern: /Chester Road/i, name: "Chester Road" },
+];
+
+type ParsedBridgeAlert = {
+  body: string;
+  firstBridge: string | null;
+  closureMinutes: number | null;
+};
+
+const parseBridgeAlert = (tweetText: string): ParsedBridgeAlert => {
+  const timeMatch = tweetText.match(
+    /in (?:about|approximately|around)?\s*(\d+)\s*minutes?/i,
+  );
+  const closureMinutes = timeMatch ? parseInt(timeMatch[1], 10) : null;
+  const timePart = closureMinutes
+    ? `in around ${closureMinutes} mins`
+    : "shortly";
+
+  const firstBridge = BRIDGE_ORDER.map((b) => ({
+    name: b.name,
+    index: tweetText.search(b.pattern),
+  }))
+    .filter((b) => b.index !== -1)
+    .sort((a, b) => a.index - b.index)[0];
+
+  const firstBridgeName = firstBridge?.name ?? null;
+  const bridgePart = firstBridgeName ? ` - ${firstBridgeName} first` : "";
+
+  return {
+    body: `⚠️ 🚢 Swing Bridges closing ${timePart}${bridgePart}.`,
+    firstBridge: firstBridgeName,
+    closureMinutes,
+  };
+};
+
 const sendPushNotifications = async (alert: BridgeAlert): Promise<void> => {
   const tokens = await prisma.bridgeSubscription.findMany();
   if (tokens.length === 0) {
@@ -184,12 +222,18 @@ const sendPushNotifications = async (alert: BridgeAlert): Promise<void> => {
     return;
   }
 
+  const parsed = parseBridgeAlert(alert.tweetText);
+
   const messages = tokens.map((t) => ({
     to: t.token,
     sound: "default",
     title: "Stockton Heath Bridge Alert",
-    body: alert.tweetText,
-    data: { tweetId: alert.tweetId },
+    body: parsed.body,
+    data: {
+      tweetId: alert.tweetId,
+      firstBridge: parsed.firstBridge,
+      closureMinutes: parsed.closureMinutes,
+    },
   }));
 
   const response = await fetch("https://exp.host/--/api/v2/push/send", {
