@@ -1,10 +1,19 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import { useEffect, useRef, useState } from "react";
-import { AppState, Linking, ScrollView, StyleSheet } from "react-native";
+import {
+  AppState,
+  Linking,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import BridgeAlertSection from "../../components/BridgeAlertSection";
 import BridgeAlertSubscribeSection from "../../components/BridgeAlertSubscribeSection";
+import BridgeClosuresChart from "../../components/BridgeClosuresChart";
 import { registerForPushNotifications } from "../../hooks/usePushNotifications";
+import { globalStyles } from "../styles/globalStyles";
 import { theme } from "../styles/theme";
 
 const BRIDGE_NOTIFICATIONS_KEY = "bridgeNotificationsEnabled";
@@ -95,7 +104,10 @@ export default function Bridge() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.screen} style={{ backgroundColor: theme.colors.neutral200, flex: 1 }}>
+    <ScrollView
+      contentContainerStyle={styles.screen}
+      style={{ backgroundColor: theme.colors.neutral200, flex: 1 }}
+    >
       <BridgeAlertSection />
       <BridgeAlertSubscribeSection
         notificationsEnabled={notificationsEnabled}
@@ -103,15 +115,35 @@ export default function Bridge() {
         onPress={() => void handleEnableNotifications()}
         onDisable={() => void handleDisableNotifications()}
       />
+      <View style={styles.dataCard}>
+        <Text
+          style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 18 }]}
+        >
+          This week&apos;s activity
+        </Text>
+        <BridgeClosuresChart />
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: theme.colors.neutral200,
     padding: 16,
     gap: 16,
+  },
+  dataCard: {
+    backgroundColor: theme.colors.neutral100,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    width: "100%",
+  },
+  dataCardTitle: {
+    fontFamily: theme.fonts.body,
+    fontSize: 16,
+    color: theme.colors.green1000,
   },
 });
