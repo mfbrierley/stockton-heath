@@ -160,3 +160,51 @@ export function useRecyclingCentreHours() {
 
   return { todayHours, tomorrowHours, status, statusConfig, isPostClose };
 }
+
+function getWoolstonTodayHours(
+  isWeekend: boolean,
+  isBankHoliday: boolean,
+  isFixedClosed: boolean,
+): { open: number; close: number } | null {
+  if (isFixedClosed) return null;
+  if (isWeekend || isBankHoliday) return { open: 8, close: 18 };
+  return { open: 10, close: 16 };
+}
+
+export function useWoolstonRecyclingCentreHours() {
+  const [bankHolidays, setBankHolidays] = useState<Set<string>>(new Set());
+  const [timeParts, setTimeParts] = useState(getUKTimeParts);
+
+  useEffect(() => {
+    fetch("https://www.gov.uk/bank-holidays.json")
+      .then((r) => r.json())
+      .then((data) => {
+        const dates = new Set<string>(
+          (data["england-and-wales"].events as { date: string }[]).map(
+            (e) => e.date,
+          ),
+        );
+        setBankHolidays(dates);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeParts(getUKTimeParts());
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const isBankHoliday = bankHolidays.has(timeParts.dateKey);
+  const isFixedClosed = FIXED_CLOSURE_DATES.has(timeParts.mmdd);
+  const todayHours = getWoolstonTodayHours(
+    timeParts.isWeekend,
+    isBankHoliday,
+    isFixedClosed,
+  );
+  const status = computeStatus(timeParts.hour, timeParts.minute, todayHours);
+  const statusConfig = STATUS_CONFIG[status];
+
+  return { statusConfig };
+}

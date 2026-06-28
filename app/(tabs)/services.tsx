@@ -1,14 +1,11 @@
-import Feather from "@expo/vector-icons/Feather";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ScrollView, Text } from "react-native";
+import { ScrollView } from "react-native";
 import BinNotificationSection from "../../components/BinNotificationSection";
+import LocalPlacesSection from "../../components/LocalPlacesSection";
 import PostcodeSection from "../../components/PostcodeSection";
-import QuickLinkCard from "../../components/QuickLinkCard";
 import RecyclingCentreSection from "../../components/RecyclingCentreSection";
 import WasteCollectionSection from "../../components/WasteCollectionSection";
-import { globalStyles } from "../styles/globalStyles";
 import { theme } from "../styles/theme";
 import { AddressesResponse, UPRN } from "../types/binCollections";
 
@@ -113,7 +110,12 @@ export default function Services() {
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       keyboardShouldPersistTaps="handled"
-      contentContainerStyle={{ paddingTop: 16, paddingHorizontal: 20, gap: 32 }}
+      contentContainerStyle={{
+        paddingTop: 16,
+        paddingHorizontal: 20,
+        paddingBottom: 32,
+        gap: 32,
+      }}
       style={{ backgroundColor: theme.colors.neutral200, flex: 1 }}
     >
       <PostcodeSection
@@ -135,32 +137,7 @@ export default function Services() {
       />
       {userAddress && <BinNotificationSection uprn={userAddress.uprn} />}
       <RecyclingCentreSection />
-      <Text
-        style={[
-          globalStyles.body,
-          globalStyles.bodyBold,
-          { color: theme.colors.neutral800 },
-        ]}
-      >
-        Local Places
-      </Text>
-      <QuickLinkCard
-        icon={
-          <Feather name="activity" size={22} color={theme.colors.primary} />
-        }
-        title="Broomfields Leisure Centre"
-        onPress={() => router.push("/broomfields-leisure-centre")}
-      />
-      <QuickLinkCard
-        icon={<Feather name="mail" size={22} color={theme.colors.primary} />}
-        title="Post Office"
-        onPress={() => router.push("/post-office")}
-      />
-      <QuickLinkCard
-        icon={<Feather name="heart" size={22} color={theme.colors.primary} />}
-        title="Medical Centre"
-        onPress={() => router.push("/medical-centre")}
-      />
+      <LocalPlacesSection />
     </ScrollView>
   );
 }

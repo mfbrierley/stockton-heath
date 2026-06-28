@@ -10,9 +10,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts } from "expo-font";
 import * as Notifications from "expo-notifications";
 import { router, Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
-import { Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { View } from "react-native";
+import { AppSplashScreen } from "../components/AppSplashScreen";
+import { theme } from "./styles/theme";
 
 export const ACTIVE_CLOSURE_KEY = "activeBridgeClosure";
 
@@ -32,6 +35,17 @@ export default function RootLayout() {
     PlusJakartaSans: PlusJakartaSans_400Regular,
     PlusJakartaSansBold: PlusJakartaSans_700Bold,
   });
+  const [showSplash, setShowSplash] = useState(false);
+  const [splashVisible, setSplashVisible] = useState(true);
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      void SplashScreen.hideAsync();
+      setShowSplash(true);
+      const timer = setTimeout(() => setSplashVisible(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [fontsLoaded]);
 
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener(
@@ -40,12 +54,22 @@ export default function RootLayout() {
           tweetId?: string;
           firstBridge?: string | null;
           closureMinutes?: number | null;
+          sentAt?: number;
         };
 
         if (data?.tweetId) {
           const closureMinutes =
             typeof data.closureMinutes === "number" ? data.closureMinutes : 45;
-          const expiresAt = Date.now() + (closureMinutes + 15) * 60 * 1000;
+          const notificationSentAt =
+            typeof data.sentAt === "number" ? data.sentAt : Date.now();
+          const expiresAt =
+            notificationSentAt + (closureMinutes + 15) * 60 * 1000;
+
+          // If the closure window has already passed, don't show the banner
+          if (Date.now() > expiresAt) {
+            router.push("/(tabs)/bridge");
+            return;
+          }
 
           void AsyncStorage.setItem(
             ACTIVE_CLOSURE_KEY,
@@ -64,17 +88,8 @@ export default function RootLayout() {
   }, []);
 
   if (!fontsLoaded) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <Text>Loading fonts...</Text>
-      </View>
-    );
+    // Solid green matches the native splash background — no visible transition
+    return <View style={{ flex: 1, backgroundColor: theme.colors.primary }} />;
   }
 
   return (
@@ -85,6 +100,12 @@ export default function RootLayout() {
         <Stack.Screen name="recycling-centre" />
         <Stack.Screen name="broomfields-leisure-centre" />
       </Stack>
+      {showSplash && (
+        <AppSplashScreen
+          visible={splashVisible}
+          onHidden={() => setShowSplash(false)}
+        />
+      )}
     </>
   );
 }

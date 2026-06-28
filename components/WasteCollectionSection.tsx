@@ -5,10 +5,18 @@ import BlueBin from "@/assets/images/bins/blue-bin.svg";
 import FoodBin from "@/assets/images/bins/foodwaste-bin.svg";
 import GreenBin from "@/assets/images/bins/green-bin.svg";
 import { getNextCollectionDate } from "@/utils/dateUtils";
+import Feather from "@expo/vector-icons/Feather";
 import _ from "lodash";
 import { useMemo } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Linking,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SvgProps } from "react-native-svg";
+import Button from "./Button";
 
 const BIN_ICONS: Record<string, React.FC<SvgProps>> = {
   "blue bin": BlueBin,
@@ -211,6 +219,48 @@ export default function WasteCollectionSection(props: WasteCollectionProps) {
           isLoading={props?.isLoading}
         />
       </View>
+      {props.isAddressSet && props.binCollectionsData && allGreenBinJobs.length === 0 && (
+        <View style={styles.greenBinPromptCard}>
+          <GreenBin width={32} height={42} />
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[
+                globalStyles.body,
+                globalStyles.bodyBold,
+                { color: theme.colors.neutral800 },
+              ]}
+            >
+              No green bin?
+            </Text>
+            <Text
+              style={[
+                globalStyles.body,
+                { color: theme.colors.neutral700, marginTop: 2 },
+              ]}
+            >
+              Order a garden waste bin from Warrington Borough Council.
+            </Text>
+            <Button
+              variant="secondary"
+              width="full"
+              size="large"
+              icon={
+                <Feather
+                  name="external-link"
+                  size={20}
+                  color={theme.colors.white}
+                />
+              }
+              onPress={() =>
+                Linking.openURL("https://www.warrington.gov.uk/gardenwaste")
+              }
+              style={{ marginTop: 16 }}
+            >
+              Order a green bin
+            </Button>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -241,6 +291,17 @@ const styles = StyleSheet.create({
   },
   tileRow: {
     paddingTop: 16,
+  },
+  greenBinPromptCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    backgroundColor: theme.colors.white,
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral200,
   },
   collectionInfoContainer: {
     justifyContent: "center",

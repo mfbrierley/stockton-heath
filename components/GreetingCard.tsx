@@ -90,7 +90,7 @@ export function GreetingCard({ data, windMph }: GreetingCardProps) {
   }, []);
 
   return (
-    <View style={{ marginTop: -48 }}>
+    <View style={{ marginTop: -64 }}>
       <LinearGradient
         colors={[theme.colors.primary, theme.colors.green800]}
         start={{ x: 1, y: 1 }}
@@ -102,7 +102,7 @@ export function GreetingCard({ data, windMph }: GreetingCardProps) {
             globalStyles.heading,
             globalStyles.headingBold,
             globalStyles.headingWhite,
-            { fontSize: 48, lineHeight: 58 },
+            { fontSize: 36, lineHeight: 58 },
           ]}
         >
           {getGreeting()}

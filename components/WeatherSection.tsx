@@ -156,7 +156,6 @@ export function WeatherSection({
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: 16,
         }}
       >
         <Text style={[globalStyles.heading]}>Today&apos;s Weather</Text>
@@ -215,7 +214,7 @@ export function WeatherSection({
                   color={theme.colors.green500}
                 />
               }
-              label="CHANCE OF RAIN"
+              label="RAIN"
               value={chanceOfRain}
             />
             <StatTile

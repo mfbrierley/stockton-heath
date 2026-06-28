@@ -6,6 +6,7 @@ import { theme } from "../app/styles/theme";
 import {
   formatHour,
   useRecyclingCentreHours,
+  useWoolstonRecyclingCentreHours,
 } from "../hooks/useRecyclingCentreHours";
 import Button from "./Button";
 
@@ -13,98 +14,85 @@ export default function RecyclingCentreSection() {
   const { todayHours, tomorrowHours, statusConfig, isPostClose } =
     useRecyclingCentreHours();
   const { label, color, bg, icon } = statusConfig;
+  const { statusConfig: woolstonStatusConfig } =
+    useWoolstonRecyclingCentreHours();
 
   return (
-    <View
-      style={[
-        globalStyles.card,
-        globalStyles.cardTertiary,
-        {
-          overflow: "hidden",
-          position: "relative",
-        },
-      ]}
-    >
-      <FontAwesome
-        name="recycle"
-        size={124}
-        color={theme.colors.white}
-        style={{
-          position: "absolute",
-          top: -16,
-          right: -16,
-          opacity: 0.1,
-        }}
-      />
+    <View style={{ gap: 16 }}>
+      <Text style={[globalStyles.heading]}>Recycling Centres</Text>
       <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 8,
-        }}
+        style={[
+          globalStyles.card,
+          globalStyles.cardTertiary,
+          {
+            overflow: "hidden",
+            position: "relative",
+          },
+        ]}
       >
-        <Text style={[globalStyles.heading, globalStyles.headingWhite]}>
-          Sandy Lane Tip
-        </Text>
-      </View>
-      <View style={{ alignSelf: "flex-start" }}>
+        <FontAwesome
+          name="recycle"
+          size={124}
+          color={theme.colors.white}
+          style={{
+            position: "absolute",
+            top: -16,
+            right: -16,
+            opacity: 0.1,
+          }}
+        />
         <View
           style={{
             flexDirection: "row",
             alignItems: "center",
-            gap: 6,
-            backgroundColor: bg,
-            borderRadius: 20,
-            paddingHorizontal: 10,
-            paddingVertical: 5,
-          }}
-        >
-          <Ionicons name={icon as any} size={14} color={color} />
-          <Text
-            style={[
-              globalStyles.body,
-              { color, fontFamily: "PlusJakartaSansBold", fontSize: 13 },
-            ]}
-          >
-            {label}
-          </Text>
-        </View>
-      </View>
-      <View
-        style={{
-          paddingVertical: 16,
-          marginVertical: 16,
-          borderTopWidth: 1,
-          borderTopColor: "rgba(255, 255, 255, 0.3)",
-          borderBottomWidth: 1,
-          borderBottomColor: "rgba(255, 255, 255, 0.3)",
-          gap: 8,
-        }}
-      >
-        <View
-          style={{
-            flexDirection: "row",
             justifyContent: "space-between",
-            alignItems: "center",
+            marginBottom: 12,
           }}
         >
-          <Text style={[globalStyles.body, { color: theme.colors.white }]}>
-            Today&apos;s hours
-          </Text>
           <Text
             style={[
               globalStyles.body,
               globalStyles.bodyBold,
-              { color: theme.colors.white },
+              { color: theme.colors.white, fontSize: 18 },
             ]}
           >
-            {todayHours
-              ? `${formatHour(todayHours.open)} – ${formatHour(todayHours.close)}`
-              : "Closed"}
+            Sandy Lane Tip
           </Text>
         </View>
-        {isPostClose && (
+        <View style={{ alignSelf: "flex-start" }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 4,
+              backgroundColor: bg,
+              borderRadius: 20,
+              paddingHorizontal: 4,
+              paddingVertical: 1,
+            }}
+          >
+            <Ionicons name={icon as any} size={12} color={color} />
+            <Text
+              style={[
+                globalStyles.body,
+                { color, fontFamily: "PlusJakartaSansBold", fontSize: 11 },
+              ]}
+            >
+              {label}
+            </Text>
+          </View>
+        </View>
+        <View
+          style={{
+            paddingVertical: 16,
+            marginVertical: 16,
+            borderTopWidth: 1,
+            borderTopColor: "rgba(255, 255, 255, 0.3)",
+            borderBottomWidth: 1,
+            borderBottomColor: "rgba(255, 255, 255, 0.3)",
+            gap: 8,
+          }}
+        >
           <View
             style={{
               flexDirection: "row",
@@ -113,7 +101,7 @@ export default function RecyclingCentreSection() {
             }}
           >
             <Text style={[globalStyles.body, { color: theme.colors.white }]}>
-              Tomorrow&apos;s hours
+              Today&apos;s hours
             </Text>
             <Text
               style={[
@@ -122,20 +110,105 @@ export default function RecyclingCentreSection() {
                 { color: theme.colors.white },
               ]}
             >
-              {tomorrowHours
-                ? `${formatHour(tomorrowHours.open)} – ${formatHour(tomorrowHours.close)}`
+              {todayHours
+                ? `${formatHour(todayHours.open)} – ${formatHour(todayHours.close)}`
                 : "Closed"}
             </Text>
           </View>
-        )}
+          {isPostClose && (
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Text style={[globalStyles.body, { color: theme.colors.white }]}>
+                Tomorrow&apos;s hours
+              </Text>
+              <Text
+                style={[
+                  globalStyles.body,
+                  globalStyles.bodyBold,
+                  { color: theme.colors.white },
+                ]}
+              >
+                {tomorrowHours
+                  ? `${formatHour(tomorrowHours.open)} – ${formatHour(tomorrowHours.close)}`
+                  : "Closed"}
+              </Text>
+            </View>
+          )}
+        </View>
+        <Button
+          variant="white"
+          width="full"
+          onPress={() => router.push("/recycling-centre")}
+        >
+          Find out more
+        </Button>
       </View>
-      <Button
-        variant="white"
-        width="full"
-        onPress={() => router.push("/recycling-centre")}
+
+      {/* Woolston Tip – secondary card */}
+      <View
+        style={[
+          globalStyles.card,
+          {
+            backgroundColor: theme.colors.neutral300,
+            padding: 20,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+          },
+        ]}
       >
-        Find out more
-      </Button>
+        <View style={{ flex: 1, gap: 10 }}>
+          <Text
+            style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 18 }]}
+          >
+            Woolston Tip
+          </Text>
+          <View style={{ alignSelf: "flex-start" }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+                backgroundColor: woolstonStatusConfig.bg,
+                borderRadius: 20,
+                paddingHorizontal: 4,
+                paddingVertical: 1,
+              }}
+            >
+              <Ionicons
+                name={woolstonStatusConfig.icon as any}
+                size={12}
+                color={woolstonStatusConfig.color}
+              />
+              <Text
+                style={[
+                  globalStyles.body,
+                  {
+                    color: woolstonStatusConfig.color,
+                    fontFamily: "PlusJakartaSansBold",
+                    fontSize: 11,
+                  },
+                ]}
+              >
+                {woolstonStatusConfig.label}
+              </Text>
+            </View>
+          </View>
+        </View>
+        <Button
+          variant="primary"
+          onPress={() => router.push("/woolston-recycling-centre")}
+          style={{ alignSelf: "center" }}
+        >
+          Find out more
+        </Button>
+      </View>
     </View>
   );
 }

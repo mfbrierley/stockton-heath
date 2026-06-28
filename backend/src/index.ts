@@ -233,6 +233,7 @@ const sendPushNotifications = async (alert: BridgeAlert): Promise<void> => {
       tweetId: alert.tweetId,
       firstBridge: parsed.firstBridge,
       closureMinutes: parsed.closureMinutes,
+      sentAt: Date.now(),
     },
   }));
 
