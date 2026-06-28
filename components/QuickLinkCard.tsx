@@ -12,11 +12,13 @@ import { theme } from "../app/styles/theme";
 interface QuickLinkCardProps extends PressableProps {
   icon: React.ReactNode;
   title: string;
+  backgroundColor?: string;
 }
 
 export default function QuickLinkCard({
   icon,
   title,
+  backgroundColor,
   style,
   ...pressableProps
 }: QuickLinkCardProps) {
@@ -24,6 +26,7 @@ export default function QuickLinkCard({
     <Pressable
       style={({ pressed }) => [
         styles.card,
+        backgroundColor ? { backgroundColor } : undefined,
         pressed && styles.pressed,
         typeof style === "function" ? undefined : style,
       ]}

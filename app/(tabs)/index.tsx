@@ -139,12 +139,38 @@ export default function Index() {
           error={error}
           windMph={windMph}
         />
-        <LocalFuelSection />
-        <QuickLinkCard
-          icon={<Feather name="info" size={20} color={theme.colors.green700} />}
-          title="About this app"
-          onPress={() => router.push("/about")}
-        />
+        <View style={{ gap: 0 }}>
+          <LocalFuelSection />
+          <View
+            style={{
+              height: 1,
+              backgroundColor: theme.colors.neutral300,
+              marginVertical: 24,
+            }}
+          />
+          <View style={{ gap: 16 }}>
+            <QuickLinkCard
+              icon={
+                <Feather name="info" size={20} color={theme.colors.green700} />
+              }
+              title="About this app"
+              backgroundColor={theme.colors.white}
+              onPress={() => router.push("/about")}
+            />
+            <QuickLinkCard
+              icon={
+                <Feather
+                  name="help-circle"
+                  size={20}
+                  color={theme.colors.green700}
+                />
+              }
+              title="Help"
+              backgroundColor={theme.colors.white}
+              onPress={() => router.push("/help")}
+            />
+          </View>
+        </View>
       </Animated.ScrollView>
     </View>
   );
