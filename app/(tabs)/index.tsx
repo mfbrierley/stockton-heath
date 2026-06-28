@@ -1,8 +1,11 @@
+import Feather from "@expo/vector-icons/Feather";
 import { Image } from "expo-image";
+import { router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, View } from "react-native";
 import { GreetingCard } from "../../components/GreetingCard";
 import { LocalFuelSection } from "../../components/LocalFuelSection";
+import QuickLinkCard from "../../components/QuickLinkCard";
 import {
   WeatherApiResponse,
   WeatherSection,
@@ -137,6 +140,11 @@ export default function Index() {
           windMph={windMph}
         />
         <LocalFuelSection />
+        <QuickLinkCard
+          icon={<Feather name="info" size={20} color={theme.colors.green700} />}
+          title="About this app"
+          onPress={() => router.push("/about")}
+        />
       </Animated.ScrollView>
     </View>
   );

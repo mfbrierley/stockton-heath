@@ -10,7 +10,6 @@ export const globalStyles = StyleSheet.create({
   },
   card: {
     padding: 32,
-    paddingTop: 24,
     borderRadius: 24,
   },
   cardPrimary: {},

@@ -95,7 +95,7 @@ export function GreetingCard({ data, windMph }: GreetingCardProps) {
         colors={[theme.colors.primary, theme.colors.green800]}
         start={{ x: 1, y: 1 }}
         end={{ x: 0, y: 0 }}
-        style={globalStyles.card}
+        style={[globalStyles.card, { paddingTop: 24 }]}
       >
         <Text
           style={[
