@@ -103,20 +103,14 @@ export default function About() {
           About the Stockton Heath App
         </Text>
         <Text style={[globalStyles.body, { color: theme.colors.neutral1000 }]}>
-          It&apos;s a community app for residents of Stockton Heath, Warrington.
-          A collection of useful information - weather, bins, fuel prices, and
-          bridge alerts, all in one place.
+          It&apos;s a free-to-use service for residents of Stockton Heath. The
+          purpose of the app is to provide a collection of useful information -
+          weather, bins, fuel prices, and bridge alerts, all in one place.
         </Text>
         <Text style={[globalStyles.body, { color: theme.colors.neutral1000 }]}>
-          It&apos;s built by me, Matt — a local resident. Whilst commuting by
-          train for multiple hours per week, I was in need of a project to keep
-          myself entertained. This is where the idea of building an app for
-          Stockton Heath came to life. I work in the technology industry, so
-          this is the perfect way to keep my skills sharp and give back to the
-          community at the same time.
-        </Text>
-        <Text style={[globalStyles.body, { color: theme.colors.neutral1000 }]}>
-          I hope this app is useful to you. If you have any feedback,
+          It&apos;s built by me, Matt — a local resident. I built it just
+          because I thought it would be a good, handy thing for the community I
+          live in. I hope this app is useful to you. If you have any feedback,
           suggestions, or just want to say hello, please feel free to reach out
           by email at stocktonheathapp@gmail.com.
         </Text>
