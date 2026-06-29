@@ -69,22 +69,13 @@ export default function MedicalCentre() {
         paddingTop: insets.top + 8,
       }}
     >
-      <Pressable
-        onPress={() => router.back()}
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 6,
-          paddingVertical: 4,
-          alignSelf: "flex-start",
-        }}
-      >
+      <Pressable onPress={() => router.back()} style={globalStyles.backButton}>
         <Ionicons name="chevron-back" size={18} color={theme.colors.green800} />
         <Text
           style={[
             globalStyles.body,
             globalStyles.bodyBold,
-            { color: theme.colors.green800 },
+            globalStyles.bodyLink,
           ]}
         >
           Back
@@ -96,10 +87,7 @@ export default function MedicalCentre() {
           Stockton Heath{"\n"}Medical Centre
         </Text>
         <Text
-          style={[
-            globalStyles.body,
-            { color: theme.colors.neutral700, marginTop: 6 },
-          ]}
+          style={[globalStyles.body, globalStyles.bodyMuted, { marginTop: 6 }]}
         >
           The Forge, London Road, Stockton Heath, Warrington. WA4 6HJ
         </Text>
@@ -110,18 +98,16 @@ export default function MedicalCentre() {
         style={[
           globalStyles.card,
           globalStyles.cardWhite,
-          { padding: 0, overflow: "hidden" },
+          globalStyles.cardList,
         ]}
       >
-        <View
-          style={{
-            backgroundColor: theme.colors.neutral300,
-            paddingHorizontal: 24,
-            paddingVertical: 14,
-          }}
-        >
+        <View style={globalStyles.cardListHeader}>
           <Text
-            style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 15 }]}
+            style={[
+              globalStyles.body,
+              globalStyles.bodyBold,
+              globalStyles.cardListHeaderText,
+            ]}
           >
             Contact
           </Text>
@@ -137,13 +123,11 @@ export default function MedicalCentre() {
             }}
           >
             <Feather name="phone" size={16} color={theme.colors.green800} />
-            <Text style={[globalStyles.body, { color: theme.colors.green800 }]}>
+            <Text style={[globalStyles.body, globalStyles.bodyLink]}>
               01925 604427
             </Text>
           </Pressable>
-          <View
-            style={{ height: 1, backgroundColor: theme.colors.neutral300 }}
-          />
+          <View style={globalStyles.divider} />
           <Pressable
             onPress={() => Linking.openURL("tel:111")}
             style={{
@@ -155,19 +139,14 @@ export default function MedicalCentre() {
           >
             <Feather name="moon" size={16} color={theme.colors.neutral700} />
             <View style={{ flex: 1 }}>
-              <Text
-                style={[globalStyles.body, { color: theme.colors.green800 }]}
-              >
+              <Text style={[globalStyles.body, globalStyles.bodyLink]}>
                 111
               </Text>
               <Text
                 style={[
-                  globalStyles.body,
-                  {
-                    color: theme.colors.neutral700,
-                    fontSize: 13,
-                    marginTop: 1,
-                  },
+                  globalStyles.bodySmall,
+                  globalStyles.bodyMuted,
+                  { marginTop: 1 },
                 ]}
               >
                 Out of hours
@@ -182,18 +161,16 @@ export default function MedicalCentre() {
         style={[
           globalStyles.card,
           globalStyles.cardWhite,
-          { padding: 0, overflow: "hidden" },
+          globalStyles.cardList,
         ]}
       >
-        <View
-          style={{
-            backgroundColor: theme.colors.neutral300,
-            paddingHorizontal: 24,
-            paddingVertical: 14,
-          }}
-        >
+        <View style={globalStyles.cardListHeader}>
           <Text
-            style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 15 }]}
+            style={[
+              globalStyles.body,
+              globalStyles.bodyBold,
+              globalStyles.cardListHeaderText,
+            ]}
           >
             Opening Hours
           </Text>
@@ -202,12 +179,7 @@ export default function MedicalCentre() {
           {OPENING_HOURS.map(({ label, hours }, i, arr) => (
             <View key={label}>
               <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  paddingVertical: 6,
-                }}
+                style={[globalStyles.rowSpaceBetween, { paddingVertical: 6 }]}
               >
                 <Text style={globalStyles.body}>{label}</Text>
                 {hours ? (
@@ -226,14 +198,7 @@ export default function MedicalCentre() {
                   </Text>
                 )}
               </View>
-              {i < arr.length - 1 && (
-                <View
-                  style={{
-                    height: 1,
-                    backgroundColor: theme.colors.neutral300,
-                  }}
-                />
-              )}
+              {i < arr.length - 1 && <View style={globalStyles.divider} />}
             </View>
           ))}
         </View>
@@ -265,18 +230,16 @@ export default function MedicalCentre() {
         style={[
           globalStyles.card,
           globalStyles.cardWhite,
-          { padding: 0, overflow: "hidden" },
+          globalStyles.cardList,
         ]}
       >
-        <View
-          style={{
-            backgroundColor: theme.colors.neutral300,
-            paddingHorizontal: 24,
-            paddingVertical: 14,
-          }}
-        >
+        <View style={globalStyles.cardListHeader}>
           <Text
-            style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 15 }]}
+            style={[
+              globalStyles.body,
+              globalStyles.bodyBold,
+              globalStyles.cardListHeaderText,
+            ]}
           >
             Online Services
           </Text>
@@ -316,12 +279,9 @@ export default function MedicalCentre() {
                   </Text>
                   <Text
                     style={[
-                      globalStyles.body,
-                      {
-                        color: theme.colors.neutral700,
-                        fontSize: 13,
-                        marginTop: 2,
-                      },
+                      globalStyles.bodySmall,
+                      globalStyles.bodyMuted,
+                      { marginTop: 2 },
                     ]}
                   >
                     {description}
@@ -334,14 +294,7 @@ export default function MedicalCentre() {
                   style={{ marginTop: 9 }}
                 />
               </Pressable>
-              {i < arr.length - 1 && (
-                <View
-                  style={{
-                    height: 1,
-                    backgroundColor: theme.colors.neutral300,
-                  }}
-                />
-              )}
+              {i < arr.length - 1 && <View style={globalStyles.divider} />}
             </View>
           ))}
         </View>

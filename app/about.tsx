@@ -76,22 +76,13 @@ export default function About() {
         paddingTop: insets.top + 8,
       }}
     >
-      <Pressable
-        onPress={() => router.back()}
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 6,
-          paddingVertical: 4,
-          alignSelf: "flex-start",
-        }}
-      >
+      <Pressable onPress={() => router.back()} style={globalStyles.backButton}>
         <Ionicons name="chevron-back" size={18} color={theme.colors.green800} />
         <Text
           style={[
             globalStyles.body,
             globalStyles.bodyBold,
-            { color: theme.colors.green800 },
+            globalStyles.bodyLink,
           ]}
         >
           Back
@@ -102,12 +93,12 @@ export default function About() {
         <Text style={[globalStyles.heading, globalStyles.headingBold]}>
           About the Stockton Heath App
         </Text>
-        <Text style={[globalStyles.body, { color: theme.colors.neutral1000 }]}>
+        <Text style={globalStyles.body}>
           It&apos;s a free-to-use service for residents of Stockton Heath. The
           purpose of the app is to provide a collection of useful information -
           weather, bins, fuel prices, and bridge alerts, all in one place.
         </Text>
-        <Text style={[globalStyles.body, { color: theme.colors.neutral1000 }]}>
+        <Text style={globalStyles.body}>
           It&apos;s built by me, Matt — a local resident. I built it just
           because I thought it would be a good, handy thing for the community I
           live in. I hope this app is useful to you. If you have any feedback,
@@ -121,18 +112,16 @@ export default function About() {
         style={[
           globalStyles.card,
           globalStyles.cardWhite,
-          { padding: 0, overflow: "hidden" },
+          globalStyles.cardList,
         ]}
       >
-        <View
-          style={{
-            backgroundColor: theme.colors.neutral300,
-            paddingHorizontal: 24,
-            paddingVertical: 14,
-          }}
-        >
+        <View style={globalStyles.cardListHeader}>
           <Text
-            style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 15 }]}
+            style={[
+              globalStyles.body,
+              globalStyles.bodyBold,
+              globalStyles.cardListHeaderText,
+            ]}
           >
             Data Sources
           </Text>
@@ -167,26 +156,16 @@ export default function About() {
                   </Text>
                   <Text
                     style={[
-                      globalStyles.body,
-                      {
-                        color: theme.colors.neutral700,
-                        fontSize: 14,
-                        marginTop: 1,
-                      },
+                      globalStyles.bodySmall,
+                      globalStyles.bodyMuted,
+                      { marginTop: 1 },
                     ]}
                   >
                     {detail}
                   </Text>
                 </View>
               </View>
-              {i < arr.length - 1 && (
-                <View
-                  style={{
-                    height: 1,
-                    backgroundColor: theme.colors.neutral300,
-                  }}
-                />
-              )}
+              {i < arr.length - 1 && <View style={globalStyles.divider} />}
             </View>
           ))}
         </View>
@@ -195,11 +174,10 @@ export default function About() {
       {/* Version */}
       <Text
         style={[
-          globalStyles.body,
+          globalStyles.bodySmall,
           {
             color: theme.colors.neutral600,
             textAlign: "center",
-            fontSize: 14,
           },
         ]}
       >

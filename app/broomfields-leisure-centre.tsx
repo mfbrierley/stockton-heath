@@ -64,22 +64,13 @@ export default function BroomfieldsLeisureCentre() {
         paddingTop: insets.top + 8,
       }}
     >
-      <Pressable
-        onPress={() => router.back()}
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 6,
-          paddingVertical: 4,
-          alignSelf: "flex-start",
-        }}
-      >
+      <Pressable onPress={() => router.back()} style={globalStyles.backButton}>
         <Ionicons name="chevron-back" size={18} color={theme.colors.green800} />
         <Text
           style={[
             globalStyles.body,
             globalStyles.bodyBold,
-            { color: theme.colors.green800 },
+            globalStyles.bodyLink,
           ]}
         >
           Back
@@ -91,10 +82,7 @@ export default function BroomfieldsLeisureCentre() {
           Broomfields{"\n"}Leisure Centre
         </Text>
         <Text
-          style={[
-            globalStyles.body,
-            { color: theme.colors.neutral700, marginTop: 6 },
-          ]}
+          style={[globalStyles.body, globalStyles.bodyMuted, { marginTop: 6 }]}
         >
           Broomfields Road, Appleton, Warrington. WA4 3AE
         </Text>
@@ -105,18 +93,16 @@ export default function BroomfieldsLeisureCentre() {
         style={[
           globalStyles.card,
           globalStyles.cardWhite,
-          { padding: 0, overflow: "hidden" },
+          globalStyles.cardList,
         ]}
       >
-        <View
-          style={{
-            backgroundColor: theme.colors.neutral300,
-            paddingHorizontal: 24,
-            paddingVertical: 14,
-          }}
-        >
+        <View style={globalStyles.cardListHeader}>
           <Text
-            style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 15 }]}
+            style={[
+              globalStyles.body,
+              globalStyles.bodyBold,
+              globalStyles.cardListHeaderText,
+            ]}
           >
             Opening Hours
           </Text>
@@ -125,26 +111,14 @@ export default function BroomfieldsLeisureCentre() {
           {OPENING_HOURS.map(({ label, hours }, i, arr) => (
             <View key={label}>
               <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  paddingVertical: 6,
-                }}
+                style={[globalStyles.rowSpaceBetween, { paddingVertical: 6 }]}
               >
                 <Text style={globalStyles.body}>{label}</Text>
                 <Text style={[globalStyles.body, globalStyles.bodyBold]}>
                   {hours}
                 </Text>
               </View>
-              {i < arr.length - 1 && (
-                <View
-                  style={{
-                    height: 1,
-                    backgroundColor: theme.colors.neutral300,
-                  }}
-                />
-              )}
+              {i < arr.length - 1 && <View style={globalStyles.divider} />}
             </View>
           ))}
         </View>
@@ -155,18 +129,16 @@ export default function BroomfieldsLeisureCentre() {
         style={[
           globalStyles.card,
           globalStyles.cardWhite,
-          { padding: 0, overflow: "hidden" },
+          globalStyles.cardList,
         ]}
       >
-        <View
-          style={{
-            backgroundColor: theme.colors.neutral300,
-            paddingHorizontal: 24,
-            paddingVertical: 14,
-          }}
-        >
+        <View style={globalStyles.cardListHeader}>
           <Text
-            style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 15 }]}
+            style={[
+              globalStyles.body,
+              globalStyles.bodyBold,
+              globalStyles.cardListHeaderText,
+            ]}
           >
             Facilities
           </Text>
@@ -205,26 +177,16 @@ export default function BroomfieldsLeisureCentre() {
                   </Text>
                   <Text
                     style={[
-                      globalStyles.body,
-                      {
-                        color: theme.colors.neutral700,
-                        fontSize: 13,
-                        marginTop: 2,
-                      },
+                      globalStyles.bodySmall,
+                      globalStyles.bodyMuted,
+                      { marginTop: 2 },
                     ]}
                   >
                     {description}
                   </Text>
                 </View>
               </View>
-              {i < arr.length - 1 && (
-                <View
-                  style={{
-                    height: 1,
-                    backgroundColor: theme.colors.neutral300,
-                  }}
-                />
-              )}
+              {i < arr.length - 1 && <View style={globalStyles.divider} />}
             </View>
           ))}
         </View>
@@ -235,18 +197,16 @@ export default function BroomfieldsLeisureCentre() {
         style={[
           globalStyles.card,
           globalStyles.cardWhite,
-          { padding: 0, overflow: "hidden" },
+          globalStyles.cardList,
         ]}
       >
-        <View
-          style={{
-            backgroundColor: theme.colors.neutral300,
-            paddingHorizontal: 24,
-            paddingVertical: 14,
-          }}
-        >
+        <View style={globalStyles.cardListHeader}>
           <Text
-            style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 15 }]}
+            style={[
+              globalStyles.body,
+              globalStyles.bodyBold,
+              globalStyles.cardListHeaderText,
+            ]}
           >
             Contact
           </Text>
@@ -262,13 +222,11 @@ export default function BroomfieldsLeisureCentre() {
             }}
           >
             <Feather name="phone" size={16} color={theme.colors.green800} />
-            <Text style={[globalStyles.body, { color: theme.colors.green800 }]}>
+            <Text style={[globalStyles.body, globalStyles.bodyLink]}>
               01925 268768
             </Text>
           </Pressable>
-          <View
-            style={{ height: 1, backgroundColor: theme.colors.neutral300 }}
-          />
+          <View style={globalStyles.divider} />
           <Pressable
             onPress={() =>
               Linking.openURL(
@@ -284,10 +242,7 @@ export default function BroomfieldsLeisureCentre() {
           >
             <Feather name="mail" size={16} color={theme.colors.green800} />
             <Text
-              style={[
-                globalStyles.body,
-                { color: theme.colors.green800, flex: 1 },
-              ]}
+              style={[globalStyles.body, globalStyles.bodyLink, { flex: 1 }]}
             >
               broomfields_reception@livewirewarrington.org
             </Text>

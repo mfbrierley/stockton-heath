@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral1000,
   },
   subtitle: {
-    fontFamily: "PlusJakartaSans",
+    fontFamily: theme.fonts.body,
     fontSize: 14,
     color: theme.colors.neutral700,
   },
@@ -242,12 +242,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   time: {
-    fontFamily: "PlusJakartaSansBold",
+    fontFamily: theme.fonts.bodyBold,
     fontSize: theme.fontSizes.body,
     color: theme.colors.neutral1000,
   },
   status: {
-    fontFamily: "PlusJakartaSans",
+    fontFamily: theme.fonts.body,
     fontSize: 14,
     color: theme.colors.neutral700,
   },

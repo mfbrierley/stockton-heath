@@ -219,48 +219,50 @@ export default function WasteCollectionSection(props: WasteCollectionProps) {
           isLoading={props?.isLoading}
         />
       </View>
-      {props.isAddressSet && props.binCollectionsData && allGreenBinJobs.length === 0 && (
-        <View style={styles.greenBinPromptCard}>
-          <GreenBin width={32} height={42} />
-          <View style={{ flex: 1 }}>
-            <Text
-              style={[
-                globalStyles.body,
-                globalStyles.bodyBold,
-                { color: theme.colors.neutral800 },
-              ]}
-            >
-              No green bin?
-            </Text>
-            <Text
-              style={[
-                globalStyles.body,
-                { color: theme.colors.neutral700, marginTop: 2 },
-              ]}
-            >
-              Order a garden waste bin from Warrington Borough Council.
-            </Text>
-            <Button
-              variant="secondary"
-              width="full"
-              size="large"
-              icon={
-                <Feather
-                  name="external-link"
-                  size={20}
-                  color={theme.colors.white}
-                />
-              }
-              onPress={() =>
-                Linking.openURL("https://www.warrington.gov.uk/gardenwaste")
-              }
-              style={{ marginTop: 16 }}
-            >
-              Order a green bin
-            </Button>
+      {props.isAddressSet &&
+        props.binCollectionsData &&
+        allGreenBinJobs.length === 0 && (
+          <View style={styles.greenBinPromptCard}>
+            <GreenBin width={32} height={42} />
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  globalStyles.body,
+                  globalStyles.bodyBold,
+                  { color: theme.colors.neutral800 },
+                ]}
+              >
+                No green bin?
+              </Text>
+              <Text
+                style={[
+                  globalStyles.body,
+                  { color: theme.colors.neutral700, marginTop: 2 },
+                ]}
+              >
+                Order a garden waste bin from Warrington Borough Council.
+              </Text>
+              <Button
+                variant="secondary"
+                width="full"
+                size="large"
+                icon={
+                  <Feather
+                    name="external-link"
+                    size={20}
+                    color={theme.colors.white}
+                  />
+                }
+                onPress={() =>
+                  Linking.openURL("https://www.warrington.gov.uk/gardenwaste")
+                }
+                style={{ marginTop: 16 }}
+              >
+                Order a green bin
+              </Button>
+            </View>
           </View>
-        </View>
-      )}
+        )}
     </View>
   );
 }
@@ -272,7 +274,7 @@ const styles = StyleSheet.create({
   highlightText: {
     color: theme.colors.tertiary,
     fontSize: theme.fontSizes.largeBody,
-    fontFamily: "PlusJakartaSansBold",
+    fontFamily: theme.fonts.bodyBold,
     paddingBottom: 4,
   },
   tileCard: {

@@ -93,22 +93,13 @@ export default function PostOffice() {
         paddingTop: insets.top + 8,
       }}
     >
-      <Pressable
-        onPress={() => router.back()}
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 6,
-          paddingVertical: 4,
-          alignSelf: "flex-start",
-        }}
-      >
+      <Pressable onPress={() => router.back()} style={globalStyles.backButton}>
         <Ionicons name="chevron-back" size={18} color={theme.colors.green800} />
         <Text
           style={[
             globalStyles.body,
             globalStyles.bodyBold,
-            { color: theme.colors.green800 },
+            globalStyles.bodyLink,
           ]}
         >
           Back
@@ -120,10 +111,7 @@ export default function PostOffice() {
           Stockton Heath{"\n"}Post Office
         </Text>
         <Text
-          style={[
-            globalStyles.body,
-            { color: theme.colors.neutral700, marginTop: 6 },
-          ]}
+          style={[globalStyles.body, globalStyles.bodyMuted, { marginTop: 6 }]}
         >
           49 Walton Road, Stockton Heath, Warrington. WA4 6NW
         </Text>
@@ -134,18 +122,16 @@ export default function PostOffice() {
         style={[
           globalStyles.card,
           globalStyles.cardWhite,
-          { padding: 0, overflow: "hidden" },
+          globalStyles.cardList,
         ]}
       >
-        <View
-          style={{
-            backgroundColor: theme.colors.neutral300,
-            paddingHorizontal: 24,
-            paddingVertical: 14,
-          }}
-        >
+        <View style={globalStyles.cardListHeader}>
           <Text
-            style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 15 }]}
+            style={[
+              globalStyles.body,
+              globalStyles.bodyBold,
+              globalStyles.cardListHeaderText,
+            ]}
           >
             Opening Hours
           </Text>
@@ -154,12 +140,7 @@ export default function PostOffice() {
           {OPENING_HOURS.map(({ label, hours }, i, arr) => (
             <View key={label}>
               <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  paddingVertical: 6,
-                }}
+                style={[globalStyles.rowSpaceBetween, { paddingVertical: 6 }]}
               >
                 <Text style={globalStyles.body}>{label}</Text>
                 {hours ? (
@@ -178,14 +159,7 @@ export default function PostOffice() {
                   </Text>
                 )}
               </View>
-              {i < arr.length - 1 && (
-                <View
-                  style={{
-                    height: 1,
-                    backgroundColor: theme.colors.neutral300,
-                  }}
-                />
-              )}
+              {i < arr.length - 1 && <View style={globalStyles.divider} />}
             </View>
           ))}
         </View>
@@ -196,16 +170,19 @@ export default function PostOffice() {
         style={[
           globalStyles.card,
           globalStyles.cardWhite,
-          { padding: 0, overflow: "hidden" },
+          globalStyles.cardList,
         ]}
       >
-        <View
-          style={{
-            backgroundColor: theme.colors.neutral300,
-            paddingHorizontal: 24,
-            paddingVertical: 14,
-          }}
-        >
+        <View style={globalStyles.cardListHeader}>
+          <Text
+            style={[
+              globalStyles.body,
+              globalStyles.bodyBold,
+              globalStyles.cardListHeaderText,
+            ]}
+          >
+            Services
+          </Text>
           <Text
             style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 15 }]}
           >
@@ -244,12 +221,9 @@ export default function PostOffice() {
                     <Text
                       key={item}
                       style={[
-                        globalStyles.body,
-                        {
-                          color: theme.colors.neutral700,
-                          fontSize: 13,
-                          marginTop: 2,
-                        },
+                        globalStyles.bodySmall,
+                        globalStyles.bodyMuted,
+                        { marginTop: 2 },
                       ]}
                     >
                       {item}
@@ -257,14 +231,7 @@ export default function PostOffice() {
                   ))}
                 </View>
               </View>
-              {i < arr.length - 1 && (
-                <View
-                  style={{
-                    height: 1,
-                    backgroundColor: theme.colors.neutral300,
-                  }}
-                />
-              )}
+              {i < arr.length - 1 && <View style={globalStyles.divider} />}
             </View>
           ))}
         </View>

@@ -1,7 +1,8 @@
 import { theme } from "@/app/styles/theme";
 import { Feather } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { globalStyles } from "../app/styles/globalStyles";
 
 type FuelPrice = {
   fuel_type: string;
@@ -81,73 +82,21 @@ export function LocalFuelSection() {
 
   return (
     <View>
-      <Text
-        style={{
-          fontSize: 24,
-          fontFamily: "NotoSerif",
-          color: theme.colors.primary,
-          marginBottom: 16,
-        }}
-      >
+      <Text style={[globalStyles.heading, { marginBottom: 16 }]}>
         Local Fuel Prices
       </Text>
 
       {loading ? (
         <ActivityIndicator />
       ) : error ? (
-        <Text style={{ color: theme.colors.statusRed }}>{error}</Text>
+        <Text style={[globalStyles.body, styles.errorText]}>{error}</Text>
       ) : (
-        <View
-          style={{
-            backgroundColor: theme.colors.white,
-            borderRadius: 24,
-            overflow: "hidden",
-          }}
-        >
+        <View style={styles.table}>
           {/* Header row */}
-          <View
-            style={{
-              flexDirection: "row",
-              paddingHorizontal: 24,
-              paddingTop: 24,
-              paddingBottom: 12,
-            }}
-          >
-            <Text
-              style={{
-                flex: 2,
-                fontFamily: "PlusJakartaSansBold",
-                fontSize: 11,
-                color: theme.colors.neutral600,
-                letterSpacing: 0.6,
-              }}
-            >
-              STATION
-            </Text>
-            <Text
-              style={{
-                flex: 1,
-                fontFamily: "PlusJakartaSansBold",
-                fontSize: 11,
-                color: theme.colors.neutral600,
-                letterSpacing: 0.6,
-                textAlign: "center",
-              }}
-            >
-              PETROL E10
-            </Text>
-            <Text
-              style={{
-                flex: 1,
-                fontFamily: "PlusJakartaSansBold",
-                fontSize: 11,
-                color: theme.colors.neutral600,
-                letterSpacing: 0.6,
-                textAlign: "center",
-              }}
-            >
-              DIESEL B7
-            </Text>
+          <View style={styles.tableHeaderRow}>
+            <Text style={styles.tableHeaderStation}>STATION</Text>
+            <Text style={styles.tableHeaderFuel}>PETROL E10</Text>
+            <Text style={styles.tableHeaderFuel}>DIESEL B7</Text>
           </View>
 
           {/* Station rows */}
@@ -157,111 +106,37 @@ export function LocalFuelSection() {
             const isLowestDiesel =
               getPriceValue(station, "B7_STANDARD") === lowestDiesel;
             return (
-              <View
-                key={station.node_id}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  paddingHorizontal: 24,
-                  paddingVertical: 14,
-                  borderTopWidth: 1,
-                  borderTopColor: theme.colors.neutral300,
-                }}
-              >
+              <View key={station.node_id} style={styles.tableRow}>
                 <View style={{ flex: 2 }}>
-                  <Text
-                    style={{
-                      fontFamily: "PlusJakartaSansBold",
-                      fontSize: 14,
-                      color: theme.colors.neutral1100,
-                    }}
-                  >
-                    {station.display_name}
-                  </Text>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 3,
-                    }}
-                  >
+                  <Text style={styles.stationName}>{station.display_name}</Text>
+                  <View style={styles.locationRow}>
                     <Feather
                       name="map-pin"
                       size={11}
                       color={theme.colors.neutral600}
                     />
-                    <Text
-                      style={{
-                        fontFamily: "PlusJakartaSans",
-                        fontSize: 12,
-                        color: theme.colors.neutral600,
-                      }}
-                    >
+                    <Text style={styles.stationLocation}>
                       {station.location}
                     </Text>
                   </View>
                 </View>
-                <View style={{ flex: 1, alignItems: "center", gap: 4 }}>
-                  <Text
-                    style={{
-                      fontFamily: "PlusJakartaSansBold",
-                      fontSize: 20,
-                      color: theme.colors.neutral1100,
-                    }}
-                  >
+                <View style={styles.priceCell}>
+                  <Text style={styles.priceText}>
                     {getPrice(station, "E10")}
                   </Text>
                   {isLowestPetrol && (
-                    <View
-                      style={{
-                        backgroundColor: theme.colors.primary,
-                        borderRadius: 20,
-                        paddingHorizontal: 8,
-                        paddingVertical: 3,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontFamily: "PlusJakartaSansBold",
-                          fontSize: 9,
-                          color: theme.colors.white,
-                          letterSpacing: 0.6,
-                        }}
-                      >
-                        LOWEST
-                      </Text>
+                    <View style={styles.lowestBadge}>
+                      <Text style={styles.lowestBadgeText}>LOWEST</Text>
                     </View>
                   )}
                 </View>
-                <View style={{ flex: 1, alignItems: "center", gap: 4 }}>
-                  <Text
-                    style={{
-                      fontFamily: "PlusJakartaSansBold",
-                      fontSize: 20,
-                      color: theme.colors.neutral1100,
-                    }}
-                  >
+                <View style={styles.priceCell}>
+                  <Text style={styles.priceText}>
                     {getPrice(station, "B7_STANDARD")}
                   </Text>
                   {isLowestDiesel && (
-                    <View
-                      style={{
-                        backgroundColor: theme.colors.primary,
-                        borderRadius: 20,
-                        paddingHorizontal: 8,
-                        paddingVertical: 3,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontFamily: "PlusJakartaSansBold",
-                          fontSize: 9,
-                          color: theme.colors.white,
-                          letterSpacing: 0.6,
-                        }}
-                      >
-                        LOWEST
-                      </Text>
+                    <View style={styles.lowestBadge}>
+                      <Text style={styles.lowestBadgeText}>LOWEST</Text>
                     </View>
                   )}
                 </View>
@@ -270,28 +145,101 @@ export function LocalFuelSection() {
           })}
 
           {/* Footer */}
-          <View
-            style={{
-              borderTopWidth: 1,
-              borderTopColor: theme.colors.neutral300,
-              paddingHorizontal: 24,
-              paddingBottom: 24,
-              paddingTop: 12,
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: "PlusJakartaSansBold",
-                fontSize: 11,
-                color: theme.colors.neutral600,
-                letterSpacing: 0.6,
-              }}
-            >
-              UPDATED EVERY 30 MINS
-            </Text>
+          <View style={styles.tableFooter}>
+            <Text style={styles.tableFooterText}>UPDATED EVERY 30 MINS</Text>
           </View>
         </View>
       )}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  errorText: {
+    color: theme.colors.statusRed,
+  },
+  table: {
+    backgroundColor: theme.colors.white,
+    borderRadius: 24,
+    overflow: "hidden",
+  },
+  tableHeaderRow: {
+    flexDirection: "row",
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 12,
+  },
+  tableHeaderStation: {
+    flex: 2,
+    fontFamily: theme.fonts.bodyBold,
+    fontSize: 11,
+    color: theme.colors.neutral600,
+    letterSpacing: 0.6,
+  },
+  tableHeaderFuel: {
+    flex: 1,
+    fontFamily: theme.fonts.bodyBold,
+    fontSize: 11,
+    color: theme.colors.neutral600,
+    letterSpacing: 0.6,
+    textAlign: "center",
+  },
+  tableRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.neutral300,
+  },
+  stationName: {
+    fontFamily: theme.fonts.bodyBold,
+    fontSize: 14,
+    color: theme.colors.neutral1100,
+  },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  stationLocation: {
+    fontFamily: theme.fonts.body,
+    fontSize: 12,
+    color: theme.colors.neutral600,
+  },
+  priceCell: {
+    flex: 1,
+    alignItems: "center",
+    gap: 4,
+  },
+  priceText: {
+    fontFamily: theme.fonts.bodyBold,
+    fontSize: 20,
+    color: theme.colors.neutral1100,
+  },
+  lowestBadge: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  lowestBadgeText: {
+    fontFamily: theme.fonts.bodyBold,
+    fontSize: 9,
+    color: theme.colors.white,
+    letterSpacing: 0.6,
+  },
+  tableFooter: {
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.neutral300,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    paddingTop: 12,
+  },
+  tableFooterText: {
+    fontFamily: theme.fonts.bodyBold,
+    fontSize: 11,
+    color: theme.colors.neutral600,
+    letterSpacing: 0.6,
+  },
+});

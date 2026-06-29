@@ -146,11 +146,7 @@ function ItemRow({
 function Section({ config }: { config: SectionConfig }) {
   return (
     <View
-      style={[
-        globalStyles.card,
-        globalStyles.cardWhite,
-        { padding: 0, overflow: "hidden" },
-      ]}
+      style={[globalStyles.card, globalStyles.cardWhite, globalStyles.cardList]}
     >
       <View
         style={{
@@ -178,13 +174,7 @@ function Section({ config }: { config: SectionConfig }) {
               iconColor={config.iconColor}
             />
             {index < config.items.length - 1 && (
-              <View
-                style={{
-                  height: 1,
-                  backgroundColor: theme.colors.neutral300,
-                  marginLeft: 28,
-                }}
-              />
+              <View style={[globalStyles.divider, { marginLeft: 28 }]} />
             )}
           </View>
         ))}
@@ -205,22 +195,13 @@ export default function WoolstonRecyclingCentre() {
         paddingTop: insets.top + 8,
       }}
     >
-      <Pressable
-        onPress={() => router.back()}
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 6,
-          paddingVertical: 4,
-          alignSelf: "flex-start",
-        }}
-      >
+      <Pressable onPress={() => router.back()} style={globalStyles.backButton}>
         <Ionicons name="chevron-back" size={18} color={theme.colors.green800} />
         <Text
           style={[
             globalStyles.body,
             globalStyles.bodyBold,
-            { color: theme.colors.green800 },
+            globalStyles.bodyLink,
           ]}
         >
           Back
@@ -232,10 +213,7 @@ export default function WoolstonRecyclingCentre() {
           Woolston{"\n"}Community Recycling Centre
         </Text>
         <Text
-          style={[
-            globalStyles.body,
-            { color: theme.colors.neutral700, marginTop: 6 },
-          ]}
+          style={[globalStyles.body, globalStyles.bodyMuted, { marginTop: 6 }]}
         >
           New Cut Lane, WA1 4AG
         </Text>
@@ -245,18 +223,16 @@ export default function WoolstonRecyclingCentre() {
         style={[
           globalStyles.card,
           globalStyles.cardWhite,
-          { padding: 0, overflow: "hidden" },
+          globalStyles.cardList,
         ]}
       >
-        <View
-          style={{
-            backgroundColor: theme.colors.neutral300,
-            paddingHorizontal: 24,
-            paddingVertical: 14,
-          }}
-        >
+        <View style={globalStyles.cardListHeader}>
           <Text
-            style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 15 }]}
+            style={[
+              globalStyles.body,
+              globalStyles.bodyBold,
+              globalStyles.cardListHeaderText,
+            ]}
           >
             Opening hours
           </Text>
@@ -268,26 +244,14 @@ export default function WoolstonRecyclingCentre() {
           ].map(({ label, hours }, i, arr) => (
             <View key={label}>
               <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  paddingVertical: 6,
-                }}
+                style={[globalStyles.rowSpaceBetween, { paddingVertical: 6 }]}
               >
                 <Text style={globalStyles.body}>{label}</Text>
                 <Text style={[globalStyles.body, globalStyles.bodyBold]}>
                   {hours}
                 </Text>
               </View>
-              {i < arr.length - 1 && (
-                <View
-                  style={{
-                    height: 1,
-                    backgroundColor: theme.colors.neutral300,
-                  }}
-                />
-              )}
+              {i < arr.length - 1 && <View style={globalStyles.divider} />}
             </View>
           ))}
         </View>

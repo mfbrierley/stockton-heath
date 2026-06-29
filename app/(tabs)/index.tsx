@@ -32,9 +32,6 @@ export default function Index() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<WeatherApiResponse | null>(null);
-  const [notificationTestStatus, setNotificationTestStatus] = useState<
-    string | null
-  >(null);
 
   const endpoint = useMemo(() => {
     const apiKey = process.env.EXPO_PUBLIC_OPENWEATHER_API_KEY;
@@ -155,13 +152,7 @@ export default function Index() {
         />
         <View style={{ gap: 0 }}>
           <LocalFuelSection />
-          <Pressable
-            style={({ pressed }) => [
-              sponsorStyles.card,
-              pressed && { opacity: 0.75 },
-            ]}
-            onPress={() => Linking.openURL("https://www.rowswoodtimber.co.uk")}
-          >
+          <View style={sponsorStyles.card}>
             <Text
               style={[
                 globalStyles.body,
@@ -171,29 +162,39 @@ export default function Index() {
             >
               About our sponsor
             </Text>
-            <RowswoodLogo width={160} height={60} style={sponsorStyles.logo} />
+            <RowswoodLogo width={160} height={40} style={sponsorStyles.logo} />
             <Text style={[globalStyles.body, sponsorStyles.body]}>
               Rowswood Timber have been supplying quality landscaping products
               to the residents of Stockton Heath for over 50 years.
             </Text>
-            <View style={sponsorStyles.linkRow}>
-              <Text style={[globalStyles.body, sponsorStyles.link]}>
-                rowswoodtimber.co.uk
-              </Text>
+            <View style={sponsorStyles.locationRow}>
               <Feather
-                name="external-link"
-                size={14}
-                color={theme.colors.green700}
+                name="map-pin"
+                size={13}
+                color={theme.colors.neutral700}
               />
+              <Text style={[globalStyles.body, sponsorStyles.location]}>
+                Hatton Lane, Hatton, Warrington
+              </Text>
             </View>
-          </Pressable>
-          <View
-            style={{
-              height: 1,
-              backgroundColor: theme.colors.neutral300,
-              marginVertical: 24,
-            }}
-          />
+            <Pressable
+              onPress={() =>
+                Linking.openURL("https://www.rowswoodtimber.co.uk")
+              }
+            >
+              <View style={sponsorStyles.linkRow}>
+                <Text style={[globalStyles.body, sponsorStyles.link]}>
+                  rowswoodtimber.co.uk
+                </Text>
+                <Feather
+                  name="external-link"
+                  size={14}
+                  color={theme.colors.green700}
+                />
+              </View>
+            </Pressable>
+          </View>
+          <View style={[globalStyles.divider, { marginVertical: 24 }]} />
           <View style={{ gap: 16 }}>
             <QuickLinkCard
               icon={
@@ -250,31 +251,19 @@ const sponsorStyles = StyleSheet.create({
   linkRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    marginTop: 4,
   },
   link: {
     color: theme.colors.green700,
     fontSize: 14,
   },
-});
-
-const styles = StyleSheet.create({
-  testCard: {
-    gap: 8,
-  },
-  testTitle: {
-    color: theme.colors.green1000,
-  },
-  testDescription: {
-    color: theme.colors.neutral800,
-  },
-  testButtonGroup: {
-    marginTop: 8,
-    gap: 10,
-  },
-  testStatus: {
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 4,
-    color: theme.colors.neutral700,
+    gap: 4,
+  },
+  location: {
+    fontSize: 13,
+    color: theme.colors.neutral800,
   },
 });

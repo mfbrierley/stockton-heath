@@ -17,6 +17,12 @@ export default function RecyclingCentreSection() {
   const { statusConfig: woolstonStatusConfig } =
     useWoolstonRecyclingCentreHours();
 
+  const tipTitleStyle = [
+    globalStyles.body,
+    globalStyles.bodyBold,
+    { fontSize: 18 },
+  ];
+
   return (
     <View style={{ gap: 16 }}>
       <Text style={[globalStyles.heading]}>Recycling Centres</Text>
@@ -46,16 +52,10 @@ export default function RecyclingCentreSection() {
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
-            marginBottom: 12,
+            marginBottom: 16,
           }}
         >
-          <Text
-            style={[
-              globalStyles.body,
-              globalStyles.bodyBold,
-              { color: theme.colors.white, fontSize: 18 },
-            ]}
-          >
+          <Text style={[tipTitleStyle, { color: theme.colors.white }]}>
             Sandy Lane Tip
           </Text>
         </View>
@@ -75,7 +75,7 @@ export default function RecyclingCentreSection() {
             <Text
               style={[
                 globalStyles.body,
-                { color, fontFamily: "PlusJakartaSansBold", fontSize: 11 },
+                { color, fontFamily: theme.fonts.bodyBold, fontSize: 11 },
               ]}
             >
               {label}
@@ -155,20 +155,16 @@ export default function RecyclingCentreSection() {
           globalStyles.card,
           {
             backgroundColor: theme.colors.neutral300,
-            padding: 20,
+            padding: 32,
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
-            gap: 12,
+            gap: 16,
           },
         ]}
       >
-        <View style={{ flex: 1, gap: 10 }}>
-          <Text
-            style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 18 }]}
-          >
-            Woolston Tip
-          </Text>
+        <View style={{ flex: 1, gap: 12 }}>
+          <Text style={tipTitleStyle}>Woolston Tip</Text>
           <View style={{ alignSelf: "flex-start" }}>
             <View
               style={{
@@ -191,7 +187,7 @@ export default function RecyclingCentreSection() {
                   globalStyles.body,
                   {
                     color: woolstonStatusConfig.color,
-                    fontFamily: "PlusJakartaSansBold",
+                    fontFamily: theme.fonts.bodyBold,
                     fontSize: 11,
                   },
                 ]}

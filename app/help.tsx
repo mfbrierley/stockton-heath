@@ -70,17 +70,12 @@ function FAQItem({
           {question}
         </Text>
         <Text
-          style={[
-            globalStyles.body,
-            { color: theme.colors.neutral700, marginTop: 4 },
-          ]}
+          style={[globalStyles.body, globalStyles.bodyMuted, { marginTop: 4 }]}
         >
           {answer}
         </Text>
       </View>
-      {!isLast && (
-        <View style={{ height: 1, backgroundColor: theme.colors.neutral300 }} />
-      )}
+      {!isLast && <View style={globalStyles.divider} />}
     </View>
   );
 }
@@ -117,16 +112,15 @@ function TroubleshootItem({
           <Text
             style={[
               globalStyles.body,
-              { color: theme.colors.neutral700, marginTop: 4 },
+              globalStyles.bodyMuted,
+              { marginTop: 4 },
             ]}
           >
             {fix}
           </Text>
         </View>
       </View>
-      {!isLast && (
-        <View style={{ height: 1, backgroundColor: theme.colors.neutral300 }} />
-      )}
+      {!isLast && <View style={globalStyles.divider} />}
     </View>
   );
 }
@@ -144,22 +138,13 @@ export default function Help() {
         paddingTop: insets.top + 8,
       }}
     >
-      <Pressable
-        onPress={() => router.back()}
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 6,
-          paddingVertical: 4,
-          alignSelf: "flex-start",
-        }}
-      >
+      <Pressable onPress={() => router.back()} style={globalStyles.backButton}>
         <Ionicons name="chevron-back" size={18} color={theme.colors.green800} />
         <Text
           style={[
             globalStyles.body,
             globalStyles.bodyBold,
-            { color: theme.colors.green800 },
+            globalStyles.bodyLink,
           ]}
         >
           Back
@@ -171,10 +156,7 @@ export default function Help() {
           Help
         </Text>
         <Text
-          style={[
-            globalStyles.body,
-            { color: theme.colors.neutral700, marginTop: 6 },
-          ]}
+          style={[globalStyles.body, globalStyles.bodyMuted, { marginTop: 6 }]}
         >
           Answers to common questions and fixes for known issues.
         </Text>
@@ -185,24 +167,22 @@ export default function Help() {
         style={[
           globalStyles.card,
           globalStyles.cardWhite,
-          { padding: 0, overflow: "hidden" },
+          globalStyles.cardList,
         ]}
       >
-        <View
-          style={{
-            backgroundColor: theme.colors.neutral300,
-            paddingHorizontal: 24,
-            paddingVertical: 14,
-          }}
-        >
+        <View style={globalStyles.cardListHeader}>
           <Text
-            style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 15 }]}
+            style={[
+              globalStyles.body,
+              globalStyles.bodyBold,
+              globalStyles.cardListHeaderText,
+            ]}
           >
             Get in Touch
           </Text>
         </View>
         <View style={{ paddingHorizontal: 24, paddingVertical: 16, gap: 4 }}>
-          <Text style={[globalStyles.body, { color: theme.colors.neutral700 }]}>
+          <Text style={[globalStyles.body, globalStyles.bodyMuted]}>
             Have a question, spotted a bug, or want to suggest a new feature?
             Get in touch — I&apos;d love to hear from you.
           </Text>
@@ -227,18 +207,16 @@ export default function Help() {
         style={[
           globalStyles.card,
           globalStyles.cardWhite,
-          { padding: 0, overflow: "hidden" },
+          globalStyles.cardList,
         ]}
       >
-        <View
-          style={{
-            backgroundColor: theme.colors.neutral300,
-            paddingHorizontal: 24,
-            paddingVertical: 14,
-          }}
-        >
+        <View style={globalStyles.cardListHeader}>
           <Text
-            style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 15 }]}
+            style={[
+              globalStyles.body,
+              globalStyles.bodyBold,
+              globalStyles.cardListHeaderText,
+            ]}
           >
             Frequently Asked Questions
           </Text>
@@ -260,18 +238,16 @@ export default function Help() {
         style={[
           globalStyles.card,
           globalStyles.cardWhite,
-          { padding: 0, overflow: "hidden" },
+          globalStyles.cardList,
         ]}
       >
-        <View
-          style={{
-            backgroundColor: theme.colors.neutral300,
-            paddingHorizontal: 24,
-            paddingVertical: 14,
-          }}
-        >
+        <View style={globalStyles.cardListHeader}>
           <Text
-            style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 15 }]}
+            style={[
+              globalStyles.body,
+              globalStyles.bodyBold,
+              globalStyles.cardListHeaderText,
+            ]}
           >
             Troubleshooting
           </Text>

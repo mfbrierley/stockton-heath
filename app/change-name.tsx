@@ -10,7 +10,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Button from "../components/Button";
 import { MAX_FIRST_NAME_LENGTH, useUserName } from "../hooks/useUserName";
 import { globalStyles } from "./styles/globalStyles";
 import { theme } from "./styles/theme";
@@ -71,18 +70,6 @@ export default function ChangeName() {
     return () => clearTimeout(timer);
   }, [firstName, nameInput, setFirstName]);
 
-  const handleClear = async () => {
-    setNameInput("");
-    setError(null);
-    setStatus("saving");
-    try {
-      await setFirstName(null);
-      setStatus("saved");
-    } catch {
-      setStatus("error");
-    }
-  };
-
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.colors.neutral200 }}
@@ -94,22 +81,13 @@ export default function ChangeName() {
       }}
       keyboardShouldPersistTaps="handled"
     >
-      <Pressable
-        onPress={() => router.back()}
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 6,
-          paddingVertical: 4,
-          alignSelf: "flex-start",
-        }}
-      >
+      <Pressable onPress={() => router.back()} style={globalStyles.backButton}>
         <Ionicons name="chevron-back" size={18} color={theme.colors.green800} />
         <Text
           style={[
             globalStyles.body,
             globalStyles.bodyBold,
-            { color: theme.colors.green800 },
+            globalStyles.bodyLink,
           ]}
         >
           Back
@@ -120,7 +98,7 @@ export default function ChangeName() {
         <Text style={[globalStyles.heading, globalStyles.headingBold]}>
           Change my name
         </Text>
-        <Text style={[globalStyles.body, { color: theme.colors.neutral700 }]}>
+        <Text style={[globalStyles.body, globalStyles.bodyMuted]}>
           Update how your name appears in the greeting card. Changes are saved
           automatically.
         </Text>
@@ -158,14 +136,6 @@ export default function ChangeName() {
             Could not save right now. Please try again.
           </Text>
         ) : null}
-
-        <Button
-          variant="neutral"
-          width="full"
-          onPress={() => void handleClear()}
-        >
-          Clear name
-        </Button>
       </View>
     </ScrollView>
   );

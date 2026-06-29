@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   errorText: {
-    fontFamily: "PlusJakartaSans",
+    fontFamily: theme.fonts.body,
     fontSize: 13,
     color: theme.colors.neutral700,
     textAlign: "center",
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   totalLabel: {
-    fontFamily: "PlusJakartaSans",
+    fontFamily: theme.fonts.body,
     fontSize: 13,
     color: theme.colors.neutral700,
   },

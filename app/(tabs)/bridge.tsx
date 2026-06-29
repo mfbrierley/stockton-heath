@@ -141,9 +141,4 @@ const styles = StyleSheet.create({
     gap: 12,
     width: "100%",
   },
-  dataCardTitle: {
-    fontFamily: theme.fonts.body,
-    fontSize: 16,
-    color: theme.colors.green1000,
-  },
 });

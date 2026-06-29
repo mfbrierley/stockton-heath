@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   title: {
-    fontFamily: "PlusJakartaSansBold",
+    fontFamily: theme.fonts.bodyBold,
     fontSize: theme.fontSizes.largeBody,
     color: theme.colors.white,
     paddingBottom: 4,

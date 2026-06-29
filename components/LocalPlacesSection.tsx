@@ -8,15 +8,7 @@ import QuickLinkCard from "./QuickLinkCard";
 export default function LocalPlacesSection() {
   return (
     <View style={{ gap: 16 }}>
-      <Text
-        style={[
-          globalStyles.body,
-          globalStyles.bodyBold,
-          { color: theme.colors.neutral800 },
-        ]}
-      >
-        Local Places
-      </Text>
+      <Text style={globalStyles.heading}>Local Places</Text>
       <QuickLinkCard
         icon={
           <Feather name="activity" size={22} color={theme.colors.primary} />

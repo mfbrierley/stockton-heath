@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.neutral800,
   },
   liveText: {
-    fontFamily: "PlusJakartaSansBold",
+    fontFamily: theme.fonts.bodyBold,
     fontSize: 12,
     color: theme.colors.neutral800,
     letterSpacing: 1,

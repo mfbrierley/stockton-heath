@@ -108,9 +108,9 @@ export function GreetingCard({ data, windMph, firstName }: GreetingCardProps) {
         <Text
           style={[
             globalStyles.heading,
+            globalStyles.headingLarge,
             globalStyles.headingBold,
             globalStyles.headingWhite,
-            { fontSize: 32, lineHeight: 48 },
           ]}
         >
           {greeting}
