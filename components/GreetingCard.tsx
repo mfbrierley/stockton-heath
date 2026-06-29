@@ -14,6 +14,7 @@ function getGreeting(): string {
 type GreetingCardProps = {
   data: WeatherApiResponse | null;
   windMph: number | undefined;
+  firstName?: string | null;
 };
 
 function isSunny(code: number): boolean {
@@ -86,8 +87,9 @@ function getDayDescription(
   return "Have a great day in the village.";
 }
 
-export function GreetingCard({ data, windMph }: GreetingCardProps) {
+export function GreetingCard({ data, windMph, firstName }: GreetingCardProps) {
   const weatherCode = data?.current.weather?.[0]?.id;
+  const greeting = firstName ? `${getGreeting()}, ${firstName}` : getGreeting();
 
   const dayDescription = getDayDescription(
     data?.current.temp,
@@ -108,10 +110,10 @@ export function GreetingCard({ data, windMph }: GreetingCardProps) {
             globalStyles.heading,
             globalStyles.headingBold,
             globalStyles.headingWhite,
-            { fontSize: 36, lineHeight: 58 },
+            { fontSize: 32, lineHeight: 48 },
           ]}
         >
-          {getGreeting()}
+          {greeting}
         </Text>
         <Text
           style={[

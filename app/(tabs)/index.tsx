@@ -1,6 +1,5 @@
 import Feather from "@expo/vector-icons/Feather";
 import { Image } from "expo-image";
-import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -15,11 +14,11 @@ import RowswoodLogo from "../../assets/images/Rowswood-Timber-Logo.svg";
 import { GreetingCard } from "../../components/GreetingCard";
 import { LocalFuelSection } from "../../components/LocalFuelSection";
 import QuickLinkCard from "../../components/QuickLinkCard";
-import Button from "../../components/Button";
 import {
   WeatherApiResponse,
   WeatherSection,
 } from "../../components/WeatherSection";
+import { useUserName } from "../../hooks/useUserName";
 import { globalStyles } from "../styles/globalStyles";
 import { theme } from "../styles/theme";
 
@@ -29,6 +28,7 @@ const LONGITUDE = -2.5811;
 const MS_TO_MPH = 2.237;
 
 export default function Index() {
+  const { firstName } = useUserName();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<WeatherApiResponse | null>(null);
@@ -111,76 +111,6 @@ export default function Index() {
     outputRange: [1, 0],
     extrapolate: "clamp",
   });
-  // REMOVE WHEN FINISHED TESTING
-
-  const ensureNotificationPermission = async (): Promise<boolean> => {
-    const { status: existingStatus } =
-      await Notifications.getPermissionsAsync();
-    if (existingStatus === "granted") {
-      return true;
-    }
-
-    const { status } = await Notifications.requestPermissionsAsync();
-    return status === "granted";
-  };
-
-  const scheduleBridgeTestNotification = async () => {
-    const granted = await ensureNotificationPermission();
-    if (!granted) {
-      setNotificationTestStatus(
-        "Notifications are not enabled. Please allow notifications to run tests.",
-      );
-      return;
-    }
-
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "Swingbridge Alert (Test)",
-        body: "Test closure notification fired after 30 seconds.",
-        data: {
-          tweetId: `test-${Date.now()}`,
-          firstBridge: "A56",
-          closureMinutes: 45,
-          sentAt: Date.now(),
-        },
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-        seconds: 30,
-      },
-    });
-
-    setNotificationTestStatus(
-      "Bridge test notification scheduled for 30 seconds from now.",
-    );
-  };
-
-  const scheduleBinTestNotification = async () => {
-    const granted = await ensureNotificationPermission();
-    if (!granted) {
-      setNotificationTestStatus(
-        "Notifications are not enabled. Please allow notifications to run tests.",
-      );
-      return;
-    }
-
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "Bin Reminder (Test)",
-        body: "Test bin reminder fired after 30 seconds.",
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-        seconds: 30,
-      },
-    });
-
-    setNotificationTestStatus(
-      "Bin collection test notification scheduled for 30 seconds from now.",
-    );
-  };
-
-  // END OF TEST
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.neutral200 }}>
@@ -216,46 +146,13 @@ export default function Index() {
           { useNativeDriver: true },
         )}
       >
-        <GreetingCard data={data} windMph={windMph} />
+        <GreetingCard data={data} windMph={windMph} firstName={firstName} />
         <WeatherSection
           data={data}
           loading={loading}
           error={error}
           windMph={windMph}
         />
-        <View
-          style={[globalStyles.card, globalStyles.cardWhite, styles.testCard]}
-        >
-          <Text
-            style={[globalStyles.body, globalStyles.bodyBold, styles.testTitle]}
-          >
-            Testing notifications
-          </Text>
-          <Text style={[globalStyles.body, styles.testDescription]}>
-            Temporary buttons for local notification testing only.
-          </Text>
-          <View style={styles.testButtonGroup}>
-            <Button
-              variant="secondary"
-              width="full"
-              onPress={() => void scheduleBridgeTestNotification()}
-            >
-              Test bridge alert (30s)
-            </Button>
-            <Button
-              variant="neutral"
-              width="full"
-              onPress={() => void scheduleBinTestNotification()}
-            >
-              Test bin reminder (30s)
-            </Button>
-          </View>
-          {notificationTestStatus ? (
-            <Text style={[globalStyles.body, styles.testStatus]}>
-              {notificationTestStatus}
-            </Text>
-          ) : null}
-        </View>
         <View style={{ gap: 0 }}>
           <LocalFuelSection />
           <Pressable
@@ -317,6 +214,14 @@ export default function Index() {
               title="Help"
               backgroundColor={theme.colors.white}
               onPress={() => router.push("/help")}
+            />
+            <QuickLinkCard
+              icon={
+                <Feather name="user" size={20} color={theme.colors.green700} />
+              }
+              title="Change my name"
+              backgroundColor={theme.colors.white}
+              onPress={() => router.push("/change-name" as never)}
             />
           </View>
         </View>

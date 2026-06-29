@@ -15,6 +15,8 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { AppSplashScreen } from "../components/AppSplashScreen";
+import { WelcomeNamePrompt } from "../components/WelcomeNamePrompt";
+import { UserNameProvider, useUserName } from "../hooks/useUserName";
 import { theme } from "./styles/theme";
 
 export const ACTIVE_CLOSURE_KEY = "activeBridgeClosure";
@@ -29,12 +31,22 @@ Notifications.setNotificationHandler({
 });
 
 export default function RootLayout() {
+  return (
+    <UserNameProvider>
+      <RootLayoutInner />
+    </UserNameProvider>
+  );
+}
+
+function RootLayoutInner() {
   const [fontsLoaded] = useFonts({
     NotoSerif: NotoSerif_400Regular,
     NotoSerifBold: NotoSerif_700Bold,
     PlusJakartaSans: PlusJakartaSans_400Regular,
     PlusJakartaSansBold: PlusJakartaSans_700Bold,
   });
+  const { loading, markWelcomeCompleted, setFirstName, welcomeCompleted } =
+    useUserName();
   const [showSplash, setShowSplash] = useState(false);
   const [splashVisible, setSplashVisible] = useState(true);
 
@@ -92,14 +104,54 @@ export default function RootLayout() {
     return <View style={{ flex: 1, backgroundColor: theme.colors.primary }} />;
   }
 
+  const shouldShowWelcomePrompt =
+    !loading && !welcomeCompleted && !splashVisible;
+
+  const handleWelcomeContinue = async (firstName: string) => {
+    try {
+      await setFirstName(firstName);
+    } catch {
+      // Keep the app responsive even if local storage write fails.
+    }
+
+    try {
+      await markWelcomeCompleted();
+    } catch {
+      // Keep the app responsive even if local storage write fails.
+    }
+  };
+
+  const handleWelcomeSkip = async () => {
+    try {
+      await setFirstName(null);
+    } catch {
+      // Keep the app responsive even if local storage write fails.
+    }
+
+    try {
+      await markWelcomeCompleted();
+    } catch {
+      // Keep the app responsive even if local storage write fails.
+    }
+  };
+
   return (
     <>
       <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="recycling-centre" />
-        <Stack.Screen name="broomfields-leisure-centre" />
-      </Stack>
+      {shouldShowWelcomePrompt ? (
+        <WelcomeNamePrompt
+          visible={shouldShowWelcomePrompt}
+          onContinue={handleWelcomeContinue}
+          onSkip={handleWelcomeSkip}
+        />
+      ) : (
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="recycling-centre" />
+          <Stack.Screen name="broomfields-leisure-centre" />
+          <Stack.Screen name="change-name" />
+        </Stack>
+      )}
       {showSplash && (
         <AppSplashScreen
           visible={splashVisible}
