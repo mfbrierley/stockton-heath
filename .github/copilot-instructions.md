@@ -14,21 +14,27 @@ A local community app for Stockton Heath, Warrington (UK). Built with **Expo / R
     (tabs)/               # Bottom tab screens
       index.tsx           # Home tab – weather + local fuel prices
       services.tsx        # Bin collections / waste services
-      discounts.tsx       # Local discounts (placeholder)
       bridge.tsx          # Swing bridge alerts + push notification opt-in
-    recycling-centre.tsx  # Full-page recycling centre info (modal/stack route)
-    _layout.tsx           # Root layout (fonts, notifications)
+    about.tsx             # About / app info
+    help.tsx              # Help / support info
+    change-name.tsx       # Update the stored first name
+    broomfields-leisure-centre.tsx
+    medical-centre.tsx
+    post-office.tsx
+    recycling-centre.tsx
+    woolston-recycling-centre.tsx
+    _layout.tsx           # Root layout (fonts, splash, notifications, welcome prompt)
     styles/
       theme.ts            # Design tokens (colours, fonts, font sizes)
       globalStyles.ts     # Shared StyleSheet styles
     types/
       binCollections.ts   # Types for Warrington bin collection API
-  components/             # Shared UI components
-  hooks/                  # Custom hooks
+  components/             # Shared UI components and feature sections
+  hooks/                  # Custom hooks and app state helpers
   assets/                 # Images, icons
 
 backend/                  # Node.js/Express API server
-  src/index.ts            # Single-file server (all routes + polling logic)
+  src/index.ts            # Express server, polling, and API routes
   prisma/schema.prisma    # Prisma schema (SQLite via Turso/libSQL)
   Dockerfile              # Container build
 ```
@@ -40,9 +46,10 @@ backend/                  # Node.js/Express API server
 - **Framework:** Expo SDK 54, Expo Router (file-based routing)
 - **Language:** TypeScript (strict)
 - **Styling:** React Native StyleSheet + design tokens from `app/styles/theme.ts`
+- **Shared styles:** prefer `app/styles/globalStyles.ts` for reusable card, row, divider, heading, and back-button variants before adding one-off styles
 - **Fonts:** NotoSerif (headings), Plus Jakarta Sans (body) via `@expo-google-fonts`
-- **Icons:** `@expo/vector-icons` (Feather, MaterialCommunityIcons, Ionicons. Feather is priortiy for new icons)
-- **Key dependencies:** `expo-notifications`, `expo-constants`, `expo-image`, `@react-native-async-storage/async-storage`
+- **Icons:** `@expo/vector-icons` (Feather, MaterialCommunityIcons, Ionicons; Feather is the priority for new icons)
+- **Key dependencies:** `expo-notifications`, `expo-font`, `expo-splash-screen`, `expo-status-bar`, `expo-linear-gradient`, `expo-haptics`, `expo-linking`, `expo-image`, `@react-native-async-storage/async-storage`
 - **Bundle ID (iOS):** `com.mattbrierley1.stocktonheath`
 
 ### Environment variables (frontend `.env`)
@@ -54,13 +61,19 @@ backend/                  # Node.js/Express API server
 
 ### Screens
 
-| Screen                      | Description                                                                                     |
-| --------------------------- | ----------------------------------------------------------------------------------------------- |
-| Home (`index.tsx`)          | Weather (OpenWeather API, lat/lon hardcoded to Stockton Heath) + local fuel prices from backend |
-| Services (`services.tsx`)   | Postcode-based bin collection lookup via Warrington Borough Council API                         |
-| Bridge (`bridge.tsx`)       | Latest swing bridge closure alert + push notification subscribe                                 |
-| Discounts (`discounts.tsx`) | Placeholder — local business discounts (not yet built)                                          |
-| Recycling Centre            | Static info page: accepted/not-accepted items, permit items, opening hours                      |
+| Screen                          | Description                                                                                     |
+| ------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Home (`index.tsx`)              | Weather (OpenWeather API, lat/lon hardcoded to Stockton Heath) + local fuel prices from backend |
+| Services (`services.tsx`)       | Postcode-based bin collection lookup via Warrington Borough Council API and local place links   |
+| Bridge (`bridge.tsx`)           | Latest swing bridge closure alert + push notification subscribe                                 |
+| About (`about.tsx`)             | App information and project context                                                             |
+| Help (`help.tsx`)               | Help / support information                                                                      |
+| Change name (`change-name.tsx`) | Update the stored first name used by the app                                                    |
+| Recycling Centre                | Static info page: accepted/not-accepted items, permit items, opening hours                      |
+| Broomfields Leisure Centre      | Full-page info screen opened from Services                                                      |
+| Medical Centre                  | Full-page info screen opened from Services                                                      |
+| Post Office                     | Full-page info screen opened from Services                                                      |
+| Woolston Recycling Centre       | Full-page info screen opened from Services                                                      |
 
 ### Location constants
 
@@ -74,6 +87,7 @@ const LONGITUDE = -2.5811; // Stockton Heath, Warrington
 ## Backend (Node.js / Express)
 
 - **Language:** TypeScript, compiled with `tsc` to `dist/`
+- **Scripts:** `npm run dev` uses `tsx watch src/index.ts`; `npm run build` runs `prisma generate && tsc`
 - **Runtime:** Node 22
 - **Framework:** Express 5
 - **Database:** Turso (libSQL/SQLite) via Prisma with `@prisma/adapter-libsql`
@@ -133,6 +147,7 @@ model PushToken {
 - **Database:** Turso (remote libSQL) — `stockton-heath-mattbrierley.aws-eu-west-1.turso.io`
 - **Push notifications:** Expo Push Notification service (`exp.host/push/send`)
 - **App distribution:** EAS Build / EAS Submit
+- **Backend deploy shortcut:** `npm run deploy:backend` mirrors the manual SSH / Docker redeploy flow from the repo root
 
 ### iOS / TestFlight Deployment
 
@@ -172,6 +187,7 @@ docker run -d \
 - **Status colours:** green `#16A34A`, amber `#D97706`, red `#DC2626`
 - **Heading font:** `NotoSerif` / `NotoSerifBold`
 - **Body font:** `PlusJakartaSans` / `PlusJakartaSansBold`
+- **Font access:** use `theme.fonts.*` rather than raw font-family strings
 
 ---
 
@@ -183,3 +199,5 @@ docker run -d \
 - Prefer `void` for fire-and-forget async calls
 - All API calls from the frontend use `EXPO_PUBLIC_BACKEND_URL` env var
 - External Warrington Council API used directly from the frontend (no proxy): `https://www.warrington.gov.uk/bin-collections/get-addresses/uprn/{postcode}`
+- Reuse `app/styles/globalStyles.ts` for common card, row, divider, heading, and back-button patterns before inventing new one-off styles
+- When using shell commands that reference paths containing `(tabs)`, quote the path to avoid zsh glob expansion

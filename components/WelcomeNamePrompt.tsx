@@ -1,7 +1,16 @@
 import Feather from "@expo/vector-icons/Feather";
 import { Image } from "expo-image";
-import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { globalStyles } from "../app/styles/globalStyles";
 import { theme } from "../app/styles/theme";
@@ -19,20 +28,35 @@ export function WelcomeNamePrompt({
   onContinue,
   onSkip,
 }: WelcomeNamePromptProps) {
+  const fadeAnim = useRef(new Animated.Value(1)).current;
   const insets = useSafeAreaInsets();
+  const [renderPrompt, setRenderPrompt] = useState(visible);
   const [firstName, setFirstName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (visible) {
+      setRenderPrompt(true);
+      fadeAnim.setValue(1);
       setFirstName("");
       setError(null);
       setSubmitting(false);
+      return;
     }
-  }, [visible]);
 
-  if (!visible) {
+    if (!renderPrompt) {
+      return;
+    }
+
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 500,
+      useNativeDriver: true,
+    }).start(() => setRenderPrompt(false));
+  }, [visible, renderPrompt, fadeAnim]);
+
+  if (!renderPrompt) {
     return null;
   }
 
@@ -65,102 +89,109 @@ export function WelcomeNamePrompt({
   };
 
   return (
-    <View style={styles.screen}>
+    <Animated.View style={[styles.screen, { opacity: fadeAnim }]}>
       <Image
         source={require("../assets/images/bridgewater-canal.png")}
         style={[styles.hero, { paddingTop: insets.top }]}
         contentFit="cover"
       />
 
-      <View style={styles.sheetWrap}>
-        <ScrollView
-          style={styles.sheetScroll}
-          contentContainerStyle={[
-            styles.sheetContent,
-            { paddingBottom: insets.bottom + 24 },
-          ]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.headerBlock}>
-            <Text
-              style={[
-                globalStyles.heading,
-                globalStyles.headingBold,
-                styles.title,
-              ]}
-            >
-              Welcome to{"\n"}Stockton Heath
-            </Text>
-          </View>
-
-          <View style={styles.formBlock}>
-            <View style={styles.formFields}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoiding}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={insets.top}
+      >
+        <View style={styles.sheetWrap}>
+          <ScrollView
+            style={styles.sheetScroll}
+            contentContainerStyle={[
+              styles.sheetContent,
+              { paddingBottom: insets.bottom + 24 },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.headerBlock}>
               <Text
                 style={[
-                  globalStyles.body,
-                  globalStyles.bodyBold,
-                  styles.question,
+                  globalStyles.heading,
+                  globalStyles.headingBold,
+                  styles.title,
                 ]}
               >
-                What&apos;s your first name?
+                Welcome to{"\n"}Stockton Heath
               </Text>
-              <View style={styles.inputWrap}>
-                <Feather
-                  name="user"
-                  size={22}
-                  color={theme.colors.neutral600}
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  value={firstName}
-                  onChangeText={(value) => {
-                    setFirstName(value);
-                    if (error) setError(null);
-                  }}
-                  placeholder="Enter your first name"
-                  placeholderTextColor={theme.colors.neutral600}
-                  maxLength={MAX_FIRST_NAME_LENGTH + 2}
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                  style={styles.input}
-                />
-              </View>
-              {error && (
-                <Text style={[globalStyles.body, styles.errorText]}>
-                  {error}
-                </Text>
-              )}
             </View>
 
-            <View style={styles.buttonGroup}>
-              <Button
-                variant="primary"
-                width="full"
-                loading={submitting}
-                onPress={() => void handleContinue()}
-              >
-                Continue
-              </Button>
-              <Button
-                variant="ghost"
-                width="full"
-                disabled={submitting}
-                onPress={() => void handleSkip()}
-              >
-                I&apos;d prefer not to say
-              </Button>
+            <View style={styles.formBlock}>
+              <View style={styles.formFields}>
+                <Text
+                  style={[
+                    globalStyles.body,
+                    globalStyles.bodyBold,
+                    styles.question,
+                  ]}
+                >
+                  What&apos;s your first name?
+                </Text>
+                <View style={styles.inputWrap}>
+                  <Feather
+                    name="user"
+                    size={22}
+                    color={theme.colors.neutral600}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    value={firstName}
+                    onChangeText={(value) => {
+                      setFirstName(value);
+                      if (error) setError(null);
+                    }}
+                    placeholder="Enter your first name"
+                    placeholderTextColor={theme.colors.neutral600}
+                    maxLength={MAX_FIRST_NAME_LENGTH + 2}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    style={styles.input}
+                  />
+                </View>
+                {error && (
+                  <Text style={[globalStyles.body, styles.errorText]}>
+                    {error}
+                  </Text>
+                )}
+              </View>
+
+              <View style={styles.buttonGroup}>
+                <Button
+                  variant="primary"
+                  width="full"
+                  loading={submitting}
+                  onPress={() => void handleContinue()}
+                >
+                  Continue
+                </Button>
+                <Button
+                  variant="ghost"
+                  width="full"
+                  disabled={submitting}
+                  onPress={() => void handleSkip()}
+                >
+                  I&apos;d prefer not to say
+                </Button>
+              </View>
             </View>
-          </View>
-        </ScrollView>
-      </View>
-    </View>
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: theme.colors.neutral100,
   },
   hero: {
@@ -168,8 +199,11 @@ const styles = StyleSheet.create({
     width: "100%",
     minHeight: 180,
   },
-  sheetWrap: {
+  keyboardAvoiding: {
     flex: 1.5,
+  },
+  sheetWrap: {
+    flex: 1,
     marginTop: -28,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,

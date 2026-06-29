@@ -2,18 +2,13 @@ import Feather from "@expo/vector-icons/Feather";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Animated,
-  Linking,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import RowswoodLogo from "../../assets/images/Rowswood-Timber-Logo.svg";
+import { Animated, View } from "react-native";
+import BinReminderCard from "../../components/BinReminderCard";
+import BridgeAlertsCard from "../../components/BridgeAlertsCard";
 import { GreetingCard } from "../../components/GreetingCard";
 import { LocalFuelSection } from "../../components/LocalFuelSection";
 import QuickLinkCard from "../../components/QuickLinkCard";
+import SponsorCard from "../../components/SponsorCard";
 import {
   WeatherApiResponse,
   WeatherSection,
@@ -150,120 +145,42 @@ export default function Index() {
           error={error}
           windMph={windMph}
         />
-        <View style={{ gap: 0 }}>
-          <LocalFuelSection />
-          <View style={sponsorStyles.card}>
-            <Text
-              style={[
-                globalStyles.body,
-                globalStyles.bodyBold,
-                sponsorStyles.title,
-              ]}
-            >
-              About our sponsor
-            </Text>
-            <RowswoodLogo width={160} height={40} style={sponsorStyles.logo} />
-            <Text style={[globalStyles.body, sponsorStyles.body]}>
-              Rowswood Timber have been supplying quality landscaping products
-              to the residents of Stockton Heath for over 50 years.
-            </Text>
-            <View style={sponsorStyles.locationRow}>
+        <LocalFuelSection />
+        <SponsorCard />
+        <BinReminderCard onPress={() => router.push("/(tabs)/services")} />
+        <BridgeAlertsCard onPress={() => router.push("/(tabs)/bridge")} />
+        <View style={globalStyles.divider} />
+        <View style={{ gap: 16 }}>
+          <QuickLinkCard
+            icon={
+              <Feather name="info" size={20} color={theme.colors.green700} />
+            }
+            title="About this app"
+            backgroundColor={theme.colors.white}
+            onPress={() => router.push("/about")}
+          />
+          <QuickLinkCard
+            icon={
               <Feather
-                name="map-pin"
-                size={13}
-                color={theme.colors.neutral700}
+                name="help-circle"
+                size={20}
+                color={theme.colors.green700}
               />
-              <Text style={[globalStyles.body, sponsorStyles.location]}>
-                Hatton Lane, Hatton, Warrington
-              </Text>
-            </View>
-            <Pressable
-              onPress={() =>
-                Linking.openURL("https://www.rowswoodtimber.co.uk")
-              }
-            >
-              <View style={sponsorStyles.linkRow}>
-                <Text style={[globalStyles.body, sponsorStyles.link]}>
-                  rowswoodtimber.co.uk
-                </Text>
-                <Feather
-                  name="external-link"
-                  size={14}
-                  color={theme.colors.green700}
-                />
-              </View>
-            </Pressable>
-          </View>
-          <View style={[globalStyles.divider, { marginVertical: 24 }]} />
-          <View style={{ gap: 16 }}>
-            <QuickLinkCard
-              icon={
-                <Feather name="info" size={20} color={theme.colors.green700} />
-              }
-              title="About this app"
-              backgroundColor={theme.colors.white}
-              onPress={() => router.push("/about")}
-            />
-            <QuickLinkCard
-              icon={
-                <Feather
-                  name="help-circle"
-                  size={20}
-                  color={theme.colors.green700}
-                />
-              }
-              title="Help"
-              backgroundColor={theme.colors.white}
-              onPress={() => router.push("/help")}
-            />
-            <QuickLinkCard
-              icon={
-                <Feather name="user" size={20} color={theme.colors.green700} />
-              }
-              title="Change my name"
-              backgroundColor={theme.colors.white}
-              onPress={() => router.push("/change-name" as never)}
-            />
-          </View>
+            }
+            title="Help"
+            backgroundColor={theme.colors.white}
+            onPress={() => router.push("/help")}
+          />
+          <QuickLinkCard
+            icon={
+              <Feather name="user" size={20} color={theme.colors.green700} />
+            }
+            title="Change my name"
+            backgroundColor={theme.colors.white}
+            onPress={() => router.push("/change-name" as never)}
+          />
         </View>
       </Animated.ScrollView>
     </View>
   );
 }
-
-const sponsorStyles = StyleSheet.create({
-  card: {
-    backgroundColor: theme.colors.white,
-    borderRadius: 16,
-    padding: 20,
-    gap: 8,
-    marginTop: 32,
-  },
-  title: {
-    color: theme.colors.green1000,
-  },
-  logo: {
-    marginVertical: 4,
-  },
-  body: {
-    color: theme.colors.neutral800,
-  },
-  linkRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  link: {
-    color: theme.colors.green700,
-    fontSize: 14,
-  },
-  locationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 4,
-    gap: 4,
-  },
-  location: {
-    fontSize: 13,
-    color: theme.colors.neutral800,
-  },
-});

@@ -1,3 +1,4 @@
+import { WelcomeNamePrompt } from "@/components/WelcomeNamePrompt";
 import {
   NotoSerif_400Regular,
   NotoSerif_700Bold,
@@ -15,7 +16,6 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { AppSplashScreen } from "../components/AppSplashScreen";
-import { WelcomeNamePrompt } from "../components/WelcomeNamePrompt";
 import { UserNameProvider, useUserName } from "../hooks/useUserName";
 import { theme } from "./styles/theme";
 
@@ -138,20 +138,17 @@ function RootLayoutInner() {
   return (
     <>
       <StatusBar style="dark" />
-      {shouldShowWelcomePrompt ? (
-        <WelcomeNamePrompt
-          visible={shouldShowWelcomePrompt}
-          onContinue={handleWelcomeContinue}
-          onSkip={handleWelcomeSkip}
-        />
-      ) : (
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="recycling-centre" />
-          <Stack.Screen name="broomfields-leisure-centre" />
-          <Stack.Screen name="change-name" />
-        </Stack>
-      )}
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="recycling-centre" />
+        <Stack.Screen name="broomfields-leisure-centre" />
+        <Stack.Screen name="change-name" />
+      </Stack>
+      <WelcomeNamePrompt
+        visible={shouldShowWelcomePrompt}
+        onContinue={handleWelcomeContinue}
+        onSkip={handleWelcomeSkip}
+      />
       {showSplash && (
         <AppSplashScreen
           visible={splashVisible}

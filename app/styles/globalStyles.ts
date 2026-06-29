@@ -103,6 +103,13 @@ export const globalStyles = StyleSheet.create({
   bodyBold: {
     fontFamily: theme.fonts.bodyBold,
   },
+  /** Shared bold title for compact informational cards */
+  cardTitle: {
+    fontFamily: theme.fonts.bodyBold,
+    fontSize: 18,
+    lineHeight: 24,
+    color: theme.colors.green1000,
+  },
   bodyLight: {
     color: theme.colors.neutral200,
   },
