@@ -180,6 +180,48 @@ export default function Help() {
         </Text>
       </View>
 
+      {/* Contact */}
+      <View
+        style={[
+          globalStyles.card,
+          globalStyles.cardWhite,
+          { padding: 0, overflow: "hidden" },
+        ]}
+      >
+        <View
+          style={{
+            backgroundColor: theme.colors.neutral300,
+            paddingHorizontal: 24,
+            paddingVertical: 14,
+          }}
+        >
+          <Text
+            style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 15 }]}
+          >
+            Get in Touch
+          </Text>
+        </View>
+        <View style={{ paddingHorizontal: 24, paddingVertical: 16, gap: 4 }}>
+          <Text style={[globalStyles.body, { color: theme.colors.neutral700 }]}>
+            Have a question, spotted a bug, or want to suggest a new feature?
+            Get in touch — I&apos;d love to hear from you.
+          </Text>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              marginTop: 8,
+            }}
+          >
+            <Feather name="mail" size={16} color={theme.colors.green700} />
+            <Text style={[globalStyles.body, globalStyles.bodyBold]}>
+              stocktonheathapp@gmail.com
+            </Text>
+          </View>
+        </View>
+      </View>
+
       {/* FAQ */}
       <View
         style={[
@@ -243,48 +285,6 @@ export default function Help() {
               isLast={i === TROUBLESHOOTING.length - 1}
             />
           ))}
-        </View>
-      </View>
-
-      {/* Contact */}
-      <View
-        style={[
-          globalStyles.card,
-          globalStyles.cardWhite,
-          { padding: 0, overflow: "hidden" },
-        ]}
-      >
-        <View
-          style={{
-            backgroundColor: theme.colors.neutral300,
-            paddingHorizontal: 24,
-            paddingVertical: 14,
-          }}
-        >
-          <Text
-            style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 15 }]}
-          >
-            Get in Touch
-          </Text>
-        </View>
-        <View style={{ paddingHorizontal: 24, paddingVertical: 16, gap: 4 }}>
-          <Text style={[globalStyles.body, { color: theme.colors.neutral700 }]}>
-            Have a question, spotted a bug, or want to suggest a new feature?
-            Get in touch — I&apos;d love to hear from you.
-          </Text>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 10,
-              marginTop: 8,
-            }}
-          >
-            <Feather name="mail" size={16} color={theme.colors.green700} />
-            <Text style={[globalStyles.body, globalStyles.bodyBold]}>
-              stocktonheathapp@gmail.com
-            </Text>
-          </View>
         </View>
       </View>
     </ScrollView>

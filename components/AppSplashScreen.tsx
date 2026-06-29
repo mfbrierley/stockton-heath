@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { theme } from "../app/styles/theme";
+import RowswoodLogo from "../assets/images/Rowswood-Timber-Logo.svg";
 
 type Props = {
   visible: boolean;
@@ -11,34 +12,12 @@ type Props = {
 
 export function AppSplashScreen({ visible, onHidden }: Props) {
   const fadeAnim = useRef(new Animated.Value(1)).current;
-  const gradientAnim = useRef(new Animated.Value(0)).current;
 
-  // Continuously shift between two diagonal gradients
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(gradientAnim, {
-          toValue: 1,
-          duration: 2500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(gradientAnim, {
-          toValue: 0,
-          duration: 2500,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [gradientAnim]);
-
-  // Fade the whole splash out when visible becomes false
   useEffect(() => {
     if (!visible) {
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: 700,
+        duration: 500,
         useNativeDriver: true,
       }).start(() => onHidden());
     }
@@ -47,26 +26,18 @@ export function AppSplashScreen({ visible, onHidden }: Props) {
   return (
     <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim }]}>
       <StatusBar style="light" />
-      {/* Base gradient */}
       <LinearGradient
         colors={[theme.colors.primary, theme.colors.green800]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        start={{ x: 1, y: 1 }}
+        end={{ x: 0, y: 0 }}
         style={StyleSheet.absoluteFill}
       />
-      {/* Animated overlay gradient — cross-fades to create movement */}
-      <Animated.View
-        style={[StyleSheet.absoluteFill, { opacity: gradientAnim }]}
-      >
-        <LinearGradient
-          colors={[theme.colors.green800, theme.colors.secondary]}
-          start={{ x: 1, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-      </Animated.View>
       <View style={styles.content}>
         <Text style={styles.title}>StocktonHeath</Text>
+        <View style={styles.sponsorContainer}>
+          <Text style={styles.sponsoredBy}>sponsored by</Text>
+          <RowswoodLogo width={200} height={60} />
+        </View>
       </View>
     </Animated.View>
   );
@@ -83,5 +54,18 @@ const styles = StyleSheet.create({
     fontSize: 36,
     color: theme.colors.white,
     letterSpacing: 0.5,
+  },
+  sponsorContainer: {
+    alignItems: "center",
+    marginTop: 32,
+    gap: 8,
+  },
+  sponsoredBy: {
+    fontFamily: theme.fonts.body,
+    fontSize: 12,
+    color: theme.colors.white,
+    opacity: 1,
+    letterSpacing: 1,
+    textTransform: "uppercase",
   },
 });

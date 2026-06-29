@@ -42,7 +42,7 @@ export default function RootLayout() {
     if (fontsLoaded) {
       void SplashScreen.hideAsync();
       setShowSplash(true);
-      const timer = setTimeout(() => setSplashVisible(false), 2000);
+      const timer = setTimeout(() => setSplashVisible(false), 3000); // TODO: revert to 4000
       return () => clearTimeout(timer);
     }
   }, [fontsLoaded]);

@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useState } from "react";
-import { ScrollView } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import RowswoodLogo from "../../assets/images/Rowswood-Timber-Logo.svg";
 import BinNotificationSection from "../../components/BinNotificationSection";
 import LocalPlacesSection from "../../components/LocalPlacesSection";
 import PostcodeSection from "../../components/PostcodeSection";
@@ -135,9 +136,28 @@ export default function Services() {
         isLoading={loading}
         isAddressSet={!!userAddress}
       />
+      <View style={styles.sponsorContainer}>
+        <Text style={styles.sponsoredBy}>sponsored by</Text>
+        <RowswoodLogo width={180} height={60} />
+      </View>
       {userAddress && <BinNotificationSection uprn={userAddress.uprn} />}
       <RecyclingCentreSection />
       <LocalPlacesSection />
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  sponsorContainer: {
+    alignItems: "center",
+    marginTop: 0,
+    gap: 0,
+  },
+  sponsoredBy: {
+    fontFamily: theme.fonts.body,
+    fontSize: 12,
+    color: theme.colors.neutral1000,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+});

@@ -7,7 +7,7 @@ import { theme } from "../styles/theme";
 
 const customHeader = () => {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center" }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
       <Text
         style={[
           globalStyles.heading,

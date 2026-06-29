@@ -1,5 +1,4 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useMemo } from "react";
 import { Text, View } from "react-native";
 import { globalStyles } from "../app/styles/globalStyles";
 import { theme } from "../app/styles/theme";
@@ -29,11 +28,19 @@ function isRainy(code: number): boolean {
   return (code >= 301 && code <= 321) || (code >= 502 && code <= 531);
 }
 
+const isEvening = () => {
+  const hour = new Date().getHours();
+  return hour < 5 || hour >= 20;
+};
+
 function getDayDescription(
   temp?: number,
   weatherCode?: number,
   windMph?: number,
 ): string {
+  if (isEvening()) {
+    return "Hope you had a good day!";
+  }
   if (temp !== undefined && temp < 1) {
     return "It's freezing today, take extra care.";
   }
@@ -48,6 +55,10 @@ function getDayDescription(
 
   if (weatherCode !== undefined && isRainy(weatherCode)) {
     return "It's a rainy day in the village.";
+  }
+
+  if (temp !== undefined && temp > 22) {
+    return "It's a hot day in the village, enjoy!";
   }
 
   if (
@@ -69,7 +80,7 @@ function getDayDescription(
   }
 
   if (weatherCode !== undefined && isCloudy(weatherCode)) {
-    return "It's a mild day in the village.";
+    return "It's a cloudy day in the village.";
   }
 
   return "Have a great day in the village.";
@@ -83,11 +94,6 @@ export function GreetingCard({ data, windMph }: GreetingCardProps) {
     weatherCode,
     windMph,
   );
-
-  const isEvening = useMemo(() => {
-    const hour = new Date().getHours();
-    return hour < 5 || hour >= 20;
-  }, []);
 
   return (
     <View style={{ marginTop: -64 }}>
@@ -107,21 +113,19 @@ export function GreetingCard({ data, windMph }: GreetingCardProps) {
         >
           {getGreeting()}
         </Text>
-        {!isEvening && (
-          <Text
-            style={[
-              globalStyles.body,
-              {
-                color: theme.colors.green300,
-                fontSize: 18,
-                lineHeight: 28,
-                marginTop: 4,
-              },
-            ]}
-          >
-            {dayDescription}
-          </Text>
-        )}
+        <Text
+          style={[
+            globalStyles.body,
+            {
+              color: theme.colors.green300,
+              fontSize: 18,
+              lineHeight: 28,
+              marginTop: 4,
+            },
+          ]}
+        >
+          {dayDescription}
+        </Text>
       </LinearGradient>
     </View>
   );
