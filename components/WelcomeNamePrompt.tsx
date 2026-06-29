@@ -3,9 +3,9 @@ import { Image } from "expo-image";
 import { useEffect, useRef, useState } from "react";
 import {
   Animated,
-  KeyboardAvoidingView,
+  Keyboard,
+  type KeyboardEvent,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -29,6 +29,7 @@ export function WelcomeNamePrompt({
   onSkip,
 }: WelcomeNamePromptProps) {
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
   const [renderPrompt, setRenderPrompt] = useState(visible);
   const [firstName, setFirstName] = useState("");
@@ -39,6 +40,7 @@ export function WelcomeNamePrompt({
     if (visible) {
       setRenderPrompt(true);
       fadeAnim.setValue(1);
+      slideAnim.setValue(0);
       setFirstName("");
       setError(null);
       setSubmitting(false);
@@ -54,7 +56,35 @@ export function WelcomeNamePrompt({
       duration: 500,
       useNativeDriver: true,
     }).start(() => setRenderPrompt(false));
-  }, [visible, renderPrompt, fadeAnim]);
+  }, [visible, renderPrompt, fadeAnim, slideAnim]);
+
+  useEffect(() => {
+    const showEvent =
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent =
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const showSub = Keyboard.addListener(showEvent, (e: KeyboardEvent) => {
+      Animated.timing(slideAnim, {
+        toValue: -e.endCoordinates.height,
+        duration: e.duration ?? 250,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, (e: KeyboardEvent) => {
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: e.duration ?? 250,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [slideAnim]);
 
   if (!renderPrompt) {
     return null;
@@ -96,95 +126,84 @@ export function WelcomeNamePrompt({
         contentFit="cover"
       />
 
-      <KeyboardAvoidingView
-        style={styles.keyboardAvoiding}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={insets.top}
+      <Animated.View
+        style={[styles.sheetWrap, { transform: [{ translateY: slideAnim }] }]}
       >
-        <View style={styles.sheetWrap}>
-          <ScrollView
-            style={styles.sheetScroll}
-            contentContainerStyle={[
-              styles.sheetContent,
-              { paddingBottom: insets.bottom + 24 },
-            ]}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.headerBlock}>
+        <View
+          style={[styles.sheetContent, { paddingBottom: insets.bottom + 24 }]}
+        >
+          <View style={styles.headerBlock}>
+            <Text
+              style={[
+                globalStyles.heading,
+                globalStyles.headingBold,
+                styles.title,
+              ]}
+            >
+              Welcome to{"\n"}Stockton Heath
+            </Text>
+          </View>
+
+          <View style={styles.formBlock}>
+            <View style={styles.formFields}>
               <Text
                 style={[
-                  globalStyles.heading,
-                  globalStyles.headingBold,
-                  styles.title,
+                  globalStyles.body,
+                  globalStyles.bodyBold,
+                  styles.question,
                 ]}
               >
-                Welcome to{"\n"}Stockton Heath
+                What&apos;s your first name?
               </Text>
-            </View>
-
-            <View style={styles.formBlock}>
-              <View style={styles.formFields}>
-                <Text
-                  style={[
-                    globalStyles.body,
-                    globalStyles.bodyBold,
-                    styles.question,
-                  ]}
-                >
-                  What&apos;s your first name?
+              <View style={styles.inputWrap}>
+                <Feather
+                  name="user"
+                  size={22}
+                  color={theme.colors.neutral600}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  value={firstName}
+                  onChangeText={(value) => {
+                    setFirstName(value);
+                    if (error) setError(null);
+                  }}
+                  placeholder="Enter your first name"
+                  placeholderTextColor={theme.colors.neutral600}
+                  maxLength={MAX_FIRST_NAME_LENGTH + 2}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  style={styles.input}
+                />
+              </View>
+              {error && (
+                <Text style={[globalStyles.body, styles.errorText]}>
+                  {error}
                 </Text>
-                <View style={styles.inputWrap}>
-                  <Feather
-                    name="user"
-                    size={22}
-                    color={theme.colors.neutral600}
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    value={firstName}
-                    onChangeText={(value) => {
-                      setFirstName(value);
-                      if (error) setError(null);
-                    }}
-                    placeholder="Enter your first name"
-                    placeholderTextColor={theme.colors.neutral600}
-                    maxLength={MAX_FIRST_NAME_LENGTH + 2}
-                    autoCapitalize="words"
-                    autoCorrect={false}
-                    style={styles.input}
-                  />
-                </View>
-                {error && (
-                  <Text style={[globalStyles.body, styles.errorText]}>
-                    {error}
-                  </Text>
-                )}
-              </View>
-
-              <View style={styles.buttonGroup}>
-                <Button
-                  variant="primary"
-                  width="full"
-                  loading={submitting}
-                  onPress={() => void handleContinue()}
-                >
-                  Continue
-                </Button>
-                <Button
-                  variant="ghost"
-                  width="full"
-                  disabled={submitting}
-                  onPress={() => void handleSkip()}
-                >
-                  I&apos;d prefer not to say
-                </Button>
-              </View>
+              )}
             </View>
-          </ScrollView>
+
+            <View style={styles.buttonGroup}>
+              <Button
+                variant="primary"
+                width="full"
+                loading={submitting}
+                onPress={() => void handleContinue()}
+              >
+                Continue
+              </Button>
+              <Button
+                variant="ghost"
+                width="full"
+                disabled={submitting}
+                onPress={() => void handleSkip()}
+              >
+                I&apos;d prefer not to say
+              </Button>
+            </View>
+          </View>
         </View>
-      </KeyboardAvoidingView>
+      </Animated.View>
     </Animated.View>
   );
 }
@@ -199,22 +218,16 @@ const styles = StyleSheet.create({
     width: "100%",
     minHeight: 180,
   },
-  keyboardAvoiding: {
-    flex: 1.5,
-  },
   sheetWrap: {
-    flex: 1,
+    flex: 1.5,
     marginTop: -28,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     backgroundColor: theme.colors.neutral100,
     overflow: "hidden",
   },
-  sheetScroll: {
-    flex: 1,
-  },
   sheetContent: {
-    flexGrow: 1,
+    flex: 1,
     paddingHorizontal: 32,
     paddingTop: 20,
     paddingBottom: 32,

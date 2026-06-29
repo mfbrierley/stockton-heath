@@ -108,10 +108,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   sizeLarge: {
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    gap: 6,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    gap: 8,
   },
   sizeSmall: {
     borderRadius: 8,
