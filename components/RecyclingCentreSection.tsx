@@ -14,8 +14,12 @@ export default function RecyclingCentreSection() {
   const { todayHours, tomorrowHours, statusConfig, isPostClose } =
     useRecyclingCentreHours();
   const { label, color, bg, icon } = statusConfig;
-  const { statusConfig: woolstonStatusConfig } =
-    useWoolstonRecyclingCentreHours();
+  const {
+    todayHours: woolstonTodayHours,
+    tomorrowHours: woolstonTomorrowHours,
+    statusConfig: woolstonStatusConfig,
+    isPostClose: isWoolstonPostClose,
+  } = useWoolstonRecyclingCentreHours();
 
   const tipTitleStyle = [
     globalStyles.body,
@@ -62,20 +66,16 @@ export default function RecyclingCentreSection() {
         <View style={{ alignSelf: "flex-start" }}>
           <View
             style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 4,
               backgroundColor: bg,
-              borderRadius: 20,
-              paddingHorizontal: 4,
-              paddingVertical: 1,
+              ...globalStyles.statusBadge,
             }}
           >
             <Ionicons name={icon as any} size={12} color={color} />
             <Text
               style={[
                 globalStyles.body,
-                { color, fontFamily: theme.fonts.bodyBold, fontSize: 11 },
+                globalStyles.statusBadgeText,
+                { color },
               ]}
             >
               {label}
@@ -156,51 +156,101 @@ export default function RecyclingCentreSection() {
           {
             backgroundColor: theme.colors.neutral300,
             padding: 32,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 16,
+            overflow: "hidden",
+            position: "relative",
           },
         ]}
       >
-        <View style={{ flex: 1, gap: 12 }}>
+        <FontAwesome
+          name="recycle"
+          size={124}
+          color={theme.colors.black}
+          style={{
+            position: "absolute",
+            top: -16,
+            right: -16,
+            opacity: 0.05,
+          }}
+        />
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 16,
+          }}
+        >
           <Text style={tipTitleStyle}>Woolston Tip</Text>
-          <View style={{ alignSelf: "flex-start" }}>
+        </View>
+        <View style={{ alignSelf: "flex-start" }}>
+          <View
+            style={{
+              backgroundColor: woolstonStatusConfig.bg,
+              ...globalStyles.statusBadge,
+            }}
+          >
+            <Ionicons
+              name={woolstonStatusConfig.icon as any}
+              size={12}
+              color={woolstonStatusConfig.color}
+            />
+            <Text
+              style={[
+                globalStyles.body,
+                globalStyles.statusBadgeText,
+                { color: woolstonStatusConfig.color },
+              ]}
+            >
+              {woolstonStatusConfig.label}
+            </Text>
+          </View>
+        </View>
+        <View
+          style={{
+            paddingVertical: 16,
+            marginVertical: 16,
+            borderTopWidth: 1,
+            borderTopColor: theme.colors.neutral400,
+            borderBottomWidth: 1,
+            borderBottomColor: theme.colors.neutral400,
+            gap: 8,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Text style={globalStyles.body}>Today&apos;s hours</Text>
+            <Text style={[globalStyles.body, globalStyles.bodyBold]}>
+              {woolstonTodayHours
+                ? `${formatHour(woolstonTodayHours.open)} – ${formatHour(woolstonTodayHours.close)}`
+                : "Closed"}
+            </Text>
+          </View>
+          {isWoolstonPostClose && (
             <View
               style={{
                 flexDirection: "row",
+                justifyContent: "space-between",
                 alignItems: "center",
-                gap: 4,
-                backgroundColor: woolstonStatusConfig.bg,
-                borderRadius: 20,
-                paddingHorizontal: 4,
-                paddingVertical: 1,
               }}
             >
-              <Ionicons
-                name={woolstonStatusConfig.icon as any}
-                size={12}
-                color={woolstonStatusConfig.color}
-              />
-              <Text
-                style={[
-                  globalStyles.body,
-                  {
-                    color: woolstonStatusConfig.color,
-                    fontFamily: theme.fonts.bodyBold,
-                    fontSize: 11,
-                  },
-                ]}
-              >
-                {woolstonStatusConfig.label}
+              <Text style={globalStyles.body}>Tomorrow&apos;s hours</Text>
+              <Text style={[globalStyles.body, globalStyles.bodyBold]}>
+                {woolstonTomorrowHours
+                  ? `${formatHour(woolstonTomorrowHours.open)} – ${formatHour(woolstonTomorrowHours.close)}`
+                  : "Closed"}
               </Text>
             </View>
-          </View>
+          )}
         </View>
         <Button
           variant="primary"
+          width="full"
           onPress={() => router.push("/woolston-recycling-centre")}
-          style={{ alignSelf: "center" }}
         >
           Find out more
         </Button>

@@ -57,21 +57,22 @@ const parseTwitterDate = (dateStr: string): Date => {
   return new Date(`${year}-${month}-${day}T${time}Z`);
 };
 
-function getLast7Days(): DayData[] {
+function getLastNDays(n: number): DayData[] {
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const days: DayData[] = [];
   const today = new Date();
-  for (let i = 6; i >= 0; i--) {
+  for (let i = n - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
     d.setHours(0, 0, 0, 0);
-    days.push({ label: dayNames[d.getDay()] ?? "?", count: 0, date: d });
+    const label = n === 7 ? (dayNames[d.getDay()] ?? "?") : String(d.getDate());
+    days.push({ label, count: 0, date: d });
   }
   return days;
 }
 
-function groupAlertsByDay(alerts: BridgeAlert[]): DayData[] {
-  const days = getLast7Days();
+function groupAlertsByDay(alerts: BridgeAlert[], n: number): DayData[] {
+  const days = getLastNDays(n);
   alerts.forEach((alert) => {
     const alertDate = parseTwitterDate(alert.postedAt);
     alertDate.setHours(0, 0, 0, 0);
@@ -84,7 +85,11 @@ function groupAlertsByDay(alerts: BridgeAlert[]): DayData[] {
 const CHART_HEIGHT = 160;
 const PAD = { top: 16, right: 12, bottom: 28, left: 28 };
 
-export default function BridgeClosuresChart() {
+interface Props {
+  period?: 7 | 30;
+}
+
+export default function BridgeClosuresChart({ period = 7 }: Props) {
   const [days, setDays] = useState<DayData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -103,14 +108,14 @@ export default function BridgeClosuresChart() {
       .then((res) => res.json())
       .then((data: unknown) => {
         const alerts = Array.isArray(data) ? (data as BridgeAlert[]) : [];
-        setDays(groupAlertsByDay(alerts));
+        setDays(groupAlertsByDay(alerts, period));
         setLoading(false);
       })
       .catch(() => {
         setError(true);
         setLoading(false);
       });
-  }, []);
+  }, [period]);
 
   const totalClosures = days.reduce((sum, d) => sum + d.count, 0);
 
@@ -130,7 +135,7 @@ export default function BridgeClosuresChart() {
   const innerH = CHART_HEIGHT - PAD.top - PAD.bottom;
   const maxCount = Math.max(...days.map((d) => d.count), 1);
   const yMax = maxCount + 1;
-  const step = innerW / 7;
+  const step = innerW / period;
 
   const getX = (i: number) => PAD.left + i * step + step / 2;
   const getY = (count: number) => PAD.top + innerH - (count / yMax) * innerH;
@@ -153,15 +158,21 @@ export default function BridgeClosuresChart() {
   return (
     <View style={styles.container}>
       <Text style={styles.totalLabel}>
-        {totalClosures} closure{totalClosures !== 1 ? "s" : ""} in the last 7
-        days
+        {totalClosures} closure{totalClosures !== 1 ? "s" : ""} in the last{" "}
+        {period} days
       </Text>
 
       <View style={styles.chartWrapper} pointerEvents="none">
         {chartWidth > 0 && (
           <Svg width={chartWidth} height={CHART_HEIGHT}>
             <Defs>
-              <LinearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+              <LinearGradient
+                id={`areaGrad${period}`}
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
+              >
                 <Stop
                   offset="0"
                   stopColor={theme.colors.primary}
@@ -203,7 +214,7 @@ export default function BridgeClosuresChart() {
             })}
 
             {/* Gradient fill area */}
-            <Path d={areaPath} fill="url(#areaGrad)" />
+            <Path d={areaPath} fill={`url(#areaGrad${period})`} />
 
             {/* Line */}
             <Polyline
@@ -227,18 +238,22 @@ export default function BridgeClosuresChart() {
             ))}
 
             {/* X-axis labels */}
-            {days.map((d, i) => (
-              <SvgText
-                key={i}
-                x={getX(i)}
-                y={CHART_HEIGHT - 4}
-                fontSize={10}
-                textAnchor="middle"
-                fill={theme.colors.neutral700}
-              >
-                {d.label}
-              </SvgText>
-            ))}
+            {days.map((d, i) => {
+              if (period === 30 && i % 5 !== 0 && i !== days.length - 1)
+                return null;
+              return (
+                <SvgText
+                  key={i}
+                  x={getX(i)}
+                  y={CHART_HEIGHT - 4}
+                  fontSize={10}
+                  textAnchor="middle"
+                  fill={theme.colors.neutral700}
+                >
+                  {d.label}
+                </SvgText>
+              );
+            })}
           </Svg>
         )}
       </View>

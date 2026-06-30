@@ -6,24 +6,14 @@ import { theme } from "../app/styles/theme";
 import Button from "./Button";
 
 interface Props {
-  notificationsEnabled: boolean | null;
   loading: boolean;
   onPress: () => void;
-  onDisable: () => void;
 }
 
 export default function BridgeAlertSubscribeSection({
-  notificationsEnabled,
   loading,
   onPress,
-  onDisable,
 }: Props) {
-  const isEnabled = notificationsEnabled === true;
-
-  const handleManage = async () => {
-    onDisable();
-  };
-
   return (
     <>
       <View style={[styles.card, { paddingHorizontal: 8, paddingTop: 8 }]}>
@@ -41,7 +31,7 @@ export default function BridgeAlertSubscribeSection({
               { paddingBottom: 16 },
             ]}
           >
-            Swing Bridge Alerts
+            Get notified in advance!
           </Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <MaterialCommunityIcons
@@ -82,36 +72,22 @@ export default function BridgeAlertSubscribeSection({
           </View>
           <View>
             <Text style={[globalStyles.body, { color: theme.colors.white }]}>
-              You will receive notifications around 20 minutes before the swing
+              You will receive a notification around 30 minutes before the swing
               bridges close, so you can plan your journey accordingly.
             </Text>
           </View>
-          {isEnabled ? (
-            <Button
-              variant="whiteTransparent"
-              width="full"
-              icon={
-                <Feather name="bell-off" size={24} color={theme.colors.white} />
-              }
-              onPress={() => void handleManage()}
-              style={{ marginTop: 24 }}
-            >
-              Turn off notifications
-            </Button>
-          ) : (
-            <Button
-              variant="white"
-              width="full"
-              icon={
-                <Feather name="bell" size={24} color={theme.colors.primary} />
-              }
-              onPress={onPress}
-              loading={loading}
-              style={{ marginTop: 24 }}
-            >
-              Enable notifications
-            </Button>
-          )}
+          <Button
+            variant="white"
+            width="full"
+            icon={
+              <Feather name="bell" size={24} color={theme.colors.primary} />
+            }
+            onPress={onPress}
+            loading={loading}
+            style={{ marginTop: 24 }}
+          >
+            Enable notifications
+          </Button>
         </View>
       </View>
     </>
@@ -136,7 +112,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: "100%",
-    height: 180,
+    height: 150,
     borderRadius: 12,
   },
   footer: {

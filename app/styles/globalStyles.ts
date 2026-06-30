@@ -136,6 +136,19 @@ export const globalStyles = StyleSheet.create({
     height: 1,
     backgroundColor: theme.colors.neutral300,
   },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 20,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  statusBadgeText: {
+    fontFamily: theme.fonts.bodyBold,
+    fontSize: 11,
+    lineHeight: 14,
+  },
 
   // ─── Navigation ───────────────────────────────────────────
   /** Back button pressable row (stack screens) */

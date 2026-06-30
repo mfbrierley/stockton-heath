@@ -206,5 +206,19 @@ export function useWoolstonRecyclingCentreHours() {
   const status = computeStatus(timeParts.hour, timeParts.minute, todayHours);
   const statusConfig = STATUS_CONFIG[status];
 
-  return { statusConfig };
+  const isPostClose =
+    status === "closed" &&
+    todayHours !== null &&
+    timeParts.hour * 60 + timeParts.minute >= todayHours.close * 60;
+
+  const tomorrowParts = getTomorrowUKParts();
+  const isTomorrowBankHoliday = bankHolidays.has(tomorrowParts.dateKey);
+  const isTomorrowFixedClosed = FIXED_CLOSURE_DATES.has(tomorrowParts.mmdd);
+  const tomorrowHours = getWoolstonTodayHours(
+    tomorrowParts.isWeekend,
+    isTomorrowBankHoliday,
+    isTomorrowFixedClosed,
+  );
+
+  return { todayHours, tomorrowHours, statusConfig, isPostClose };
 }

@@ -1,3 +1,4 @@
+import Feather from "@expo/vector-icons/Feather";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import { useEffect, useRef, useState } from "react";
@@ -12,6 +13,8 @@ import {
 import BridgeAlertSection from "../../components/BridgeAlertSection";
 import BridgeAlertSubscribeSection from "../../components/BridgeAlertSubscribeSection";
 import BridgeClosuresChart from "../../components/BridgeClosuresChart";
+import Button from "../../components/Button";
+import SponsorBadge from "../../components/SponsorBadge";
 import { registerForPushNotifications } from "../../hooks/usePushNotifications";
 import { globalStyles } from "../styles/globalStyles";
 import { theme } from "../styles/theme";
@@ -19,9 +22,10 @@ import { theme } from "../styles/theme";
 const BRIDGE_NOTIFICATIONS_KEY = "bridgeNotificationsEnabled";
 
 export default function Bridge() {
+  // TODO: remove – forces enabled state for simulator UI testing
   const [notificationsEnabled, setNotificationsEnabled] = useState<
     boolean | null
-  >(null);
+  >(true);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [loading, setLoading] = useState(false);
   const appState = useRef(AppState.currentState);
@@ -109,12 +113,40 @@ export default function Bridge() {
       style={{ backgroundColor: theme.colors.neutral200, flex: 1 }}
     >
       <BridgeAlertSection />
-      <BridgeAlertSubscribeSection
-        notificationsEnabled={notificationsEnabled}
-        loading={loading}
-        onPress={() => void handleEnableNotifications()}
-        onDisable={() => void handleDisableNotifications()}
-      />
+      <SponsorBadge />
+      {notificationsEnabled === true ? (
+        <View style={styles.activeNotificationsCard}>
+          <View style={styles.activeNotificationsRow}>
+            <Feather name="bell" size={20} color={theme.colors.primary} />
+            <Text style={[globalStyles.body, globalStyles.bodyBold]}>
+              Alert notifications active
+            </Text>
+          </View>
+          <Text style={globalStyles.body}>
+            You&apos;ll receive a notification around 20 minutes before the
+            swing bridges close, so you can plan your journey.
+          </Text>
+          <Button
+            variant="neutral"
+            width="full"
+            icon={
+              <Feather
+                name="bell-off"
+                size={20}
+                color={theme.colors.neutral1000}
+              />
+            }
+            onPress={() => void handleDisableNotifications()}
+          >
+            Turn off notifications
+          </Button>
+        </View>
+      ) : (
+        <BridgeAlertSubscribeSection
+          loading={loading}
+          onPress={() => void handleEnableNotifications()}
+        />
+      )}
       <View style={styles.dataCard}>
         <Text
           style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 18 }]}
@@ -122,6 +154,14 @@ export default function Bridge() {
           This week&apos;s activity
         </Text>
         <BridgeClosuresChart />
+      </View>
+      <View style={styles.dataCard}>
+        <Text
+          style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 18 }]}
+        >
+          Last 30 days activity
+        </Text>
+        <BridgeClosuresChart period={30} />
       </View>
     </ScrollView>
   );
@@ -140,5 +180,17 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
     width: "100%",
+  },
+  activeNotificationsCard: {
+    backgroundColor: theme.colors.neutral100,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    width: "100%",
+  },
+  activeNotificationsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
 });
