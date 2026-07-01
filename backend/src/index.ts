@@ -471,7 +471,7 @@ app.post(
     const fakeAlert: BridgeAlert = {
       tweetId: `test-${Date.now()}`,
       tweetText:
-        "⚠️ Swingbridge Alert: Chester Road, London Road & Knutsford Road swing bridges will be closing at 14:00 today for approximately 20 minutes. [TEST]",
+        "⚠️[TEST]⚠️ Swingbridge Alert: Chester Road, London Road & Knutsford Road swing bridges will be closing at 14:00 today for approximately 20 minutes. ",
       postedAt: new Date().toISOString(),
       detectedAt: new Date().toISOString(),
     };
