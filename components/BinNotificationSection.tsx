@@ -2,7 +2,7 @@ import Feather from "@expo/vector-icons/Feather";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import { useEffect, useState } from "react";
-import { Linking, StyleSheet, Text, View } from "react-native";
+import { Alert, Linking, StyleSheet, Text, View } from "react-native";
 import { globalStyles } from "../app/styles/globalStyles";
 import { theme } from "../app/styles/theme";
 import { registerForPushNotifications } from "../hooks/usePushNotifications";
@@ -41,14 +41,24 @@ export default function BinNotificationSection({ uprn }: Props) {
   const resubscribe = async (currentUprn: string): Promise<void> => {
     const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
     if (!backendUrl) return;
-    const { granted, token } = await registerForPushNotifications();
-    if (!granted || !token) return;
-    await fetch(`${backendUrl}/bin-subscriptions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, uprn: currentUprn }),
-    });
+    try {
+      const { granted, token } = await registerForPushNotifications();
+      if (!granted || !token) return;
+      await fetch(`${backendUrl}/bin-subscriptions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, uprn: currentUprn }),
+      });
+    } catch (error) {
+      console.error("Failed to refresh bin subscription:", error);
+    }
   };
+
+  const showTransientError = () =>
+    Alert.alert(
+      "Couldn't enable reminders",
+      "Something went wrong. Please check your connection and try again.",
+    );
 
   const handleEnable = async () => {
     if (permissionDenied) {
@@ -60,36 +70,55 @@ export default function BinNotificationSection({ uprn }: Props) {
     if (!backendUrl) return;
 
     setLoading(true);
-    const { granted, token } = await registerForPushNotifications();
-    if (!granted || !token) {
-      setPermissionDenied(true);
+    try {
+      const { granted, token } = await registerForPushNotifications();
+      if (!granted) {
+        setPermissionDenied(true);
+        return;
+      }
+      if (!token) {
+        showTransientError();
+        return;
+      }
+
+      const response = await fetch(`${backendUrl}/bin-subscriptions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, uprn }),
+      });
+      if (!response.ok) {
+        showTransientError();
+        return;
+      }
+
+      await AsyncStorage.setItem(BIN_NOTIFICATIONS_KEY, "true");
+      setEnabled(true);
+    } catch (error) {
+      console.error("Failed to enable bin reminders:", error);
+      showTransientError();
+    } finally {
       setLoading(false);
-      return;
     }
-
-    await fetch(`${backendUrl}/bin-subscriptions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, uprn }),
-    });
-
-    await AsyncStorage.setItem(BIN_NOTIFICATIONS_KEY, "true");
-    setEnabled(true);
-    setLoading(false);
   };
 
   const handleDisable = async () => {
-    const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
-    const { token } = await registerForPushNotifications();
-    if (backendUrl && token) {
-      await fetch(`${backendUrl}/bin-subscriptions`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
+    try {
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
+      const { token } = await registerForPushNotifications();
+      if (backendUrl && token) {
+        await fetch(`${backendUrl}/bin-subscriptions`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+      }
+    } catch (error) {
+      console.error("Failed to remove bin subscription:", error);
+    } finally {
+      // Clear local state regardless so the UI reflects the user's intent.
+      await AsyncStorage.setItem(BIN_NOTIFICATIONS_KEY, "false");
+      setEnabled(false);
     }
-    await AsyncStorage.setItem(BIN_NOTIFICATIONS_KEY, "false");
-    setEnabled(false);
   };
 
   return (

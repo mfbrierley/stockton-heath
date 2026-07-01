@@ -213,6 +213,101 @@ const parseBridgeAlert = (tweetText: string): ParsedBridgeAlert => {
   };
 };
 
+type ExpoPushMessage = {
+  to: string;
+  sound: string;
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+};
+
+type ExpoPushTicket = {
+  status: string;
+  message?: string;
+  details?: { error?: string };
+};
+
+const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
+const EXPO_PUSH_BATCH_SIZE = 100;
+
+// Sends messages to Expo in batches of 100 (Expo's per-request limit) and
+// returns the tokens Expo reports as DeviceNotRegistered so the caller can
+// prune them from the database.
+const sendExpoPush = async (
+  messages: ExpoPushMessage[],
+): Promise<{ invalidTokens: string[]; sent: number; failed: number }> => {
+  const invalidTokens: string[] = [];
+  let sent = 0;
+  let failed = 0;
+
+  for (let i = 0; i < messages.length; i += EXPO_PUSH_BATCH_SIZE) {
+    const batch = messages.slice(i, i + EXPO_PUSH_BATCH_SIZE);
+
+    try {
+      const response = await fetch(EXPO_PUSH_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "Accept-Encoding": "gzip, deflate",
+        },
+        body: JSON.stringify(batch),
+      });
+
+      if (!response.ok) {
+        console.error(
+          `Expo push request failed: ${response.status} —`,
+          await response.text().catch(() => "(unreadable)"),
+        );
+        failed += batch.length;
+        continue;
+      }
+
+      const result = (await response.json()) as { data?: ExpoPushTicket[] };
+      const tickets = result.data ?? [];
+
+      tickets.forEach((ticket, index) => {
+        if (ticket.status === "ok") {
+          sent++;
+          return;
+        }
+        failed++;
+        if (ticket.details?.error === "DeviceNotRegistered") {
+          invalidTokens.push(batch[index].to);
+        }
+      });
+    } catch (error) {
+      console.error("Expo push request error:", error);
+      failed += batch.length;
+    }
+  }
+
+  return { invalidTokens, sent, failed };
+};
+
+// Removes tokens Expo has flagged as unregistered (app uninstalled) so we stop
+// wasting sends on them and avoid getting throttled.
+const pruneInvalidTokens = async (
+  kind: "bridge" | "bin",
+  tokens: string[],
+): Promise<void> => {
+  if (tokens.length === 0) return;
+  try {
+    if (kind === "bridge") {
+      await prisma.bridgeSubscription.deleteMany({
+        where: { token: { in: tokens } },
+      });
+    } else {
+      await prisma.binSubscription.deleteMany({
+        where: { token: { in: tokens } },
+      });
+    }
+    console.log(`Pruned ${tokens.length} unregistered ${kind} token(s).`);
+  } catch (error) {
+    console.error(`Failed to prune ${kind} tokens:`, error);
+  }
+};
+
 const sendPushNotifications = async (alert: BridgeAlert): Promise<void> => {
   const tokens = await prisma.bridgeSubscription.findMany();
   if (tokens.length === 0) {
@@ -237,36 +332,11 @@ const sendPushNotifications = async (alert: BridgeAlert): Promise<void> => {
     },
   }));
 
-  const response = await fetch("https://exp.host/--/api/v2/push/send", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      "Accept-Encoding": "gzip, deflate",
-    },
-    body: JSON.stringify(messages),
-  });
+  const { invalidTokens, sent } = await sendExpoPush(messages);
+  await pruneInvalidTokens("bridge", invalidTokens);
 
-  if (!response.ok) {
-    console.error("Failed to send push notifications:", await response.text());
-    return;
-  }
-
-  const result = (await response.json()) as {
-    data: { status: string; message?: string; details?: unknown }[];
-  };
-
-  const errors = result.data?.filter((r) => r.status !== "ok") ?? [];
-  if (errors.length > 0) {
-    console.error(
-      `Push notification delivery errors (${errors.length}/${tokens.length}):`,
-      JSON.stringify(errors),
-    );
-  }
-
-  const successCount = (result.data?.length ?? 0) - errors.length;
   console.log(
-    `Push notifications: ${successCount}/${tokens.length} delivered successfully.`,
+    `Bridge push notifications: ${sent}/${tokens.length} delivered successfully.`,
   );
 };
 
@@ -571,7 +641,44 @@ const getUKDateString = (date: Date): string =>
     day: "2-digit",
   }).format(date);
 
-let lastBinNotificationDate: string | null = null;
+const BIN_NOTIFICATION_DATE_KEY = "lastBinNotificationDate";
+
+// In-memory fallback used when the durable AppMeta store isn't available
+// (e.g. the migration hasn't been applied yet). This mirrors the original
+// behaviour so bin reminders keep working regardless.
+let lastBinNotificationDateMemory: string | null = null;
+
+// Reads the last date bin reminders were sent, preferring the durable AppMeta
+// row and falling back to the in-memory value if the table isn't available.
+const getLastBinNotificationDate = async (): Promise<string | null> => {
+  try {
+    const row = await prisma.appMeta.findUnique({
+      where: { key: BIN_NOTIFICATION_DATE_KEY },
+    });
+    return row?.value ?? null;
+  } catch (error) {
+    console.warn(
+      "AppMeta unavailable — using in-memory bin dedupe:",
+      error instanceof Error ? error.message : error,
+    );
+    return lastBinNotificationDateMemory;
+  }
+};
+
+// Records the last date bin reminders were sent. Always updates the in-memory
+// fallback, and additionally persists to AppMeta when that table exists.
+const setLastBinNotificationDate = async (date: string): Promise<void> => {
+  lastBinNotificationDateMemory = date;
+  try {
+    await prisma.appMeta.upsert({
+      where: { key: BIN_NOTIFICATION_DATE_KEY },
+      update: { value: date },
+      create: { key: BIN_NOTIFICATION_DATE_KEY, value: date },
+    });
+  } catch {
+    // In-memory fallback already set above; durable write can catch up later.
+  }
+};
 
 const checkBinNotifications = async (): Promise<void> => {
   const ukHour = parseInt(
@@ -585,8 +692,11 @@ const checkBinNotifications = async (): Promise<void> => {
   if (ukHour !== 18) return;
 
   const todayUK = getUKDateString(new Date());
-  if (lastBinNotificationDate === todayUK) return;
-  lastBinNotificationDate = todayUK;
+  // Set before sending so a crash/redeploy mid-send can't re-send today's
+  // reminder. Falls back to in-memory dedupe if AppMeta isn't available.
+  const lastSent = await getLastBinNotificationDate();
+  if (lastSent === todayUK) return;
+  await setLastBinNotificationDate(todayUK);
 
   console.log(
     `[${new Date().toISOString()}] Running 6pm bin notification check...`,
@@ -609,6 +719,8 @@ const checkBinNotifications = async (): Promise<void> => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowUK = getUKDateString(tomorrow);
+
+    const invalidBinTokens: string[] = [];
 
     for (const [uprn, tokens] of uprnMap) {
       try {
@@ -639,33 +751,17 @@ const checkBinNotifications = async (): Promise<void> => {
           body,
         }));
 
-        const pushResponse = await fetch(
-          "https://exp.host/--/api/v2/push/send",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-              "Accept-Encoding": "gzip, deflate",
-            },
-            body: JSON.stringify(messages),
-          },
+        const { invalidTokens, sent } = await sendExpoPush(messages);
+        invalidBinTokens.push(...invalidTokens);
+        console.log(
+          `Bin notification sent for UPRN ${uprn}: "${body}" to ${sent}/${tokens.length} device(s)`,
         );
-
-        if (!pushResponse.ok) {
-          console.error(
-            `Bin push failed for UPRN ${uprn}:`,
-            await pushResponse.text(),
-          );
-        } else {
-          console.log(
-            `Bin notification sent for UPRN ${uprn}: "${body}" to ${tokens.length} device(s)`,
-          );
-        }
       } catch (error) {
         console.error(`Bin notification error for UPRN ${uprn}:`, error);
       }
     }
+
+    await pruneInvalidTokens("bin", invalidBinTokens);
   } catch (error) {
     console.error("checkBinNotifications error:", error);
   }

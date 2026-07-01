@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import { useEffect, useRef, useState } from "react";
 import {
+  Alert,
   AppState,
   Linking,
   ScrollView,
@@ -21,11 +22,12 @@ import { theme } from "../styles/theme";
 
 const BRIDGE_NOTIFICATIONS_KEY = "bridgeNotificationsEnabled";
 
+type SubscribeOutcome = "success" | "permission-denied" | "error";
+
 export default function Bridge() {
-  // TODO: remove – forces enabled state for simulator UI testing
   const [notificationsEnabled, setNotificationsEnabled] = useState<
     boolean | null
-  >(true);
+  >(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [loading, setLoading] = useState(false);
   const appState = useRef(AppState.currentState);
@@ -45,20 +47,25 @@ export default function Bridge() {
     }
   };
 
-  const registerAndSubscribeBridge = async (): Promise<boolean> => {
+  const registerAndSubscribeBridge = async (): Promise<SubscribeOutcome> => {
     const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
-    if (!backendUrl) return false;
+    if (!backendUrl) return "error";
 
     const { granted, token } = await registerForPushNotifications();
-    if (!granted || !token) return false;
+    if (!granted) return "permission-denied";
+    if (!token) return "error";
 
-    await fetch(`${backendUrl}/bridge-subscriptions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
-    });
-
-    return true;
+    try {
+      const response = await fetch(`${backendUrl}/bridge-subscriptions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      return response.ok ? "success" : "error";
+    } catch (error) {
+      console.error("Failed to register bridge subscription:", error);
+      return "error";
+    }
   };
 
   useEffect(() => {
@@ -83,28 +90,42 @@ export default function Bridge() {
       return;
     }
     setLoading(true);
-    const success = await registerAndSubscribeBridge();
-    if (success) {
-      await AsyncStorage.setItem(BRIDGE_NOTIFICATIONS_KEY, "true");
-      setNotificationsEnabled(true);
-    } else {
-      setPermissionDenied(true);
+    try {
+      const outcome = await registerAndSubscribeBridge();
+      if (outcome === "success") {
+        await AsyncStorage.setItem(BRIDGE_NOTIFICATIONS_KEY, "true");
+        setNotificationsEnabled(true);
+      } else if (outcome === "permission-denied") {
+        setPermissionDenied(true);
+      } else {
+        Alert.alert(
+          "Couldn't enable notifications",
+          "Something went wrong. Please check your connection and try again.",
+        );
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleDisableNotifications = async () => {
-    const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
-    const { token } = await registerForPushNotifications();
-    if (backendUrl && token) {
-      await fetch(`${backendUrl}/bridge-subscriptions`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
+    try {
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
+      const { token } = await registerForPushNotifications();
+      if (backendUrl && token) {
+        await fetch(`${backendUrl}/bridge-subscriptions`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+      }
+    } catch (error) {
+      console.error("Failed to remove bridge subscription:", error);
+    } finally {
+      // Clear local state regardless so the UI reflects the user's intent.
+      await AsyncStorage.setItem(BRIDGE_NOTIFICATIONS_KEY, "false");
+      setNotificationsEnabled(false);
     }
-    await AsyncStorage.setItem(BRIDGE_NOTIFICATIONS_KEY, "false");
-    setNotificationsEnabled(false);
   };
 
   return (

@@ -25,14 +25,26 @@ export const registerForPushNotifications =
       finalStatus = status;
     }
 
+    // Permission was denied by the user — callers should surface a Settings prompt.
     if (finalStatus !== "granted") return { granted: false, token: null };
 
-    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-    if (!projectId) return { granted: false, token: null };
+    // From here permission IS granted; any failure is transient/config-related,
+    // so we report granted: true with a null token and let callers retry.
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      Constants.easConfig?.projectId;
+    if (!projectId) {
+      console.error("registerForPushNotifications: missing EAS projectId");
+      return { granted: true, token: null };
+    }
 
-    const { data: token } = await Notifications.getExpoPushTokenAsync({
-      projectId,
-    });
-
-    return { granted: true, token };
+    try {
+      const { data: token } = await Notifications.getExpoPushTokenAsync({
+        projectId,
+      });
+      return { granted: true, token };
+    } catch (error) {
+      console.error("Failed to fetch Expo push token:", error);
+      return { granted: true, token: null };
+    }
   };

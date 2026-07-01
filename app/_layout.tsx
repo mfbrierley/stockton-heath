@@ -13,7 +13,7 @@ import * as Notifications from "expo-notifications";
 import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { AppSplashScreen } from "../components/AppSplashScreen";
 import { UserNameProvider, useUserName } from "../hooks/useUserName";
@@ -59,42 +59,56 @@ function RootLayoutInner() {
     }
   }, [fontsLoaded]);
 
+  const handledResponseIds = useRef<Set<string>>(new Set());
+
   useEffect(() => {
+    const handleNotificationResponse = (
+      response: Notifications.NotificationResponse,
+    ) => {
+      // A cold-start tap can be delivered by both getLastNotificationResponseAsync
+      // and the live listener, so dedupe on the notification identifier.
+      const identifier = response.notification.request.identifier;
+      if (handledResponseIds.current.has(identifier)) return;
+      handledResponseIds.current.add(identifier);
+
+      const data = response.notification.request.content.data as {
+        tweetId?: string;
+        firstBridge?: string | null;
+        closureMinutes?: number | null;
+        sentAt?: number;
+      };
+
+      if (!data?.tweetId) return;
+
+      const closureMinutes =
+        typeof data.closureMinutes === "number" ? data.closureMinutes : 45;
+      const notificationSentAt =
+        typeof data.sentAt === "number" ? data.sentAt : Date.now();
+      const expiresAt = notificationSentAt + (closureMinutes + 15) * 60 * 1000;
+
+      // Only store the active-closure banner if the window hasn't already passed.
+      if (Date.now() <= expiresAt) {
+        void AsyncStorage.setItem(
+          ACTIVE_CLOSURE_KEY,
+          JSON.stringify({
+            firstBridge: data.firstBridge ?? null,
+            expiresAt,
+          }),
+        );
+      }
+
+      router.push("/(tabs)/bridge");
+    };
+
+    // Warm taps: app already running in the foreground or background.
     const subscription = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        const data = response.notification.request.content.data as {
-          tweetId?: string;
-          firstBridge?: string | null;
-          closureMinutes?: number | null;
-          sentAt?: number;
-        };
-
-        if (data?.tweetId) {
-          const closureMinutes =
-            typeof data.closureMinutes === "number" ? data.closureMinutes : 45;
-          const notificationSentAt =
-            typeof data.sentAt === "number" ? data.sentAt : Date.now();
-          const expiresAt =
-            notificationSentAt + (closureMinutes + 15) * 60 * 1000;
-
-          // If the closure window has already passed, don't show the banner
-          if (Date.now() > expiresAt) {
-            router.push("/(tabs)/bridge");
-            return;
-          }
-
-          void AsyncStorage.setItem(
-            ACTIVE_CLOSURE_KEY,
-            JSON.stringify({
-              firstBridge: data.firstBridge ?? null,
-              expiresAt,
-            }),
-          );
-
-          router.push("/(tabs)/bridge");
-        }
-      },
+      handleNotificationResponse,
     );
+
+    // Cold-start tap: app was killed and launched by tapping the notification.
+    void Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) handleNotificationResponse(response);
+    });
 
     return () => subscription.remove();
   }, []);

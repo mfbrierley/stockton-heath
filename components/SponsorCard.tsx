@@ -22,11 +22,11 @@ export default function SponsorCard() {
         </Text>
       </View>
       <Pressable
-        onPress={() => Linking.openURL("https://www.rowswoodtimber.co.uk")}
+        onPress={() => Linking.openURL("https://www.rowswoodtimber.com")}
       >
         <View style={styles.linkRow}>
           <Text style={[globalStyles.body, styles.link]}>
-            rowswoodtimber.co.uk
+            rowswoodtimber.com
           </Text>
           <Feather
             name="external-link"
@@ -61,7 +61,6 @@ const styles = StyleSheet.create({
   },
   link: {
     color: theme.colors.green700,
-    fontSize: 14,
   },
   locationRow: {
     flexDirection: "row",
@@ -70,7 +69,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   location: {
-    fontSize: 13,
     color: theme.colors.neutral800,
   },
 });

@@ -30,3 +30,8 @@ model BinSubscription {
   token String @unique
   uprn  String
 }
+
+model AppMeta {
+  key   String @id
+  value String
+}
