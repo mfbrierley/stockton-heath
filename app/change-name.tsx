@@ -95,7 +95,10 @@ export default function ChangeName() {
       </Pressable>
 
       <View style={{ gap: 8 }}>
-        <Text style={[globalStyles.heading, globalStyles.headingBold]}>
+        <Text
+          maxFontSizeMultiplier={theme.maxFontScale}
+          style={[globalStyles.heading, globalStyles.headingBold]}
+        >
           Change my name
         </Text>
         <Text style={[globalStyles.body, globalStyles.bodyMuted]}>

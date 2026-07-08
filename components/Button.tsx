@@ -87,6 +87,7 @@ export default function Button({
           {icon}
           {!square && children && (
             <Text
+              maxFontSizeMultiplier={theme.maxFontScale}
               style={[
                 styles.label,
                 size === "small" ? styles.labelSmall : undefined,

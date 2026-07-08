@@ -48,4 +48,7 @@ export const theme = {
   fontWeights: {
     regular: "400" as const,
   },
+  // Caps Dynamic Type / "Larger Text" scaling so accessible font sizes stay
+  // readable without breaking layouts. Pass to maxFontSizeMultiplier on Text.
+  maxFontScale: 1.4,
 };
