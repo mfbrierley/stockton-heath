@@ -114,7 +114,7 @@ function RootLayoutInner() {
   }, []);
 
   if (!fontsLoaded) {
-    // Solid green matches the native splash background — no visible transition
+    // Solid green matches the native splash background - no visible transition
     return <View style={{ flex: 1, backgroundColor: theme.colors.primary }} />;
   }
 

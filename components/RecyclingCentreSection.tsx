@@ -70,7 +70,7 @@ export default function RecyclingCentreSection() {
               ...globalStyles.statusBadge,
             }}
           >
-            <Ionicons name={icon as any} size={12} color={color} />
+            <Ionicons name={icon as any} size={14} color={color} />
             <Text
               style={[
                 globalStyles.body,
@@ -191,7 +191,7 @@ export default function RecyclingCentreSection() {
           >
             <Ionicons
               name={woolstonStatusConfig.icon as any}
-              size={12}
+              size={14}
               color={woolstonStatusConfig.color}
             />
             <Text

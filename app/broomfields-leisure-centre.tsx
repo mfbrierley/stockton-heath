@@ -1,8 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
 import Feather from "@expo/vector-icons/Feather";
-import { router } from "expo-router";
 import { Linking, Pressable, ScrollView, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import BackHeader from "../components/BackHeader";
 import Button from "../components/Button";
 import { globalStyles } from "./styles/globalStyles";
 import { theme } from "./styles/theme";
@@ -52,215 +50,206 @@ const FACILITIES: {
 ];
 
 export default function BroomfieldsLeisureCentre() {
-  const insets = useSafeAreaInsets();
-
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.colors.neutral200 }}
-      contentContainerStyle={{
-        padding: 16,
-        gap: 16,
-        paddingBottom: 40,
-        paddingTop: insets.top + 8,
-      }}
-    >
-      <Pressable onPress={() => router.back()} style={globalStyles.backButton}>
-        <Ionicons name="chevron-back" size={18} color={theme.colors.green800} />
-        <Text
+    <View style={{ flex: 1, backgroundColor: theme.colors.neutral200 }}>
+      <BackHeader />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          padding: 16,
+          gap: 16,
+          paddingBottom: 40,
+        }}
+      >
+        <View>
+          <Text style={[globalStyles.heading, globalStyles.headingBold]}>
+            Broomfields{"\n"}Leisure Centre
+          </Text>
+          <Text
+            style={[
+              globalStyles.body,
+              globalStyles.bodyMuted,
+              { marginTop: 6 },
+            ]}
+          >
+            Broomfields Road, Appleton, Warrington. WA4 3AE
+          </Text>
+        </View>
+
+        {/* Opening Hours */}
+        <View
           style={[
-            globalStyles.body,
-            globalStyles.bodyBold,
-            globalStyles.bodyLink,
+            globalStyles.card,
+            globalStyles.cardWhite,
+            globalStyles.cardList,
           ]}
         >
-          Back
-        </Text>
-      </Pressable>
-
-      <View>
-        <Text style={[globalStyles.heading, globalStyles.headingBold]}>
-          Broomfields{"\n"}Leisure Centre
-        </Text>
-        <Text
-          style={[globalStyles.body, globalStyles.bodyMuted, { marginTop: 6 }]}
-        >
-          Broomfields Road, Appleton, Warrington. WA4 3AE
-        </Text>
-      </View>
-
-      {/* Opening Hours */}
-      <View
-        style={[
-          globalStyles.card,
-          globalStyles.cardWhite,
-          globalStyles.cardList,
-        ]}
-      >
-        <View style={globalStyles.cardListHeader}>
-          <Text
-            style={[
-              globalStyles.body,
-              globalStyles.bodyBold,
-              globalStyles.cardListHeaderText,
-            ]}
-          >
-            Opening Hours
-          </Text>
-        </View>
-        <View style={{ paddingHorizontal: 24, paddingVertical: 12, gap: 8 }}>
-          {OPENING_HOURS.map(({ label, hours }, i, arr) => (
-            <View key={label}>
-              <View
-                style={[globalStyles.rowSpaceBetween, { paddingVertical: 6 }]}
-              >
-                <Text style={globalStyles.body}>{label}</Text>
-                <Text style={[globalStyles.body, globalStyles.bodyBold]}>
-                  {hours}
-                </Text>
+          <View style={globalStyles.cardListHeader}>
+            <Text
+              style={[
+                globalStyles.body,
+                globalStyles.bodyBold,
+                globalStyles.cardListHeaderText,
+              ]}
+            >
+              Opening Hours
+            </Text>
+          </View>
+          <View style={{ paddingHorizontal: 24, paddingVertical: 12, gap: 8 }}>
+            {OPENING_HOURS.map(({ label, hours }, i, arr) => (
+              <View key={label}>
+                <View
+                  style={[globalStyles.rowSpaceBetween, { paddingVertical: 6 }]}
+                >
+                  <Text style={globalStyles.body}>{label}</Text>
+                  <Text style={[globalStyles.body, globalStyles.bodyBold]}>
+                    {hours}
+                  </Text>
+                </View>
+                {i < arr.length - 1 && <View style={globalStyles.divider} />}
               </View>
-              {i < arr.length - 1 && <View style={globalStyles.divider} />}
-            </View>
-          ))}
+            ))}
+          </View>
         </View>
-      </View>
 
-      {/* Facilities */}
-      <View
-        style={[
-          globalStyles.card,
-          globalStyles.cardWhite,
-          globalStyles.cardList,
-        ]}
-      >
-        <View style={globalStyles.cardListHeader}>
-          <Text
-            style={[
-              globalStyles.body,
-              globalStyles.bodyBold,
-              globalStyles.cardListHeaderText,
-            ]}
-          >
-            Facilities
-          </Text>
-        </View>
-        <View style={{ paddingHorizontal: 24, paddingVertical: 8 }}>
-          {FACILITIES.map(({ icon, label, description }, i, arr) => (
-            <View key={label}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "flex-start",
-                  gap: 12,
-                  paddingVertical: 12,
-                }}
-              >
+        {/* Facilities */}
+        <View
+          style={[
+            globalStyles.card,
+            globalStyles.cardWhite,
+            globalStyles.cardList,
+          ]}
+        >
+          <View style={globalStyles.cardListHeader}>
+            <Text
+              style={[
+                globalStyles.body,
+                globalStyles.bodyBold,
+                globalStyles.cardListHeaderText,
+              ]}
+            >
+              Facilities
+            </Text>
+          </View>
+          <View style={{ paddingHorizontal: 24, paddingVertical: 8 }}>
+            {FACILITIES.map(({ icon, label, description }, i, arr) => (
+              <View key={label}>
                 <View
                   style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 8,
-                    backgroundColor: theme.colors.neutral200,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
+                    flexDirection: "row",
+                    alignItems: "flex-start",
+                    gap: 12,
+                    paddingVertical: 12,
                   }}
                 >
-                  <Feather
-                    name={icon}
-                    size={16}
-                    color={theme.colors.green800}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[globalStyles.body, globalStyles.bodyBold]}>
-                    {label}
-                  </Text>
-                  <Text
-                    style={[
-                      globalStyles.bodySmall,
-                      globalStyles.bodyMuted,
-                      { marginTop: 2 },
-                    ]}
+                  <View
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 8,
+                      backgroundColor: theme.colors.neutral200,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
                   >
-                    {description}
-                  </Text>
+                    <Feather
+                      name={icon}
+                      size={16}
+                      color={theme.colors.green800}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[globalStyles.body, globalStyles.bodyBold]}>
+                      {label}
+                    </Text>
+                    <Text
+                      style={[
+                        globalStyles.bodySmall,
+                        globalStyles.bodyMuted,
+                        { marginTop: 2 },
+                      ]}
+                    >
+                      {description}
+                    </Text>
+                  </View>
                 </View>
+                {i < arr.length - 1 && <View style={globalStyles.divider} />}
               </View>
-              {i < arr.length - 1 && <View style={globalStyles.divider} />}
-            </View>
-          ))}
+            ))}
+          </View>
         </View>
-      </View>
 
-      {/* Contact */}
-      <View
-        style={[
-          globalStyles.card,
-          globalStyles.cardWhite,
-          globalStyles.cardList,
-        ]}
-      >
-        <View style={globalStyles.cardListHeader}>
-          <Text
-            style={[
-              globalStyles.body,
-              globalStyles.bodyBold,
-              globalStyles.cardListHeaderText,
-            ]}
-          >
-            Contact
-          </Text>
-        </View>
-        <View style={{ paddingHorizontal: 24, paddingVertical: 8 }}>
-          <Pressable
-            onPress={() => Linking.openURL("tel:01925268768")}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-              paddingVertical: 12,
-            }}
-          >
-            <Feather name="phone" size={16} color={theme.colors.green800} />
-            <Text style={[globalStyles.body, globalStyles.bodyLink]}>
-              01925 268768
-            </Text>
-          </Pressable>
-          <View style={globalStyles.divider} />
-          <Pressable
-            onPress={() =>
-              Linking.openURL(
-                "mailto:broomfields_reception@livewirewarrington.org",
-              )
-            }
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-              paddingVertical: 12,
-            }}
-          >
-            <Feather name="mail" size={16} color={theme.colors.green800} />
+        {/* Contact */}
+        <View
+          style={[
+            globalStyles.card,
+            globalStyles.cardWhite,
+            globalStyles.cardList,
+          ]}
+        >
+          <View style={globalStyles.cardListHeader}>
             <Text
-              style={[globalStyles.body, globalStyles.bodyLink, { flex: 1 }]}
+              style={[
+                globalStyles.body,
+                globalStyles.bodyBold,
+                globalStyles.cardListHeaderText,
+              ]}
             >
-              broomfields_reception@livewirewarrington.org
+              Contact
             </Text>
-          </Pressable>
+          </View>
+          <View style={{ paddingHorizontal: 24, paddingVertical: 8 }}>
+            <Pressable
+              onPress={() => Linking.openURL("tel:01925268768")}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                paddingVertical: 12,
+              }}
+            >
+              <Feather name="phone" size={16} color={theme.colors.green800} />
+              <Text style={[globalStyles.body, globalStyles.bodyLink]}>
+                01925 268768
+              </Text>
+            </Pressable>
+            <View style={globalStyles.divider} />
+            <Pressable
+              onPress={() =>
+                Linking.openURL(
+                  "mailto:broomfields_reception@livewirewarrington.org",
+                )
+              }
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                paddingVertical: 12,
+              }}
+            >
+              <Feather name="mail" size={16} color={theme.colors.green800} />
+              <Text
+                style={[globalStyles.body, globalStyles.bodyLink, { flex: 1 }]}
+              >
+                broomfields_reception@livewirewarrington.org
+              </Text>
+            </Pressable>
+          </View>
         </View>
-      </View>
 
-      <Button
-        variant="primary"
-        width="full"
-        onPress={() =>
-          Linking.openURL(
-            "https://livewirewarrington.co.uk/leisure/leisure-centres/broomfields-leisure-centre/",
-          )
-        }
-      >
-        Find out more at livewirewarrington.co.uk
-      </Button>
-    </ScrollView>
+        <Button
+          variant="primary"
+          width="full"
+          onPress={() =>
+            Linking.openURL(
+              "https://livewirewarrington.co.uk/leisure/leisure-centres/broomfields-leisure-centre/",
+            )
+          }
+        >
+          Find out more at livewirewarrington.co.uk
+        </Button>
+      </ScrollView>
+    </View>
   );
 }

@@ -1,4 +1,4 @@
-# Copilot Instructions — Stockton Heath
+# Copilot Instructions - Stockton Heath
 
 ## Project Overview
 
@@ -144,7 +144,7 @@ model PushToken {
 
 - **Backend hosting:** DigitalOcean Droplet (migrated from Fly.io)
 - **Backend domain:** `https://stocktonheath.duckdns.org` (DuckDNS)
-- **Database:** Turso (remote libSQL) — `stockton-heath-mattbrierley.aws-eu-west-1.turso.io`
+- **Database:** Turso (remote libSQL) - `stockton-heath-mattbrierley.aws-eu-west-1.turso.io`
 - **Push notifications:** Expo Push Notification service (`exp.host/push/send`)
 - **App distribution:** EAS Build / EAS Submit
 - **Backend deploy shortcut:** `npm run deploy:backend` mirrors the manual SSH / Docker redeploy flow from the repo root

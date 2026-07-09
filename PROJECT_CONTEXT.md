@@ -1,8 +1,8 @@
-# Stockton Heath — Project Context
+# Stockton Heath - Project Context
 
 ## What is this?
 
-Stockton Heath is a personal side project — a community utility app for **Stockton Heath**, a village in Warrington, Cheshire, UK. It's built for residents of the area and provides useful local information and services in one place: weather, bin collections, fuel prices, bridge closure alerts, and local amenity info.
+Stockton Heath is a personal side project - a community utility app for **Stockton Heath**, a village in Warrington, Cheshire, UK. It's built for residents of the area and provides useful local information and services in one place: weather, bin collections, fuel prices, bridge closure alerts, and local amenity info.
 
 The app is distributed publicly on iOS via **TestFlight** and eventually the App Store. There is no web version.
 
@@ -10,7 +10,7 @@ The app is distributed publicly on iOS via **TestFlight** and eventually the App
 
 ## The App (Frontend)
 
-Built with **Expo / React Native** — a cross-platform mobile framework using React and TypeScript. Expo Router handles file-based navigation (similar to Next.js for React Native).
+Built with **Expo / React Native** - a cross-platform mobile framework using React and TypeScript. Expo Router handles file-based navigation (similar to Next.js for React Native).
 
 ### Screens
 
@@ -29,10 +29,10 @@ Built with **Expo / React Native** — a cross-platform mobile framework using R
 - **Bin collection lookup**: user enters their postcode, selects their address from a list, and the app fetches their upcoming bin collection schedule from Warrington Borough Council's public API
 - Address and bin data is cached locally so it loads instantly on repeat visits
 - Links to:
-  - **Recycling Centre** (Lymm Road, Thelwall) — full info screen with accepted items, permit items (DIY waste), and opening hours
-  - **Broomfields Leisure Centre** — opening hours, list of facilities (gym, pool, classes, football pitches, venue hire)
-  - **Stockton Heath Medical Centre** — opening hours, links to eConsult, appointments, prescriptions, test results
-  - **Stockton Heath Post Office** — opening hours, full list of available services (banking, parcels, bills, passport check & send)
+  - **Recycling Centre** (Lymm Road, Thelwall) - full info screen with accepted items, permit items (DIY waste), and opening hours
+  - **Broomfields Leisure Centre** - opening hours, list of facilities (gym, pool, classes, football pitches, venue hire)
+  - **Stockton Heath Medical Centre** - opening hours, links to eConsult, appointments, prescriptions, test results
+  - **Stockton Heath Post Office** - opening hours, full list of available services (banking, parcels, bills, passport check & send)
 
 #### Bridge Tab
 
@@ -45,7 +45,7 @@ Built with **Expo / React Native** — a cross-platform mobile framework using R
 
 - Colour scheme: dark green (`#1B4332`) as the primary, with warm neutral backgrounds (`#FCF6EF`)
 - Fonts: **NotoSerif** for headings, **Plus Jakarta Sans** for body text
-- Icons from `@expo/vector-icons` — Feather icon set is preferred
+- Icons from `@expo/vector-icons` - Feather icon set is preferred
 - Consistent design tokens defined in `app/styles/theme.ts`
 
 ---
@@ -77,8 +77,8 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 
 Uses **Turso** (a hosted libSQL/SQLite service) via **Prisma** ORM. Two tables:
 
-- `BridgeAlert` — stores each detected bridge closure tweet (tweetId, tweetText, postedAt, detectedAt)
-- `PushToken` — stores Expo push tokens for subscribed devices
+- `BridgeAlert` - stores each detected bridge closure tweet (tweetId, tweetText, postedAt, detectedAt)
+- `PushToken` - stores Expo push tokens for subscribed devices
 
 ### Background Jobs
 
@@ -95,7 +95,7 @@ Uses **Turso** (a hosted libSQL/SQLite service) via **Prisma** ORM. Two tables:
 - Domain: `https://stocktonheath.duckdns.org` (DuckDNS for dynamic DNS)
 - Runs as a plain **Docker container** (`docker run`) on port 3001
 - Deployed by SSH-ing into the droplet, pulling the latest code, rebuilding the Docker image, and restarting the container
-- No CI/CD pipeline — all deployments are manual
+- No CI/CD pipeline - all deployments are manual
 
 ### Frontend (iOS)
 
@@ -112,15 +112,15 @@ Uses **Turso** (a hosted libSQL/SQLite service) via **Prisma** ORM. Two tables:
 
 **Frontend (`.env`)**
 
-- `EXPO_PUBLIC_OPENWEATHER_API_KEY` — OpenWeather One Call API key
-- `EXPO_PUBLIC_BACKEND_URL` — Backend base URL (`https://stocktonheath.duckdns.org`)
+- `EXPO_PUBLIC_OPENWEATHER_API_KEY` - OpenWeather One Call API key
+- `EXPO_PUBLIC_BACKEND_URL` - Backend base URL (`https://stocktonheath.duckdns.org`)
 
 **Backend (`backend/.env`)**
 
-- `DATABASE_URL` — Turso libSQL URL
-- `TURSO_AUTH_TOKEN` — Turso authentication token
-- `TWITTERAPI_IO_API_KEY` — API key for twitterapi.io (used to read tweets)
-- `FUEL_FINDER_CLIENT_ID` / `FUEL_FINDER_CLIENT_SECRET` — Gov.uk Fuel Finder OAuth credentials
+- `DATABASE_URL` - Turso libSQL URL
+- `TURSO_AUTH_TOKEN` - Turso authentication token
+- `TWITTERAPI_IO_API_KEY` - API key for twitterapi.io (used to read tweets)
+- `FUEL_FINDER_CLIENT_ID` / `FUEL_FINDER_CLIENT_SECRET` - Gov.uk Fuel Finder OAuth credentials
 
 ---
 
@@ -145,9 +145,9 @@ Uses **Turso** (a hosted libSQL/SQLite service) via **Prisma** ORM. Two tables:
 
 Stockton Heath is a village suburb of Warrington in Cheshire, England. Key local landmarks referenced in the app:
 
-- **Latchford Swing Bridge** — a road bridge over the Manchester Ship Canal that closes periodically, causing disruption; the bridge alerts feature monitors this
-- **Broomfields Leisure Centre** — local council-run sports and fitness facility
-- **Stockton Heath Medical Centre** — local GP surgery
-- **Stockton Heath Post Office** — local post office on London Road
-- **Lymm Road Household Waste Recycling Centre** — the nearest tip/recycling centre in Thelwall
+- **Latchford Swing Bridge** - a road bridge over the Manchester Ship Canal that closes periodically, causing disruption; the bridge alerts feature monitors this
+- **Broomfields Leisure Centre** - local council-run sports and fitness facility
+- **Stockton Heath Medical Centre** - local GP surgery
+- **Stockton Heath Post Office** - local post office on London Road
+- **Lymm Road Household Waste Recycling Centre** - the nearest tip/recycling centre in Thelwall
 - Local petrol stations: ASDA Wilderspool Causeway, ESSO Latchford, Morrisons Stockton Heath

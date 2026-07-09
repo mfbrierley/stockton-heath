@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { Linking, Pressable, ScrollView, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Linking, ScrollView, Text, View } from "react-native";
+import BackHeader from "../components/BackHeader";
 import Button from "../components/Button";
 import { globalStyles } from "./styles/globalStyles";
 import { theme } from "./styles/theme";
@@ -181,140 +180,132 @@ function Section({ config }: { config: SectionConfig }) {
 }
 
 export default function RecyclingCentre() {
-  const insets = useSafeAreaInsets();
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.colors.neutral200 }}
-      contentContainerStyle={{
-        padding: 16,
-        gap: 16,
-        paddingBottom: 40,
-        paddingTop: insets.top + 8,
-      }}
-    >
-      <Pressable onPress={() => router.back()} style={globalStyles.backButton}>
-        <Ionicons name="chevron-back" size={18} color={theme.colors.green800} />
-        <Text
-          style={[
-            globalStyles.body,
-            globalStyles.bodyBold,
-            globalStyles.bodyLink,
-          ]}
-        >
-          Back
-        </Text>
-      </Pressable>
-
-      <View>
-        <Text style={[globalStyles.heading, globalStyles.headingBold]}>
-          Stockton Heath{"\n"}Community Recycling Centre
-        </Text>
-        <Text
-          style={[globalStyles.body, globalStyles.bodyMuted, { marginTop: 6 }]}
-        >
-          Sandy Lane, Stockton Heath
-        </Text>
-      </View>
-
-      <View
-        style={[
-          globalStyles.card,
-          globalStyles.cardWhite,
-          globalStyles.cardList,
-        ]}
+    <View style={{ flex: 1, backgroundColor: theme.colors.neutral200 }}>
+      <BackHeader />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          padding: 16,
+          gap: 16,
+          paddingBottom: 40,
+        }}
       >
-        <View style={globalStyles.cardListHeader}>
+        <View>
+          <Text style={[globalStyles.heading, globalStyles.headingBold]}>
+            Stockton Heath{"\n"}Community Recycling Centre
+          </Text>
           <Text
             style={[
               globalStyles.body,
-              globalStyles.bodyBold,
-              globalStyles.cardListHeaderText,
+              globalStyles.bodyMuted,
+              { marginTop: 6 },
             ]}
           >
-            Opening hours
+            Sandy Lane, Stockton Heath
           </Text>
         </View>
-        <View style={{ paddingHorizontal: 24, paddingVertical: 12, gap: 8 }}>
-          {[
-            { label: "Monday – Friday", hours: "10am – 4pm" },
-            { label: "Sat & Sun (Apr – Sep)", hours: "10am – 6pm" },
-            { label: "Sat & Sun (Oct – Mar)", hours: "10am – 4pm" },
-          ].map(({ label, hours }, i, arr) => (
-            <View key={label}>
-              <View
-                style={[globalStyles.rowSpaceBetween, { paddingVertical: 6 }]}
-              >
-                <Text style={globalStyles.body}>{label}</Text>
-                <Text style={[globalStyles.body, globalStyles.bodyBold]}>
-                  {hours}
-                </Text>
-              </View>
-              {i < arr.length - 1 && <View style={globalStyles.divider} />}
-            </View>
-          ))}
-        </View>
+
         <View
-          style={{
-            flexDirection: "row",
-            gap: 10,
-            alignItems: "flex-start",
-            backgroundColor: "#FEF3C7",
-            paddingHorizontal: 24,
-            paddingVertical: 14,
-          }}
+          style={[
+            globalStyles.card,
+            globalStyles.cardWhite,
+            globalStyles.cardList,
+          ]}
+        >
+          <View style={globalStyles.cardListHeader}>
+            <Text
+              style={[
+                globalStyles.body,
+                globalStyles.bodyBold,
+                globalStyles.cardListHeaderText,
+              ]}
+            >
+              Opening hours
+            </Text>
+          </View>
+          <View style={{ paddingHorizontal: 24, paddingVertical: 12, gap: 8 }}>
+            {[
+              { label: "Monday – Friday", hours: "10am – 4pm" },
+              { label: "Sat & Sun (Apr – Sep)", hours: "10am – 6pm" },
+              { label: "Sat & Sun (Oct – Mar)", hours: "10am – 4pm" },
+            ].map(({ label, hours }, i, arr) => (
+              <View key={label}>
+                <View
+                  style={[globalStyles.rowSpaceBetween, { paddingVertical: 6 }]}
+                >
+                  <Text style={globalStyles.body}>{label}</Text>
+                  <Text style={[globalStyles.body, globalStyles.bodyBold]}>
+                    {hours}
+                  </Text>
+                </View>
+                {i < arr.length - 1 && <View style={globalStyles.divider} />}
+              </View>
+            ))}
+          </View>
+          <View
+            style={{
+              flexDirection: "row",
+              gap: 10,
+              alignItems: "flex-start",
+              backgroundColor: "#FEF3C7",
+              paddingHorizontal: 24,
+              paddingVertical: 14,
+            }}
+          >
+            <Ionicons
+              name="information-circle"
+              size={16}
+              color={theme.colors.statusAmber}
+              style={{ marginTop: 1 }}
+            />
+            <Text style={[globalStyles.body, { flex: 1, fontSize: 13 }]}>
+              Closed on Christmas Day, Boxing Day and New Year&apos;s Day. Bank
+              holidays in April–September close at 6pm.
+            </Text>
+          </View>
+        </View>
+
+        {SECTIONS.map((section) => (
+          <Section key={section.title} config={section} />
+        ))}
+
+        <View
+          style={[
+            globalStyles.card,
+            {
+              backgroundColor: "#FEF3C7",
+              padding: 20,
+              flexDirection: "row",
+              gap: 12,
+              alignItems: "flex-start",
+            },
+          ]}
         >
           <Ionicons
             name="information-circle"
-            size={16}
+            size={20}
             color={theme.colors.statusAmber}
             style={{ marginTop: 1 }}
           />
-          <Text style={[globalStyles.body, { flex: 1, fontSize: 13 }]}>
-            Closed on Christmas Day, Boxing Day and New Year&apos;s Day. Bank
-            holidays in April–September close at 6pm.
+          <Text style={[globalStyles.body, { flex: 1, fontSize: 14 }]}>
+            Items in the permit section are not considered household waste, so
+            there are limits on how much you can bring to the recycling centre.
           </Text>
         </View>
-      </View>
 
-      {SECTIONS.map((section) => (
-        <Section key={section.title} config={section} />
-      ))}
-
-      <View
-        style={[
-          globalStyles.card,
-          {
-            backgroundColor: "#FEF3C7",
-            padding: 20,
-            flexDirection: "row",
-            gap: 12,
-            alignItems: "flex-start",
-          },
-        ]}
-      >
-        <Ionicons
-          name="information-circle"
-          size={20}
-          color={theme.colors.statusAmber}
-          style={{ marginTop: 1 }}
-        />
-        <Text style={[globalStyles.body, { flex: 1, fontSize: 14 }]}>
-          Items in the permit section are not considered household waste, so
-          there are limits on how much you can bring to the recycling centre.
-        </Text>
-      </View>
-
-      <Button
-        variant="primary"
-        width="full"
-        onPress={() =>
-          Linking.openURL(
-            "https://www.warrington.gov.uk/stockton-heath-community-recycling-centre",
-          )
-        }
-      >
-        More info on warrington.gov.uk
-      </Button>
-    </ScrollView>
+        <Button
+          variant="primary"
+          width="full"
+          onPress={() =>
+            Linking.openURL(
+              "https://www.warrington.gov.uk/stockton-heath-community-recycling-centre",
+            )
+          }
+        >
+          More info on warrington.gov.uk
+        </Button>
+      </ScrollView>
+    </View>
   );
 }

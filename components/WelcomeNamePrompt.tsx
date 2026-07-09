@@ -3,12 +3,11 @@ import { Image } from "expo-image";
 import { useEffect, useRef, useState } from "react";
 import {
   Animated,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -30,6 +29,10 @@ export function WelcomeNamePrompt({
 }: WelcomeNamePromptProps) {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const heroExpandedHeight = windowHeight * 0.34;
+  const heroFocusedHeight = windowHeight * 0.1;
+  const heroHeight = useRef(new Animated.Value(windowHeight * 0.34)).current;
   const [renderPrompt, setRenderPrompt] = useState(visible);
   const [firstName, setFirstName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +42,7 @@ export function WelcomeNamePrompt({
     if (visible) {
       setRenderPrompt(true);
       fadeAnim.setValue(1);
+      heroHeight.setValue(heroExpandedHeight);
       setFirstName("");
       setError(null);
       setSubmitting(false);
@@ -54,7 +58,7 @@ export function WelcomeNamePrompt({
       duration: 500,
       useNativeDriver: true,
     }).start(() => setRenderPrompt(false));
-  }, [visible, renderPrompt, fadeAnim]);
+  }, [visible, renderPrompt, fadeAnim, heroHeight, heroExpandedHeight]);
 
   if (!renderPrompt) {
     return null;
@@ -88,104 +92,113 @@ export function WelcomeNamePrompt({
     }
   };
 
+  const animateHero = (focused: boolean) => {
+    Animated.timing(heroHeight, {
+      toValue: focused ? heroFocusedHeight : heroExpandedHeight,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  };
+
   return (
     <Animated.View style={[styles.screen, { opacity: fadeAnim }]}>
-      <KeyboardAvoidingView
-        style={styles.flexFill}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      <Animated.View style={[styles.heroWrap, { height: heroHeight }]}>
         <Image
           source={require("../assets/images/bridgewater-canal.png")}
           style={[styles.hero, { paddingTop: insets.top }]}
           contentFit="cover"
         />
+      </Animated.View>
 
-        <View style={styles.sheetWrap}>
-          <ScrollView
-            contentContainerStyle={[
-              styles.sheetContent,
-              { paddingBottom: insets.bottom + 24 },
-            ]}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            bounces={false}
-          >
-            <View style={styles.headerBlock}>
+      <View style={styles.sheetWrap}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.sheetContent,
+            { paddingBottom: insets.bottom + 24 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <View style={styles.headerBlock}>
+            <Text
+              maxFontSizeMultiplier={theme.maxFontScale}
+              style={[
+                globalStyles.heading,
+                globalStyles.headingBold,
+                styles.title,
+              ]}
+            >
+              Welcome to{"\n"}Stockton Heath
+            </Text>
+          </View>
+
+          <View style={styles.formBlock}>
+            <View style={styles.formFields}>
               <Text
                 maxFontSizeMultiplier={theme.maxFontScale}
                 style={[
-                  globalStyles.heading,
-                  globalStyles.headingBold,
-                  styles.title,
+                  globalStyles.body,
+                  globalStyles.bodyBold,
+                  styles.question,
                 ]}
               >
-                Welcome to{"\n"}Stockton Heath
+                What&apos;s your first name?
               </Text>
-            </View>
-
-            <View style={styles.formBlock}>
-              <View style={styles.formFields}>
-                <Text
+              <View style={styles.inputWrap}>
+                <Feather
+                  name="user"
+                  size={22}
+                  color={theme.colors.neutral600}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  value={firstName}
+                  onChangeText={(value) => {
+                    setFirstName(value);
+                    if (error) setError(null);
+                  }}
+                  onFocus={() => animateHero(true)}
+                  onBlur={() => animateHero(false)}
+                  placeholder="Enter your first name"
+                  placeholderTextColor={theme.colors.neutral600}
+                  maxLength={MAX_FIRST_NAME_LENGTH + 2}
                   maxFontSizeMultiplier={theme.maxFontScale}
-                  style={[
-                    globalStyles.body,
-                    globalStyles.bodyBold,
-                    styles.question,
-                  ]}
-                >
-                  What&apos;s your first name?
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  style={styles.input}
+                />
+              </View>
+              {error && (
+                <Text style={[globalStyles.body, styles.errorText]}>
+                  {error}
                 </Text>
-                <View style={styles.inputWrap}>
-                  <Feather
-                    name="user"
-                    size={22}
-                    color={theme.colors.neutral600}
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    value={firstName}
-                    onChangeText={(value) => {
-                      setFirstName(value);
-                      if (error) setError(null);
-                    }}
-                    placeholder="Enter your first name"
-                    placeholderTextColor={theme.colors.neutral600}
-                    maxLength={MAX_FIRST_NAME_LENGTH + 2}
-                    maxFontSizeMultiplier={theme.maxFontScale}
-                    autoCapitalize="words"
-                    autoCorrect={false}
-                    style={styles.input}
-                  />
-                </View>
-                {error && (
-                  <Text style={[globalStyles.body, styles.errorText]}>
-                    {error}
-                  </Text>
-                )}
-              </View>
-
-              <View style={styles.buttonGroup}>
-                <Button
-                  variant="primary"
-                  width="full"
-                  loading={submitting}
-                  onPress={() => void handleContinue()}
-                >
-                  Continue
-                </Button>
-                <Button
-                  variant="ghost"
-                  width="full"
-                  disabled={submitting}
-                  onPress={() => void handleSkip()}
-                >
-                  I&apos;d prefer not to say
-                </Button>
-              </View>
+              )}
             </View>
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
+
+            <View style={styles.buttonGroup}>
+              <Button
+                variant="primary"
+                width="full"
+                loading={submitting}
+                onPress={() => void handleContinue()}
+              >
+                Continue
+              </Button>
+              <Button
+                variant="ghost"
+                width="full"
+                disabled={submitting}
+                onPress={() => void handleSkip()}
+                style={{ backgroundColor: theme.colors.neutral200 }}
+              >
+                I&apos;d prefer not to say
+              </Button>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
     </Animated.View>
   );
 }
@@ -195,16 +208,16 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: theme.colors.neutral100,
   },
-  flexFill: {
-    flex: 1,
+  heroWrap: {
+    width: "100%",
+    overflow: "hidden",
   },
   hero: {
-    flex: 0.68,
+    flex: 1,
     width: "100%",
-    minHeight: 180,
   },
   sheetWrap: {
-    flex: 1.5,
+    flex: 1,
     marginTop: -28,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
@@ -214,22 +227,22 @@ const styles = StyleSheet.create({
   sheetContent: {
     flexGrow: 1,
     paddingHorizontal: 32,
-    paddingTop: 20,
+    paddingTop: 32,
     paddingBottom: 32,
-    gap: 26,
+    gap: 22,
   },
   headerBlock: {
     alignItems: "center",
     gap: 12,
-    marginBottom: 16,
   },
   title: {
     textAlign: "center",
-    fontSize: 30,
-    lineHeight: 40,
+    fontSize: 36,
+    lineHeight: 46,
   },
   formBlock: {
-    flexGrow: 1,
+    gap: 22,
+    paddingTop: 24,
   },
   formFields: {
     gap: 18,
@@ -255,6 +268,8 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     paddingVertical: 14,
+    paddingRight: 34,
+    textAlign: "center",
     fontFamily: theme.fonts.body,
     fontSize: theme.fontSizes.body,
     color: theme.colors.neutral1000,
@@ -265,7 +280,5 @@ const styles = StyleSheet.create({
   },
   buttonGroup: {
     gap: 16,
-    marginTop: "auto",
-    paddingTop: 20,
   },
 });

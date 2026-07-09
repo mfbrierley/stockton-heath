@@ -50,5 +50,5 @@ export const theme = {
   },
   // Caps Dynamic Type / "Larger Text" scaling so accessible font sizes stay
   // readable without breaking layouts. Pass to maxFontSizeMultiplier on Text.
-  maxFontScale: 1.4,
+  maxFontScale: 1.2,
 };

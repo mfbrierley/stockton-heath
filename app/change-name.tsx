@@ -1,15 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import BackHeader from "../components/BackHeader";
 import { MAX_FIRST_NAME_LENGTH, useUserName } from "../hooks/useUserName";
 import { globalStyles } from "./styles/globalStyles";
 import { theme } from "./styles/theme";
@@ -17,7 +8,6 @@ import { theme } from "./styles/theme";
 const AUTO_SAVE_DELAY_MS = 500;
 
 export default function ChangeName() {
-  const insets = useSafeAreaInsets();
   const { firstName, setFirstName } = useUserName();
   const [nameInput, setNameInput] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -71,76 +61,67 @@ export default function ChangeName() {
   }, [firstName, nameInput, setFirstName]);
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.colors.neutral200 }}
-      contentContainerStyle={{
-        padding: 16,
-        gap: 16,
-        paddingBottom: 40,
-        paddingTop: insets.top + 8,
-      }}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Pressable onPress={() => router.back()} style={globalStyles.backButton}>
-        <Ionicons name="chevron-back" size={18} color={theme.colors.green800} />
-        <Text
-          style={[
-            globalStyles.body,
-            globalStyles.bodyBold,
-            globalStyles.bodyLink,
-          ]}
-        >
-          Back
-        </Text>
-      </Pressable>
-
-      <View style={{ gap: 8 }}>
-        <Text
-          maxFontSizeMultiplier={theme.maxFontScale}
-          style={[globalStyles.heading, globalStyles.headingBold]}
-        >
-          Change my name
-        </Text>
-        <Text style={[globalStyles.body, globalStyles.bodyMuted]}>
-          Update how your name appears in the greeting card. Changes are saved
-          automatically.
-        </Text>
-      </View>
-
-      <View
-        style={[globalStyles.card, globalStyles.cardWhite, styles.formCard]}
+    <View style={{ flex: 1, backgroundColor: theme.colors.neutral200 }}>
+      <BackHeader />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          padding: 16,
+          gap: 16,
+          paddingBottom: 40,
+        }}
+        keyboardShouldPersistTaps="handled"
       >
-        <Text style={[globalStyles.body, globalStyles.bodyBold]}>
-          First name
-        </Text>
-        <TextInput
-          value={nameInput}
-          onChangeText={setNameInput}
-          placeholder="Enter your first name"
-          placeholderTextColor={theme.colors.neutral600}
-          autoCapitalize="words"
-          autoCorrect={false}
-          style={styles.input}
-        />
-        <Text style={[globalStyles.body, styles.hint]}>
-          Keep it under {MAX_FIRST_NAME_LENGTH + 1} characters.
-        </Text>
-        {error ? (
-          <Text style={[globalStyles.body, styles.errorText]}>{error}</Text>
-        ) : null}
-        {status === "saving" ? (
-          <Text style={[globalStyles.body, styles.statusText]}>Saving...</Text>
-        ) : null}
-        {status === "saved" ? (
-          <Text style={[globalStyles.body, styles.statusText]}>Saved.</Text>
-        ) : null}
-        {status === "error" ? (
-          <Text style={[globalStyles.body, styles.errorText]}>
-            Could not save right now. Please try again.
+        <View style={{ gap: 8 }}>
+          <Text
+            maxFontSizeMultiplier={theme.maxFontScale}
+            style={[globalStyles.heading, globalStyles.headingBold]}
+          >
+            Change my name
           </Text>
-        ) : null}
-      </View>
-    </ScrollView>
+          <Text style={[globalStyles.body, globalStyles.bodyMuted]}>
+            Update how your name appears in the greeting card. Changes are saved
+            automatically.
+          </Text>
+        </View>
+
+        <View
+          style={[globalStyles.card, globalStyles.cardWhite, styles.formCard]}
+        >
+          <Text style={[globalStyles.body, globalStyles.bodyBold]}>
+            First name
+          </Text>
+          <TextInput
+            value={nameInput}
+            onChangeText={setNameInput}
+            placeholder="Enter your first name"
+            placeholderTextColor={theme.colors.neutral600}
+            autoCapitalize="words"
+            autoCorrect={false}
+            style={styles.input}
+          />
+          <Text style={[globalStyles.body, styles.hint]}>
+            Keep it under {MAX_FIRST_NAME_LENGTH + 1} characters.
+          </Text>
+          {error ? (
+            <Text style={[globalStyles.body, styles.errorText]}>{error}</Text>
+          ) : null}
+          {status === "saving" ? (
+            <Text style={[globalStyles.body, styles.statusText]}>
+              Saving...
+            </Text>
+          ) : null}
+          {status === "saved" ? (
+            <Text style={[globalStyles.body, styles.statusText]}>Saved.</Text>
+          ) : null}
+          {status === "error" ? (
+            <Text style={[globalStyles.body, styles.errorText]}>
+              Could not save right now. Please try again.
+            </Text>
+          ) : null}
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 

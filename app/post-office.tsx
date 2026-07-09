@@ -1,8 +1,7 @@
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Feather from "@expo/vector-icons/Feather";
-import { router } from "expo-router";
-import { Linking, Pressable, ScrollView, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Linking, ScrollView, Text, View } from "react-native";
+import BackHeader from "../components/BackHeader";
 import Button from "../components/Button";
 import { globalStyles } from "./styles/globalStyles";
 import { theme } from "./styles/theme";
@@ -81,173 +80,168 @@ const SERVICES: {
 ];
 
 export default function PostOffice() {
-  const insets = useSafeAreaInsets();
-
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.colors.neutral200 }}
-      contentContainerStyle={{
-        padding: 16,
-        gap: 16,
-        paddingBottom: 40,
-        paddingTop: insets.top + 8,
-      }}
-    >
-      <Pressable onPress={() => router.back()} style={globalStyles.backButton}>
-        <Ionicons name="chevron-back" size={18} color={theme.colors.green800} />
-        <Text
+    <View style={{ flex: 1, backgroundColor: theme.colors.neutral200 }}>
+      <BackHeader />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          padding: 16,
+          gap: 16,
+          paddingBottom: 40,
+        }}
+      >
+        <View>
+          <Text style={[globalStyles.heading, globalStyles.headingBold]}>
+            Stockton Heath{"\n"}Post Office
+          </Text>
+          <Text
+            style={[
+              globalStyles.body,
+              globalStyles.bodyMuted,
+              { marginTop: 6 },
+            ]}
+          >
+            49 Walton Road, Stockton Heath, Warrington. WA4 6NW
+          </Text>
+        </View>
+
+        {/* Opening Hours */}
+        <View
           style={[
-            globalStyles.body,
-            globalStyles.bodyBold,
-            globalStyles.bodyLink,
+            globalStyles.card,
+            globalStyles.cardWhite,
+            globalStyles.cardList,
           ]}
         >
-          Back
-        </Text>
-      </Pressable>
-
-      <View>
-        <Text style={[globalStyles.heading, globalStyles.headingBold]}>
-          Stockton Heath{"\n"}Post Office
-        </Text>
-        <Text
-          style={[globalStyles.body, globalStyles.bodyMuted, { marginTop: 6 }]}
-        >
-          49 Walton Road, Stockton Heath, Warrington. WA4 6NW
-        </Text>
-      </View>
-
-      {/* Opening Hours */}
-      <View
-        style={[
-          globalStyles.card,
-          globalStyles.cardWhite,
-          globalStyles.cardList,
-        ]}
-      >
-        <View style={globalStyles.cardListHeader}>
-          <Text
-            style={[
-              globalStyles.body,
-              globalStyles.bodyBold,
-              globalStyles.cardListHeaderText,
-            ]}
-          >
-            Opening Hours
-          </Text>
-        </View>
-        <View style={{ paddingHorizontal: 24, paddingVertical: 12, gap: 8 }}>
-          {OPENING_HOURS.map(({ label, hours }, i, arr) => (
-            <View key={label}>
-              <View
-                style={[globalStyles.rowSpaceBetween, { paddingVertical: 6 }]}
-              >
-                <Text style={globalStyles.body}>{label}</Text>
-                {hours ? (
-                  <Text style={[globalStyles.body, globalStyles.bodyBold]}>
-                    {hours}
-                  </Text>
-                ) : (
-                  <Text
-                    style={[
-                      globalStyles.body,
-                      globalStyles.bodyBold,
-                      { color: theme.colors.statusRed },
-                    ]}
-                  >
-                    Closed
-                  </Text>
-                )}
-              </View>
-              {i < arr.length - 1 && <View style={globalStyles.divider} />}
-            </View>
-          ))}
-        </View>
-      </View>
-
-      {/* Services */}
-      <View
-        style={[
-          globalStyles.card,
-          globalStyles.cardWhite,
-          globalStyles.cardList,
-        ]}
-      >
-        <View style={globalStyles.cardListHeader}>
-          <Text
-            style={[
-              globalStyles.body,
-              globalStyles.bodyBold,
-              globalStyles.cardListHeaderText,
-            ]}
-          >
-            Services
-          </Text>
-          <Text
-            style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 15 }]}
-          >
-            Services
-          </Text>
-        </View>
-        <View style={{ paddingHorizontal: 24, paddingVertical: 8 }}>
-          {SERVICES.map(({ icon, category, items }, i, arr) => (
-            <View key={category}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "flex-start",
-                  gap: 12,
-                  paddingVertical: 12,
-                }}
-              >
+          <View style={globalStyles.cardListHeader}>
+            <Text
+              style={[
+                globalStyles.body,
+                globalStyles.bodyBold,
+                globalStyles.cardListHeaderText,
+              ]}
+            >
+              Opening Hours
+            </Text>
+          </View>
+          <View style={{ paddingHorizontal: 24, paddingVertical: 12, gap: 8 }}>
+            {OPENING_HOURS.map(({ label, hours }, i, arr) => (
+              <View key={label}>
                 <View
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 8,
-                    backgroundColor: theme.colors.neutral200,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
+                  style={[globalStyles.rowSpaceBetween, { paddingVertical: 6 }]}
                 >
-                  {icon}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[globalStyles.body, globalStyles.bodyBold]}>
-                    {category}
-                  </Text>
-                  {items.map((item) => (
+                  <Text style={globalStyles.body}>{label}</Text>
+                  {hours ? (
+                    <Text style={[globalStyles.body, globalStyles.bodyBold]}>
+                      {hours}
+                    </Text>
+                  ) : (
                     <Text
-                      key={item}
                       style={[
-                        globalStyles.bodySmall,
-                        globalStyles.bodyMuted,
-                        { marginTop: 2 },
+                        globalStyles.body,
+                        globalStyles.bodyBold,
+                        { color: theme.colors.statusRed },
                       ]}
                     >
-                      {item}
+                      Closed
                     </Text>
-                  ))}
+                  )}
                 </View>
+                {i < arr.length - 1 && <View style={globalStyles.divider} />}
               </View>
-              {i < arr.length - 1 && <View style={globalStyles.divider} />}
-            </View>
-          ))}
+            ))}
+          </View>
         </View>
-      </View>
 
-      <Button
-        variant="primary"
-        width="full"
-        onPress={() =>
-          Linking.openURL(
-            "https://www.postoffice.co.uk/branch-finder/3194345/stockton-heath",
-          )
-        }
-      >
-        Find out more at postoffice.co.uk
-      </Button>
-    </ScrollView>
+        {/* Services */}
+        <View
+          style={[
+            globalStyles.card,
+            globalStyles.cardWhite,
+            globalStyles.cardList,
+          ]}
+        >
+          <View style={globalStyles.cardListHeader}>
+            <Text
+              style={[
+                globalStyles.body,
+                globalStyles.bodyBold,
+                globalStyles.cardListHeaderText,
+              ]}
+            >
+              Services
+            </Text>
+            <Text
+              style={[
+                globalStyles.body,
+                globalStyles.bodyBold,
+                { fontSize: 15 },
+              ]}
+            >
+              Services
+            </Text>
+          </View>
+          <View style={{ paddingHorizontal: 24, paddingVertical: 8 }}>
+            {SERVICES.map(({ icon, category, items }, i, arr) => (
+              <View key={category}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "flex-start",
+                    gap: 12,
+                    paddingVertical: 12,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 8,
+                      backgroundColor: theme.colors.neutral200,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {icon}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[globalStyles.body, globalStyles.bodyBold]}>
+                      {category}
+                    </Text>
+                    {items.map((item) => (
+                      <Text
+                        key={item}
+                        style={[
+                          globalStyles.bodySmall,
+                          globalStyles.bodyMuted,
+                          { marginTop: 2 },
+                        ]}
+                      >
+                        {item}
+                      </Text>
+                    ))}
+                  </View>
+                </View>
+                {i < arr.length - 1 && <View style={globalStyles.divider} />}
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <Button
+          variant="primary"
+          width="full"
+          onPress={() =>
+            Linking.openURL(
+              "https://www.postoffice.co.uk/branch-finder/3194345/stockton-heath",
+            )
+          }
+        >
+          Find out more at postoffice.co.uk
+        </Button>
+      </ScrollView>
+    </View>
   );
 }

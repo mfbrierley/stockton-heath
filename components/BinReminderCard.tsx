@@ -18,7 +18,12 @@ export default function BinReminderCard({ onPress }: BinReminderCardProps) {
       <Text style={[globalStyles.body, styles.body]}>
         Get reminders for your bin collection so you are always ready.
       </Text>
-      <Button variant="primary" width="full" onPress={onPress}>
+      <Button
+        variant="primary"
+        width="full"
+        onPress={onPress}
+        style={{ marginTop: 8 }}
+      >
         Set up bin reminders
       </Button>
     </View>

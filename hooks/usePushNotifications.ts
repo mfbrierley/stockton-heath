@@ -25,7 +25,7 @@ export const registerForPushNotifications =
       finalStatus = status;
     }
 
-    // Permission was denied by the user — callers should surface a Settings prompt.
+    // Permission was denied by the user - callers should surface a Settings prompt.
     if (finalStatus !== "granted") return { granted: false, token: null };
 
     // From here permission IS granted; any failure is transient/config-related,

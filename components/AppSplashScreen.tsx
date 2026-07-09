@@ -33,10 +33,12 @@ export function AppSplashScreen({ visible, onHidden }: Props) {
         style={StyleSheet.absoluteFill}
       />
       <View style={styles.content}>
-        <Text style={styles.title}>StocktonHeath</Text>
+        <Text allowFontScaling={false} style={styles.title}>
+          StocktonHeath
+        </Text>
         <View style={styles.sponsorContainer}>
           <Text style={styles.sponsoredBy}>sponsored by</Text>
-          <RowswoodLogo width={200} height={60} />
+          <RowswoodLogo width={180} height={60} />
         </View>
       </View>
     </Animated.View>

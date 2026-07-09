@@ -142,12 +142,12 @@ export function WeatherSection({
         hour: "2-digit",
         minute: "2-digit",
       })
-    : "—";
+    : "-";
 
   const chanceOfRain =
     data?.hourly?.[0]?.pop !== undefined
       ? `${Math.round(data.hourly[0].pop * 100)}%`
-      : "—";
+      : "-";
 
   return (
     <View>
@@ -196,7 +196,7 @@ export function WeatherSection({
                 <Feather name="wind" size={24} color={theme.colors.green500} />
               }
               label="WIND SPEED"
-              value={windMph !== undefined ? `${windMph} mph` : "—"}
+              value={windMph !== undefined ? `${windMph} mph` : "-"}
               subText={
                 windMph !== undefined ? getWindLevel(windMph).label : undefined
               }

@@ -1,8 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
 import Feather from "@expo/vector-icons/Feather";
-import { router } from "expo-router";
-import { Pressable, ScrollView, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Linking, ScrollView, Text, View } from "react-native";
+import BackHeader from "../components/BackHeader";
 import { globalStyles } from "./styles/globalStyles";
 import { theme } from "./styles/theme";
 
@@ -15,12 +13,12 @@ const FAQS: { question: string; answer: string }[] = [
   {
     question: "How do I get bridge closure alerts?",
     answer:
-      "Go to the Bridge tab and tap 'Get notified'. You'll be asked to allow notifications — once enabled, you'll receive a push notification whenever a new swing bridge closure is detected.",
+      "Go to the Bridge tab and tap 'Get notified'. You'll be asked to allow notifications - once enabled, you'll receive a push notification whenever a new swing bridge closure is detected.",
   },
   {
     question: "Can I get a reminder before my bin collection?",
     answer:
-      "Yes — on the Services tab, after looking up your address, you can enable bin collection reminders. You'll get a notification the evening before each collection so you don't forget to put your bins out.",
+      "Yes - on the Services tab, after looking up your address, you can enable bin collection reminders. You'll get a notification the evening before each collection so you don't forget to put your bins out.",
   },
   {
     question: "How current are the fuel prices?",
@@ -126,143 +124,145 @@ function TroubleshootItem({
 }
 
 export default function Help() {
-  const insets = useSafeAreaInsets();
-
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.colors.neutral200 }}
-      contentContainerStyle={{
-        padding: 16,
-        gap: 16,
-        paddingBottom: 40,
-        paddingTop: insets.top + 8,
-      }}
-    >
-      <Pressable onPress={() => router.back()} style={globalStyles.backButton}>
-        <Ionicons name="chevron-back" size={18} color={theme.colors.green800} />
-        <Text
+    <View style={{ flex: 1, backgroundColor: theme.colors.neutral200 }}>
+      <BackHeader />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          padding: 16,
+          gap: 16,
+          paddingBottom: 40,
+        }}
+      >
+        <View>
+          <Text style={[globalStyles.heading, globalStyles.headingBold]}>
+            Help
+          </Text>
+          <Text
+            style={[
+              globalStyles.body,
+              globalStyles.bodyMuted,
+              { marginTop: 6 },
+            ]}
+          >
+            Answers to common questions and fixes for known issues.
+          </Text>
+        </View>
+
+        {/* Contact */}
+        <View
           style={[
-            globalStyles.body,
-            globalStyles.bodyBold,
-            globalStyles.bodyLink,
+            globalStyles.card,
+            globalStyles.cardWhite,
+            globalStyles.cardList,
           ]}
         >
-          Back
-        </Text>
-      </Pressable>
-
-      <View>
-        <Text style={[globalStyles.heading, globalStyles.headingBold]}>
-          Help
-        </Text>
-        <Text
-          style={[globalStyles.body, globalStyles.bodyMuted, { marginTop: 6 }]}
-        >
-          Answers to common questions and fixes for known issues.
-        </Text>
-      </View>
-
-      {/* Contact */}
-      <View
-        style={[
-          globalStyles.card,
-          globalStyles.cardWhite,
-          globalStyles.cardList,
-        ]}
-      >
-        <View style={globalStyles.cardListHeader}>
-          <Text
-            style={[
-              globalStyles.body,
-              globalStyles.bodyBold,
-              globalStyles.cardListHeaderText,
-            ]}
-          >
-            Get in Touch
-          </Text>
-        </View>
-        <View style={{ paddingHorizontal: 24, paddingVertical: 16, gap: 4 }}>
-          <Text style={[globalStyles.body, globalStyles.bodyMuted]}>
-            Have a question, spotted a bug, or want to suggest a new feature?
-            Get in touch — I&apos;d love to hear from you.
-          </Text>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 10,
-              marginTop: 8,
-            }}
-          >
-            <Feather name="mail" size={16} color={theme.colors.green700} />
-            <Text style={[globalStyles.body, globalStyles.bodyBold]}>
-              stocktonheathapp@gmail.com
+          <View style={globalStyles.cardListHeader}>
+            <Text
+              style={[
+                globalStyles.body,
+                globalStyles.bodyBold,
+                globalStyles.cardListHeaderText,
+              ]}
+            >
+              Get in Touch
             </Text>
           </View>
+          <View style={{ paddingHorizontal: 24, paddingVertical: 16, gap: 4 }}>
+            <Text style={[globalStyles.body, globalStyles.bodyMuted]}>
+              Have a question, spotted a bug, or want to suggest a new feature?
+              Get in touch - I&apos;d love to hear from you.
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 10,
+                marginTop: 8,
+              }}
+            >
+              <Feather name="mail" size={16} color={theme.colors.green700} />
+              <Text
+                style={[
+                  globalStyles.body,
+                  globalStyles.bodyBold,
+                  globalStyles.bodyLink,
+                ]}
+                onPress={() =>
+                  void Linking.openURL(
+                    "mailto:stocktonheathapp@gmail.com",
+                  ).catch(() => {})
+                }
+              >
+                stocktonheathapp@gmail.com
+              </Text>
+            </View>
+          </View>
         </View>
-      </View>
 
-      {/* FAQ */}
-      <View
-        style={[
-          globalStyles.card,
-          globalStyles.cardWhite,
-          globalStyles.cardList,
-        ]}
-      >
-        <View style={globalStyles.cardListHeader}>
-          <Text
-            style={[
-              globalStyles.body,
-              globalStyles.bodyBold,
-              globalStyles.cardListHeaderText,
-            ]}
-          >
-            Frequently Asked Questions
-          </Text>
+        {/* FAQ */}
+        <View
+          style={[
+            globalStyles.card,
+            globalStyles.cardWhite,
+            globalStyles.cardList,
+          ]}
+        >
+          <View style={globalStyles.cardListHeader}>
+            <Text
+              style={[
+                globalStyles.body,
+                globalStyles.bodyBold,
+                globalStyles.cardListHeaderText,
+              ]}
+            >
+              Frequently Asked Questions
+            </Text>
+          </View>
+          <View style={{ paddingHorizontal: 24 }}>
+            {FAQS.map((item, i) => (
+              <FAQItem
+                key={item.question}
+                question={item.question}
+                answer={item.answer}
+                isLast={i === FAQS.length - 1}
+              />
+            ))}
+          </View>
         </View>
-        <View style={{ paddingHorizontal: 24 }}>
-          {FAQS.map((item, i) => (
-            <FAQItem
-              key={item.question}
-              question={item.question}
-              answer={item.answer}
-              isLast={i === FAQS.length - 1}
-            />
-          ))}
-        </View>
-      </View>
 
-      {/* Troubleshooting */}
-      <View
-        style={[
-          globalStyles.card,
-          globalStyles.cardWhite,
-          globalStyles.cardList,
-        ]}
-      >
-        <View style={globalStyles.cardListHeader}>
-          <Text
-            style={[
-              globalStyles.body,
-              globalStyles.bodyBold,
-              globalStyles.cardListHeaderText,
-            ]}
-          >
-            Troubleshooting
-          </Text>
+        {/* Troubleshooting */}
+        <View
+          style={[
+            globalStyles.card,
+            globalStyles.cardWhite,
+            globalStyles.cardList,
+          ]}
+        >
+          <View style={globalStyles.cardListHeader}>
+            <Text
+              style={[
+                globalStyles.body,
+                globalStyles.bodyBold,
+                globalStyles.cardListHeaderText,
+              ]}
+            >
+              Troubleshooting
+            </Text>
+          </View>
+          <View style={{ paddingHorizontal: 24 }}>
+            {TROUBLESHOOTING.map((item, i) => (
+              <TroubleshootItem
+                key={item.issue}
+                issue={item.issue}
+                fix={item.fix}
+                isLast={i === TROUBLESHOOTING.length - 1}
+              />
+            ))}
+          </View>
         </View>
-        <View style={{ paddingHorizontal: 24 }}>
-          {TROUBLESHOOTING.map((item, i) => (
-            <TroubleshootItem
-              key={item.issue}
-              issue={item.issue}
-              fix={item.fix}
-              isLast={i === TROUBLESHOOTING.length - 1}
-            />
-          ))}
-        </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }

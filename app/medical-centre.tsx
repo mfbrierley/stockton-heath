@@ -1,8 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import Feather from "@expo/vector-icons/Feather";
-import { router } from "expo-router";
 import { Linking, Pressable, ScrollView, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import BackHeader from "../components/BackHeader";
 import Button from "../components/Button";
 import { globalStyles } from "./styles/globalStyles";
 import { theme } from "./styles/theme";
@@ -57,258 +56,249 @@ const SERVICES: {
 ];
 
 export default function MedicalCentre() {
-  const insets = useSafeAreaInsets();
-
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.colors.neutral200 }}
-      contentContainerStyle={{
-        padding: 16,
-        gap: 16,
-        paddingBottom: 40,
-        paddingTop: insets.top + 8,
-      }}
-    >
-      <Pressable onPress={() => router.back()} style={globalStyles.backButton}>
-        <Ionicons name="chevron-back" size={18} color={theme.colors.green800} />
-        <Text
+    <View style={{ flex: 1, backgroundColor: theme.colors.neutral200 }}>
+      <BackHeader />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          padding: 16,
+          gap: 16,
+          paddingBottom: 40,
+        }}
+      >
+        <View>
+          <Text style={[globalStyles.heading, globalStyles.headingBold]}>
+            Stockton Heath{"\n"}Medical Centre
+          </Text>
+          <Text
+            style={[
+              globalStyles.body,
+              globalStyles.bodyMuted,
+              { marginTop: 6 },
+            ]}
+          >
+            The Forge, London Road, Stockton Heath, Warrington. WA4 6HJ
+          </Text>
+        </View>
+
+        {/* Contact */}
+        <View
           style={[
-            globalStyles.body,
-            globalStyles.bodyBold,
-            globalStyles.bodyLink,
+            globalStyles.card,
+            globalStyles.cardWhite,
+            globalStyles.cardList,
           ]}
         >
-          Back
-        </Text>
-      </Pressable>
-
-      <View>
-        <Text style={[globalStyles.heading, globalStyles.headingBold]}>
-          Stockton Heath{"\n"}Medical Centre
-        </Text>
-        <Text
-          style={[globalStyles.body, globalStyles.bodyMuted, { marginTop: 6 }]}
-        >
-          The Forge, London Road, Stockton Heath, Warrington. WA4 6HJ
-        </Text>
-      </View>
-
-      {/* Contact */}
-      <View
-        style={[
-          globalStyles.card,
-          globalStyles.cardWhite,
-          globalStyles.cardList,
-        ]}
-      >
-        <View style={globalStyles.cardListHeader}>
-          <Text
-            style={[
-              globalStyles.body,
-              globalStyles.bodyBold,
-              globalStyles.cardListHeaderText,
-            ]}
-          >
-            Contact
-          </Text>
-        </View>
-        <View style={{ paddingHorizontal: 24, paddingVertical: 8 }}>
-          <Pressable
-            onPress={() => Linking.openURL("tel:01925604427")}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-              paddingVertical: 12,
-            }}
-          >
-            <Feather name="phone" size={16} color={theme.colors.green800} />
-            <Text style={[globalStyles.body, globalStyles.bodyLink]}>
-              01925 604427
+          <View style={globalStyles.cardListHeader}>
+            <Text
+              style={[
+                globalStyles.body,
+                globalStyles.bodyBold,
+                globalStyles.cardListHeaderText,
+              ]}
+            >
+              Contact
             </Text>
-          </Pressable>
-          <View style={globalStyles.divider} />
-          <Pressable
-            onPress={() => Linking.openURL("tel:111")}
+          </View>
+          <View style={{ paddingHorizontal: 24, paddingVertical: 8 }}>
+            <Pressable
+              onPress={() => Linking.openURL("tel:01925604427")}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                paddingVertical: 12,
+              }}
+            >
+              <Feather name="phone" size={16} color={theme.colors.green800} />
+              <Text style={[globalStyles.body, globalStyles.bodyLink]}>
+                01925 604427
+              </Text>
+            </Pressable>
+            <View style={globalStyles.divider} />
+            <Pressable
+              onPress={() => Linking.openURL("tel:111")}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                paddingVertical: 12,
+              }}
+            >
+              <Feather name="moon" size={16} color={theme.colors.neutral700} />
+              <View style={{ flex: 1 }}>
+                <Text style={[globalStyles.body, globalStyles.bodyLink]}>
+                  111
+                </Text>
+                <Text
+                  style={[
+                    globalStyles.bodySmall,
+                    globalStyles.bodyMuted,
+                    { marginTop: 1 },
+                  ]}
+                >
+                  Out of hours
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Opening Hours */}
+        <View
+          style={[
+            globalStyles.card,
+            globalStyles.cardWhite,
+            globalStyles.cardList,
+          ]}
+        >
+          <View style={globalStyles.cardListHeader}>
+            <Text
+              style={[
+                globalStyles.body,
+                globalStyles.bodyBold,
+                globalStyles.cardListHeaderText,
+              ]}
+            >
+              Opening Hours
+            </Text>
+          </View>
+          <View style={{ paddingHorizontal: 24, paddingVertical: 12, gap: 8 }}>
+            {OPENING_HOURS.map(({ label, hours }, i, arr) => (
+              <View key={label}>
+                <View
+                  style={[globalStyles.rowSpaceBetween, { paddingVertical: 6 }]}
+                >
+                  <Text style={globalStyles.body}>{label}</Text>
+                  {hours ? (
+                    <Text style={[globalStyles.body, globalStyles.bodyBold]}>
+                      {hours}
+                    </Text>
+                  ) : (
+                    <Text
+                      style={[
+                        globalStyles.body,
+                        globalStyles.bodyBold,
+                        { color: theme.colors.statusRed },
+                      ]}
+                    >
+                      Closed
+                    </Text>
+                  )}
+                </View>
+                {i < arr.length - 1 && <View style={globalStyles.divider} />}
+              </View>
+            ))}
+          </View>
+          <View
             style={{
               flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-              paddingVertical: 12,
+              gap: 10,
+              alignItems: "flex-start",
+              backgroundColor: "#FEF3C7",
+              paddingHorizontal: 24,
+              paddingVertical: 14,
             }}
           >
-            <Feather name="moon" size={16} color={theme.colors.neutral700} />
-            <View style={{ flex: 1 }}>
-              <Text style={[globalStyles.body, globalStyles.bodyLink]}>
-                111
-              </Text>
-              <Text
-                style={[
-                  globalStyles.bodySmall,
-                  globalStyles.bodyMuted,
-                  { marginTop: 1 },
-                ]}
-              >
-                Out of hours
-              </Text>
-            </View>
-          </Pressable>
+            <Ionicons
+              name="information-circle"
+              size={16}
+              color={theme.colors.statusAmber}
+              style={{ marginTop: 1 }}
+            />
+            <Text style={[globalStyles.body, { flex: 1, fontSize: 13 }]}>
+              When the surgery is closed, call 111 for out-of-hours medical
+              advice.
+            </Text>
+          </View>
         </View>
-      </View>
 
-      {/* Opening Hours */}
-      <View
-        style={[
-          globalStyles.card,
-          globalStyles.cardWhite,
-          globalStyles.cardList,
-        ]}
-      >
-        <View style={globalStyles.cardListHeader}>
-          <Text
-            style={[
-              globalStyles.body,
-              globalStyles.bodyBold,
-              globalStyles.cardListHeaderText,
-            ]}
-          >
-            Opening Hours
-          </Text>
-        </View>
-        <View style={{ paddingHorizontal: 24, paddingVertical: 12, gap: 8 }}>
-          {OPENING_HOURS.map(({ label, hours }, i, arr) => (
-            <View key={label}>
-              <View
-                style={[globalStyles.rowSpaceBetween, { paddingVertical: 6 }]}
-              >
-                <Text style={globalStyles.body}>{label}</Text>
-                {hours ? (
-                  <Text style={[globalStyles.body, globalStyles.bodyBold]}>
-                    {hours}
-                  </Text>
-                ) : (
-                  <Text
-                    style={[
-                      globalStyles.body,
-                      globalStyles.bodyBold,
-                      { color: theme.colors.statusRed },
-                    ]}
-                  >
-                    Closed
-                  </Text>
-                )}
-              </View>
-              {i < arr.length - 1 && <View style={globalStyles.divider} />}
-            </View>
-          ))}
-        </View>
+        {/* Online Services */}
         <View
-          style={{
-            flexDirection: "row",
-            gap: 10,
-            alignItems: "flex-start",
-            backgroundColor: "#FEF3C7",
-            paddingHorizontal: 24,
-            paddingVertical: 14,
-          }}
+          style={[
+            globalStyles.card,
+            globalStyles.cardWhite,
+            globalStyles.cardList,
+          ]}
         >
-          <Ionicons
-            name="information-circle"
-            size={16}
-            color={theme.colors.statusAmber}
-            style={{ marginTop: 1 }}
-          />
-          <Text style={[globalStyles.body, { flex: 1, fontSize: 13 }]}>
-            When the surgery is closed, call 111 for out-of-hours medical
-            advice.
-          </Text>
-        </View>
-      </View>
-
-      {/* Online Services */}
-      <View
-        style={[
-          globalStyles.card,
-          globalStyles.cardWhite,
-          globalStyles.cardList,
-        ]}
-      >
-        <View style={globalStyles.cardListHeader}>
-          <Text
-            style={[
-              globalStyles.body,
-              globalStyles.bodyBold,
-              globalStyles.cardListHeaderText,
-            ]}
-          >
-            Online Services
-          </Text>
-        </View>
-        <View style={{ paddingHorizontal: 24, paddingVertical: 8 }}>
-          {SERVICES.map(({ icon, label, description, url }, i, arr) => (
-            <View key={label}>
-              <Pressable
-                onPress={() => Linking.openURL(url)}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "flex-start",
-                  gap: 12,
-                  paddingVertical: 12,
-                }}
-              >
-                <View
+          <View style={globalStyles.cardListHeader}>
+            <Text
+              style={[
+                globalStyles.body,
+                globalStyles.bodyBold,
+                globalStyles.cardListHeaderText,
+              ]}
+            >
+              Online Services
+            </Text>
+          </View>
+          <View style={{ paddingHorizontal: 24, paddingVertical: 8 }}>
+            {SERVICES.map(({ icon, label, description, url }, i, arr) => (
+              <View key={label}>
+                <Pressable
+                  onPress={() => Linking.openURL(url)}
                   style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 8,
-                    backgroundColor: theme.colors.neutral200,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
+                    flexDirection: "row",
+                    alignItems: "flex-start",
+                    gap: 12,
+                    paddingVertical: 12,
                   }}
                 >
-                  <Feather
-                    name={icon}
-                    size={16}
-                    color={theme.colors.green800}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[globalStyles.body, globalStyles.bodyBold]}>
-                    {label}
-                  </Text>
-                  <Text
-                    style={[
-                      globalStyles.bodySmall,
-                      globalStyles.bodyMuted,
-                      { marginTop: 2 },
-                    ]}
+                  <View
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 8,
+                      backgroundColor: theme.colors.neutral200,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
                   >
-                    {description}
-                  </Text>
-                </View>
-                <Feather
-                  name="chevron-right"
-                  size={16}
-                  color={theme.colors.neutral600}
-                  style={{ marginTop: 9 }}
-                />
-              </Pressable>
-              {i < arr.length - 1 && <View style={globalStyles.divider} />}
-            </View>
-          ))}
+                    <Feather
+                      name={icon}
+                      size={16}
+                      color={theme.colors.green800}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[globalStyles.body, globalStyles.bodyBold]}>
+                      {label}
+                    </Text>
+                    <Text
+                      style={[
+                        globalStyles.bodySmall,
+                        globalStyles.bodyMuted,
+                        { marginTop: 2 },
+                      ]}
+                    >
+                      {description}
+                    </Text>
+                  </View>
+                  <Feather
+                    name="chevron-right"
+                    size={16}
+                    color={theme.colors.neutral600}
+                    style={{ marginTop: 9 }}
+                  />
+                </Pressable>
+                {i < arr.length - 1 && <View style={globalStyles.divider} />}
+              </View>
+            ))}
+          </View>
         </View>
-      </View>
 
-      <Button
-        variant="primary"
-        width="full"
-        onPress={() =>
-          Linking.openURL("https://www.stocktonheathmedicalcentre.co.uk/")
-        }
-      >
-        Find out more at stocktonheathmedicalcentre.co.uk
-      </Button>
-    </ScrollView>
+        <Button
+          variant="primary"
+          width="full"
+          onPress={() =>
+            Linking.openURL("https://www.stocktonheathmedicalcentre.co.uk/")
+          }
+        >
+          Find out more at stocktonheathmedicalcentre.co.uk
+        </Button>
+      </ScrollView>
+    </View>
   );
 }

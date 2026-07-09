@@ -25,7 +25,7 @@ export const globalStyles = StyleSheet.create({
   cardWhite: {
     backgroundColor: theme.colors.white,
   },
-  /** Strips padding from a card — use for list-style content cards */
+  /** Strips padding from a card - use for list-style content cards */
   cardList: {
     padding: 0,
     overflow: "hidden",
@@ -113,11 +113,11 @@ export const globalStyles = StyleSheet.create({
   bodyLight: {
     color: theme.colors.neutral200,
   },
-  /** Muted text — neutral700 colour modifier */
+  /** Muted text - neutral700 colour modifier */
   bodyMuted: {
     color: theme.colors.neutral700,
   },
-  /** Link-style text — green800 colour modifier */
+  /** Link-style text - green800 colour modifier */
   bodyLink: {
     color: theme.colors.green800,
   },
@@ -139,15 +139,15 @@ export const globalStyles = StyleSheet.create({
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 6,
     borderRadius: 20,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
   statusBadgeText: {
     fontFamily: theme.fonts.bodyBold,
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 13,
+    lineHeight: 16,
   },
 
   // ─── Navigation ───────────────────────────────────────────

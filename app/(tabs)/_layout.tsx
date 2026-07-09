@@ -9,6 +9,7 @@ const customHeader = () => {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
       <Text
+        allowFontScaling={false}
         style={[
           globalStyles.heading,
           globalStyles.headingBold,

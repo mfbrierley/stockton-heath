@@ -180,7 +180,7 @@ export default function Bridge() {
         <Text
           style={[globalStyles.body, globalStyles.bodyBold, { fontSize: 18 }]}
         >
-          Last 30 days activity
+          This month&apos;s activity
         </Text>
         <BridgeClosuresChart period={30} />
       </View>

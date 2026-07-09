@@ -113,7 +113,7 @@ async function syncFuelPrices(): Promise<void> {
       if (!res.ok) {
         const body = await res.text().catch(() => "(unreadable)");
         console.error(
-          `Fuel Finder prices request failed: ${res.status} — ${body}`,
+          `Fuel Finder prices request failed: ${res.status} - ${body}`,
         );
         syncFailed = true;
         break;
@@ -144,7 +144,7 @@ async function syncFuelPrices(): Promise<void> {
 
     if (syncFailed) {
       console.warn(
-        `[${new Date().toISOString()}] Fuel price sync failed — retaining last cached data.`,
+        `[${new Date().toISOString()}] Fuel price sync failed - retaining last cached data.`,
       );
       return;
     }
@@ -256,7 +256,7 @@ const sendExpoPush = async (
 
       if (!response.ok) {
         console.error(
-          `Expo push request failed: ${response.status} —`,
+          `Expo push request failed: ${response.status} -`,
           await response.text().catch(() => "(unreadable)"),
         );
         failed += batch.length;
@@ -312,7 +312,7 @@ const sendPushNotifications = async (alert: BridgeAlert): Promise<void> => {
   const tokens = await prisma.bridgeSubscription.findMany();
   if (tokens.length === 0) {
     console.log(
-      "No bridge subscriptions registered — skipping notification send.",
+      "No bridge subscriptions registered - skipping notification send.",
     );
     return;
   }
@@ -658,7 +658,7 @@ const getLastBinNotificationDate = async (): Promise<string | null> => {
     return row?.value ?? null;
   } catch (error) {
     console.warn(
-      "AppMeta unavailable — using in-memory bin dedupe:",
+      "AppMeta unavailable - using in-memory bin dedupe:",
       error instanceof Error ? error.message : error,
     );
     return lastBinNotificationDateMemory;
@@ -705,7 +705,7 @@ const checkBinNotifications = async (): Promise<void> => {
   try {
     const subscriptions = await prisma.binSubscription.findMany();
     if (subscriptions.length === 0) {
-      console.log("No bin subscriptions — skipping.");
+      console.log("No bin subscriptions - skipping.");
       return;
     }
 

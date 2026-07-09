@@ -23,7 +23,12 @@ export default function BridgeAlertsCard({ onPress }: BridgeAlertsCardProps) {
         Turn on alerts and get notified as soon as a swing bridge alert is
         posted.
       </Text>
-      <Button variant="primary" width="full" onPress={onPress}>
+      <Button
+        variant="primary"
+        width="full"
+        onPress={onPress}
+        style={{ marginTop: 8 }}
+      >
         Get swing bridge alerts
       </Button>
     </View>

@@ -61,7 +61,7 @@ export function LocalFuelSection() {
 
   function getPrice(station: StationPrices, fuelType: string): string {
     const entry = station.fuel_prices.find((p) => p.fuel_type === fuelType);
-    return entry ? `${entry.price}p` : "—";
+    return entry ? `${entry.price}p` : "-";
   }
 
   function getPriceValue(station: StationPrices, fuelType: string): number {
