@@ -123,7 +123,6 @@ export function WelcomeNamePrompt({
         >
           <View style={styles.headerBlock}>
             <Text
-              maxFontSizeMultiplier={theme.maxFontScale}
               style={[
                 globalStyles.heading,
                 globalStyles.headingBold,
@@ -137,7 +136,6 @@ export function WelcomeNamePrompt({
           <View style={styles.formBlock}>
             <View style={styles.formFields}>
               <Text
-                maxFontSizeMultiplier={theme.maxFontScale}
                 style={[
                   globalStyles.body,
                   globalStyles.bodyBold,
@@ -164,7 +162,6 @@ export function WelcomeNamePrompt({
                   placeholder="Enter your first name"
                   placeholderTextColor={theme.colors.neutral600}
                   maxLength={MAX_FIRST_NAME_LENGTH + 2}
-                  maxFontSizeMultiplier={theme.maxFontScale}
                   autoCapitalize="words"
                   autoCorrect={false}
                   style={styles.input}

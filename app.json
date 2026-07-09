@@ -57,6 +57,12 @@
         "projectId": "99721d3f-5cda-481a-bf9d-f4a170ea4c95"
       }
     },
-    "owner": "mattbrierley1"
+    "owner": "mattbrierley1",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/99721d3f-5cda-481a-bf9d-f4a170ea4c95"
+    }
   }
 }

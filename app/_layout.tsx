@@ -13,13 +13,39 @@ import * as Notifications from "expo-notifications";
 import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import type { ReactElement } from "react";
+import { cloneElement, useEffect, useRef, useState } from "react";
+import { Text, TextInput, View } from "react-native";
 import { AppSplashScreen } from "../components/AppSplashScreen";
 import { UserNameProvider, useUserName } from "../hooks/useUserName";
 import { theme } from "./styles/theme";
 
 export const ACTIVE_CLOSURE_KEY = "activeBridgeClosure";
+
+// Hard rule: text never scales with OS accessibility (Dynamic Type / "Larger
+// Text"). Patching the component's render forces `allowFontScaling: false` on
+// every Text/TextInput and cannot be overridden by a component-level prop,
+// unlike `defaultProps` (which is also being deprecated by React).
+type PatchableComponent = {
+  render?: (...args: unknown[]) => ReactElement<Record<string, unknown>>;
+  __noFontScalingPatched?: boolean;
+};
+
+const enforceNoFontScaling = (component: unknown) => {
+  const target = component as PatchableComponent;
+  if (target.__noFontScalingPatched) return; // avoid re-wrapping on fast refresh
+  const originalRender = target.render;
+  if (typeof originalRender !== "function") return;
+  target.render = function patchedRender(...args: unknown[]) {
+    return cloneElement(originalRender.apply(this, args), {
+      allowFontScaling: false,
+    });
+  };
+  target.__noFontScalingPatched = true;
+};
+
+enforceNoFontScaling(Text);
+enforceNoFontScaling(TextInput);
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
