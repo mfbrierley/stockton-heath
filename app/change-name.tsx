@@ -77,7 +77,7 @@ export default function ChangeName() {
             Change my name
           </Text>
           <Text style={[globalStyles.body, globalStyles.bodyMuted]}>
-            Update how your name appears in the greeting card. Changes are saved
+            Update how your name appears in the app. Changes are saved
             automatically.
           </Text>
         </View>

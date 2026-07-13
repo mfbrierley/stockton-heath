@@ -138,7 +138,7 @@ export default function BinNotificationSection({ uprn }: Props) {
       </Text>
       {enabled ? (
         <Button
-          variant="ghost"
+          variant="neutral"
           width="full"
           icon={
             <Feather name="bell-off" size={20} color={theme.colors.primary} />

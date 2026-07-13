@@ -56,11 +56,6 @@ export default function About() {
             - weather, bins, fuel prices, and bridge alerts, all in one place.
           </Text>
           <Text style={globalStyles.largeBody}>
-            It&apos;s built by me, Matt - a local resident. I built it just
-            because I thought it would be a good, handy thing for the community
-            I live in.
-          </Text>
-          <Text style={globalStyles.largeBody}>
             I hope this app is useful to you. If you have any feedback,
             suggestions, or just want to say hello, please feel free to reach
             out by email at{" "}

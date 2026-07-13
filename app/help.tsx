@@ -172,7 +172,7 @@ export default function Help() {
           <View style={{ paddingHorizontal: 24, paddingVertical: 16, gap: 4 }}>
             <Text style={[globalStyles.body, globalStyles.bodyMuted]}>
               Have a question, spotted a bug, or want to suggest a new feature?
-              Get in touch - I&apos;d love to hear from you.
+              Get in touch.
             </Text>
             <View
               style={{

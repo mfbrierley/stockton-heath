@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   dataCard: {
-    backgroundColor: theme.colors.neutral100,
+    backgroundColor: theme.colors.white,
     borderRadius: 16,
     padding: 16,
     gap: 12,

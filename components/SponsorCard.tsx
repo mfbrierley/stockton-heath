@@ -61,6 +61,7 @@ const styles = StyleSheet.create({
   },
   link: {
     color: theme.colors.green700,
+    paddingRight: 8,
   },
   locationRow: {
     flexDirection: "row",

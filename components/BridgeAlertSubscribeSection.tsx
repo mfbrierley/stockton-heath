@@ -31,12 +31,12 @@ export default function BridgeAlertSubscribeSection({
               { paddingBottom: 16 },
             ]}
           >
-            Get notified in advance!
+            Get notified when swing bridges are closing
           </Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <MaterialCommunityIcons
               name="bridge"
-              color={theme.colors.neutral500}
+              color={theme.colors.white}
               size={32}
             />
             <Text style={[globalStyles.body, { color: theme.colors.white }]}>
@@ -46,7 +46,7 @@ export default function BridgeAlertSubscribeSection({
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <MaterialCommunityIcons
               name="bridge"
-              color={theme.colors.neutral500}
+              color={theme.colors.white}
               size={32}
             />
             <Text style={[globalStyles.body, { color: theme.colors.white }]}>
@@ -63,7 +63,7 @@ export default function BridgeAlertSubscribeSection({
           >
             <MaterialCommunityIcons
               name="bridge"
-              color={theme.colors.neutral500}
+              color={theme.colors.white}
               size={32}
             />
             <Text style={[globalStyles.body, { color: theme.colors.white }]}>
