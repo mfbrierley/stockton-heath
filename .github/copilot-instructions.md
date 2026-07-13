@@ -4,6 +4,11 @@
 
 A local community app for Stockton Heath, Warrington (UK). Built with **Expo / React Native** (mobile-first, iOS + Android) and a **Node.js/Express backend**.
 
+### Release status
+
+- **iOS:** Live on the App Store (also distributed via TestFlight for beta builds).
+- **Android:** Not yet released — Google Play launch pending.
+
 ---
 
 ## Repository Structure
@@ -150,7 +155,7 @@ model PushToken {
 - **Backend domain:** `https://stocktonheath.duckdns.org` (DuckDNS)
 - **Database:** Turso (remote libSQL) - `stockton-heath-mattbrierley.aws-eu-west-1.turso.io`
 - **Push notifications:** Expo Push Notification service (`exp.host/push/send`)
-- **App distribution:** EAS Build / EAS Submit
+- **App distribution:** EAS Build / EAS Submit (iOS live on the App Store; Android Google Play launch pending)
 - **Backend deploy shortcut:** `npm run deploy:backend` mirrors the manual SSH / Docker redeploy flow from the repo root
 
 ### iOS / TestFlight Deployment

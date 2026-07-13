@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   AppState,
+  Image,
   Linking,
   ScrollView,
   StyleSheet,
@@ -135,12 +136,23 @@ export default function Bridge() {
     >
       <BridgeAlertSection />
       <SponsorBadge />
-      {notificationsEnabled === true ? (
+      {notificationsEnabled === false ? (
         <View style={styles.activeNotificationsCard}>
+          <Image
+            source={require("../../assets/images/Manchester_Ship_Canal-HD.jpg")}
+            style={styles.image}
+            resizeMode="cover"
+          />
           <View style={styles.activeNotificationsRow}>
             <Feather name="bell" size={20} color={theme.colors.primary} />
-            <Text style={[globalStyles.body, globalStyles.bodyBold]}>
-              Alert notifications active
+            <Text
+              style={[
+                globalStyles.body,
+                globalStyles.bodyBold,
+                { fontSize: 18, color: theme.colors.primary },
+              ]}
+            >
+              Alert notifications are active
             </Text>
           </View>
           <Text style={globalStyles.body}>
@@ -213,5 +225,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    marginTop: 8,
+  },
+  image: {
+    width: "100%",
+    height: 150,
+    borderRadius: 12,
   },
 });

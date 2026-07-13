@@ -186,7 +186,7 @@ export default function BridgeAlertSection() {
         <MaterialCommunityIcons
           name="history"
           size={24}
-          color={theme.colors.primary}
+          color={theme.colors.white}
         />
       </View>
       <View style={styles.details}>
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: theme.colors.neutral100,
+    backgroundColor: theme.colors.primary,
     borderRadius: 16,
     padding: 16,
     gap: 12,
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: theme.colors.neutral300,
+    backgroundColor: theme.colors.green900,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -230,12 +230,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: theme.fontSizes.body,
-    color: theme.colors.neutral1000,
+    color: theme.colors.white,
   },
   subtitle: {
     fontFamily: theme.fonts.body,
     fontSize: 14,
-    color: theme.colors.neutral700,
+    color: theme.colors.white,
   },
   timeContainer: {
     alignItems: "flex-end",
@@ -244,11 +244,11 @@ const styles = StyleSheet.create({
   time: {
     fontFamily: theme.fonts.bodyBold,
     fontSize: theme.fontSizes.body,
-    color: theme.colors.neutral1000,
+    color: theme.colors.white,
   },
   status: {
     fontFamily: theme.fonts.body,
     fontSize: 14,
-    color: theme.colors.neutral700,
+    color: theme.colors.white,
   },
 });
