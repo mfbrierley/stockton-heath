@@ -23,8 +23,8 @@ export default function LocalPlacesSection() {
       />
       <QuickLinkCard
         icon={<Feather name="heart" size={22} color={theme.colors.primary} />}
-        title="Medical Centre"
-        onPress={() => router.push("/medical-centre")}
+        title="Medical Centres"
+        onPress={() => router.push("/medical-centres")}
       />
     </View>
   );

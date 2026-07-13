@@ -19,7 +19,10 @@ A local community app for Stockton Heath, Warrington (UK). Built with **Expo / R
     help.tsx              # Help / support info
     change-name.tsx       # Update the stored first name
     broomfields-leisure-centre.tsx
-    medical-centre.tsx
+    medical-centres.tsx              # Listing of local medical centres
+    stockton-heath-medical-centre.tsx
+    latchford-medical-centre.tsx
+    stretton-medical-centre.tsx
     post-office.tsx
     recycling-centre.tsx
     woolston-recycling-centre.tsx
@@ -61,19 +64,20 @@ backend/                  # Node.js/Express API server
 
 ### Screens
 
-| Screen                          | Description                                                                                     |
-| ------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Home (`index.tsx`)              | Weather (OpenWeather API, lat/lon hardcoded to Stockton Heath) + local fuel prices from backend |
-| Services (`services.tsx`)       | Postcode-based bin collection lookup via Warrington Borough Council API and local place links   |
-| Bridge (`bridge.tsx`)           | Latest swing bridge closure alert + push notification subscribe                                 |
-| About (`about.tsx`)             | App information and project context                                                             |
-| Help (`help.tsx`)               | Help / support information                                                                      |
-| Change name (`change-name.tsx`) | Update the stored first name used by the app                                                    |
-| Recycling Centre                | Static info page: accepted/not-accepted items, permit items, opening hours                      |
-| Broomfields Leisure Centre      | Full-page info screen opened from Services                                                      |
-| Medical Centre                  | Full-page info screen opened from Services                                                      |
-| Post Office                     | Full-page info screen opened from Services                                                      |
-| Woolston Recycling Centre       | Full-page info screen opened from Services                                                      |
+| Screen                                               | Description                                                                                             |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Home (`index.tsx`)                                   | Weather (OpenWeather API, lat/lon hardcoded to Stockton Heath) + local fuel prices from backend         |
+| Services (`services.tsx`)                            | Postcode-based bin collection lookup via Warrington Borough Council API and local place links           |
+| Bridge (`bridge.tsx`)                                | Latest swing bridge closure alert + push notification subscribe                                         |
+| About (`about.tsx`)                                  | App information and project context                                                                     |
+| Help (`help.tsx`)                                    | Help / support information                                                                              |
+| Change name (`change-name.tsx`)                      | Update the stored first name used by the app                                                            |
+| Recycling Centre                                     | Static info page: accepted/not-accepted items, permit items, opening hours                              |
+| Broomfields Leisure Centre                           | Full-page info screen opened from Services                                                              |
+| Medical Centres                                      | Listing page (opened from Services) linking to each local medical centre                                |
+| Stockton Heath / Latchford / Stretton Medical Centre | Per-centre info pages (contact, opening hours, online services) opened from the Medical Centres listing |
+| Post Office                                          | Full-page info screen opened from Services                                                              |
+| Woolston Recycling Centre                            | Full-page info screen opened from Services                                                              |
 
 ### Location constants
 
