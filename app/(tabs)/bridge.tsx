@@ -136,7 +136,7 @@ export default function Bridge() {
     >
       <BridgeAlertSection />
       <SponsorBadge />
-      {notificationsEnabled === false ? (
+      {notificationsEnabled === true ? (
         <View style={styles.activeNotificationsCard}>
           <Image
             source={require("../../assets/images/Manchester_Ship_Canal-HD.jpg")}

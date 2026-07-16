@@ -21,7 +21,8 @@
         "backgroundColor": "#1B4332"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.mattbrierley1.stocktonheath"
     },
     "web": {
       "output": "static",
