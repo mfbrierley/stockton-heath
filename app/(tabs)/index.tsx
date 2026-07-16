@@ -2,7 +2,7 @@ import Feather from "@expo/vector-icons/Feather";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Text, View } from "react-native";
+import { Animated, View } from "react-native";
 import BinReminderCard from "../../components/BinReminderCard";
 import BridgeAlertsCard from "../../components/BridgeAlertsCard";
 import { GreetingCard } from "../../components/GreetingCard";
@@ -22,21 +22,11 @@ const LONGITUDE = -2.5811;
 
 const MS_TO_MPH = 2.237;
 
-// Expires tomorrow night (end of 2026-07-17, local time).
-const ANNOUNCEMENT_EXPIRY = new Date("2026-07-18T00:00:00");
-const ANNOUNCEMENT_MESSAGE =
-  "After England's World Cup defeat, Lionel Messi is banned from Stockton Heath.";
-
 export default function Index() {
   const { firstName } = useUserName();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<WeatherApiResponse | null>(null);
-
-  const showAnnouncement = useMemo(
-    () => Date.now() < ANNOUNCEMENT_EXPIRY.getTime(),
-    [],
-  );
 
   const endpoint = useMemo(() => {
     const apiKey = process.env.EXPO_PUBLIC_OPENWEATHER_API_KEY;
@@ -149,24 +139,6 @@ export default function Index() {
         )}
       >
         <GreetingCard data={data} windMph={windMph} firstName={firstName} />
-        {showAnnouncement && (
-          <View
-            style={[
-              globalStyles.card,
-              globalStyles.cardWhite,
-              { padding: 20, flexDirection: "row", gap: 12 },
-            ]}
-          >
-            <Feather
-              name="alert-circle"
-              size={20}
-              color={theme.colors.primary}
-            />
-            <Text style={[globalStyles.body, { flex: 1 }]}>
-              {ANNOUNCEMENT_MESSAGE}
-            </Text>
-          </View>
-        )}
         <WeatherSection
           data={data}
           loading={loading}
