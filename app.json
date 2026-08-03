@@ -22,7 +22,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.mattbrierley1.stocktonheath"
+      "package": "com.mattbrierley1.stocktonheath",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
