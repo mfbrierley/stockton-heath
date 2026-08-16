@@ -266,6 +266,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: theme.colors.neutral600,
     marginTop: 2,
-    textDecorationLine: "underline",
   },
 });
