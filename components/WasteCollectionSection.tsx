@@ -7,7 +7,14 @@ import GreenBin from "@/assets/images/bins/green-bin.svg";
 import { getNextCollectionDate } from "@/utils/dateUtils";
 import _ from "lodash";
 import { useMemo } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Linking,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SvgProps } from "react-native-svg";
 
 const BIN_ICONS: Record<string, React.FC<SvgProps>> = {
@@ -186,6 +193,13 @@ export default function WasteCollectionSection(props: WasteCollectionProps) {
   return (
     <View>
       <Text style={[globalStyles.heading]}>Next Waste Collection</Text>
+      <TouchableOpacity
+        onPress={() =>
+          Linking.openURL("https://www.warrington.gov.uk/bin-collections")
+        }
+      >
+        <Text style={styles.sourceText}>Source: warrington.gov.uk</Text>
+      </TouchableOpacity>
 
       <View style={[globalStyles.tilesRow, styles.tileRow]}>
         <BinCollectionTile
@@ -246,5 +260,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: 16,
+  },
+  sourceText: {
+    fontFamily: theme.fonts.body,
+    fontSize: 11,
+    color: theme.colors.neutral600,
+    marginTop: 2,
+    textDecorationLine: "underline",
   },
 });

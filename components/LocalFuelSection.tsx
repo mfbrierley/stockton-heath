@@ -1,7 +1,14 @@
 import { theme } from "@/app/styles/theme";
 import { Feather } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Linking,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { globalStyles } from "../app/styles/globalStyles";
 
 type FuelPrice = {
@@ -147,6 +154,15 @@ export function LocalFuelSection() {
           {/* Footer */}
           <View style={styles.tableFooter}>
             <Text style={styles.tableFooterText}>UPDATED EVERY 30 MINS</Text>
+            <TouchableOpacity
+              onPress={() =>
+                Linking.openURL("https://www.fuel-finder.service.gov.uk")
+              }
+            >
+              <Text style={styles.sourceText}>
+                Source: fuel-finder.service.gov.uk
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -241,5 +257,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: theme.colors.neutral600,
     letterSpacing: 0.6,
+  },
+  sourceText: {
+    fontFamily: theme.fonts.body,
+    fontSize: 11,
+    color: theme.colors.neutral600,
+    marginTop: 4,
+    textDecorationLine: "underline",
   },
 });
