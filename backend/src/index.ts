@@ -1,7 +1,8 @@
 import { PrismaLibSql } from "@prisma/adapter-libsql";
+import { createHash, timingSafeEqual } from "crypto";
 import { setDefaultResultOrder } from "dns";
 import "dotenv/config";
-import express, { Request, Response } from "express";
+import express, { NextFunction, Request, Response } from "express";
 import { PrismaClient } from "./generated/prisma/client";
 
 setDefaultResultOrder("ipv4first");
@@ -351,6 +352,31 @@ const adapter = new PrismaLibSql({
 });
 const prisma = new PrismaClient({ adapter });
 
+// ── Admin auth ─────────────────────────────────────────────────────────────────
+
+// Guards the endpoints that cost money (twitterapi.io) or reach every user's
+// device (push). Fails closed: with no ADMIN_TOKEN set these routes refuse
+// rather than fall open.
+const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+  const expected = process.env.ADMIN_TOKEN;
+  if (!expected) {
+    console.error("ADMIN_TOKEN is not set - refusing admin request");
+    return res.status(503).json({ error: "Admin access is not configured" });
+  }
+
+  // Hash both sides so timingSafeEqual always gets equal-length buffers, and
+  // so the comparison can't leak the expected token's length.
+  const provided = req.get("x-admin-token") ?? "";
+  const providedHash = createHash("sha256").update(provided).digest();
+  const expectedHash = createHash("sha256").update(expected).digest();
+
+  if (!timingSafeEqual(providedHash, expectedHash)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  return next();
+};
+
 const isWithinPollingHours = (): boolean => {
   const ukHour = parseInt(
     new Intl.DateTimeFormat("en-GB", {
@@ -459,7 +485,7 @@ app.get("/health", (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
-app.get("/test-key", (req: Request, res: Response) => {
+app.get("/test-key", requireAdmin, (req: Request, res: Response) => {
   res.json({
     hasKey: Boolean(process.env.TWITTERAPI_IO_API_KEY),
   });
@@ -467,6 +493,7 @@ app.get("/test-key", (req: Request, res: Response) => {
 
 app.post(
   "/bridge-alerts/test-notification",
+  requireAdmin,
   async (req: Request, res: Response) => {
     const fakeAlert: BridgeAlert = {
       tweetId: `test-${Date.now()}`,
@@ -489,6 +516,7 @@ app.post(
 
 app.get(
   "/bridge-alerts/check/:userName",
+  requireAdmin,
   async (req: Request, res: Response) => {
     try {
       const userName = req.params.userName as string;
