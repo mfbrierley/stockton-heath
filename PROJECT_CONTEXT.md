@@ -77,18 +77,20 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | ------------------------------------ | ------------------------------------------------------- |
 | `GET /`                              | Health check string                                     |
 | `GET /health`                        | JSON `{ ok: true }`                                     |
-| `GET /test-key`                      | Reports whether the twitterapi.io key is configured     |
+| `GET /test-key` 🔒                   | Reports whether the twitterapi.io key is configured     |
 | `GET /bridge-alerts`                 | All stored bridge alerts, newest first                  |
 | `GET /bridge-alerts/latest`          | Most recent bridge alert only                           |
-| `GET /bridge-alerts/check/:userName` | Manually trigger a poll from a given Twitter username   |
-| `POST /bridge-alerts/test-notification` | Sends a fake bridge alert push to every subscriber   |
+| `GET /bridge-alerts/check/:userName` 🔒 | Manually trigger a poll from a given Twitter username |
+| `POST /bridge-alerts/test-notification` 🔒 | Sends a fake bridge alert push to every subscriber |
 | `POST /bridge-subscriptions`         | Register an Expo push token for bridge alerts           |
 | `DELETE /bridge-subscriptions`       | Unregister a token from bridge alerts                   |
 | `POST /bin-subscriptions`            | Register a token + UPRN for bin reminders               |
 | `DELETE /bin-subscriptions`          | Unregister a token from bin reminders                   |
 | `GET /fuel-prices`                   | Cached fuel prices for local stations                   |
 
-> **No authentication.** The only middleware registered is `express.json()`. Every route above is publicly reachable, including `POST /bridge-alerts/test-notification` (pushes to all devices) and `GET /bridge-alerts/check/:userName` (triggers a metered twitterapi.io call). `cors` is a dependency but is not wired up.
+🔒 marks an admin-only route. These require an `x-admin-token` header matching the `ADMIN_TOKEN` environment variable, enforced by the `requireAdmin` middleware in `src/index.ts`. The comparison is timing-safe, and the check **fails closed** - if `ADMIN_TOKEN` is unset the routes return `503` rather than falling open. They are gated because they either spend money (a metered twitterapi.io call) or reach every subscribed device (push).
+
+All other routes are public and unauthenticated, which is intended - they are read-only or accept only an Expo push token. There is no rate limiting, and `cors` is a dependency but is not wired up (it isn't needed while the only client is the native app).
 
 ### Database
 
@@ -155,6 +157,7 @@ Note that `EXPO_PUBLIC_*` variables are inlined into the client bundle at build 
 - `DATABASE_URL` - Turso libSQL URL
 - `TURSO_AUTH_TOKEN` - Turso authentication token
 - `TWITTERAPI_IO_API_KEY` - API key for twitterapi.io (used to read tweets)
+- `ADMIN_TOKEN` - shared secret for the admin-only routes above. Generate with `openssl rand -hex 32`. Without it those routes return `503`.
 - `FUEL_FINDER_CLIENT_ID` / `FUEL_FINDER_CLIENT_SECRET` - Gov.uk Fuel Finder OAuth credentials
 
 ---
