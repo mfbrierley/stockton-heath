@@ -733,8 +733,6 @@ const LISTING_FIELD_LIMITS = {
   description: 600,
 } as const;
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 // Stripe statuses that mean the listing has been paid for.
 const PAID_SUBSCRIPTION_STATUSES = new Set<string>(["active", "trialing"]);
 
@@ -768,10 +766,19 @@ app.use("/business-listings", portalCors);
 
 // ── Business authentication (Clerk) ───────────────────────────────────────────
 
-// Clerk owns passwords, invitation emails and password resets, so no
-// credential ever reaches this backend. The portal sends the Clerk session
-// token as a bearer token and this verifies it.
-type BusinessRequest = Request & { listingId?: number };
+// Clerk owns sign-up, passwords and password resets, so no credential ever
+// reaches this backend. The portal sends the Clerk session token as a bearer
+// token and this verifies it.
+//
+// A business signs up before it has a listing, so an authenticated caller with
+// no listing is an expected state, not an error - creating one is the next
+// thing they do. Routes that need an existing listing check for themselves.
+type BusinessRequest = Request & {
+  clerkUserId?: string;
+  listing?: Awaited<ReturnType<typeof prisma.businessListing.findUnique>>;
+};
+
+const NO_LISTING_ERROR = "You do not have a listing yet";
 
 const requireBusinessAuth = async (
   req: Request,
@@ -792,95 +799,31 @@ const requireBusinessAuth = async (
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    let listing = await prisma.businessListing.findUnique({
+    const request = req as BusinessRequest;
+    request.clerkUserId = clerkUserId;
+    request.listing = await prisma.businessListing.findUnique({
       where: { clerkUserId },
     });
-
-    // The listing is created by the admin before the business has a Clerk
-    // account, so the two are linked on first sign-in by matching the address
-    // the invitation was sent to. Only ever binds an unclaimed listing.
-    if (!listing) {
-      const user = await getClerk().users.getUser(clerkUserId);
-      const email = user.primaryEmailAddress?.emailAddress?.trim().toLowerCase();
-      if (!email) return res.status(403).json({ error: "No listing for this account" });
-
-      const unclaimed = await prisma.businessListing.findUnique({
-        where: { contactEmail: email },
-      });
-      if (!unclaimed || unclaimed.clerkUserId) {
-        return res.status(403).json({ error: "No listing for this account" });
-      }
-
-      listing = await prisma.businessListing.update({
-        where: { id: unclaimed.id },
-        data: { clerkUserId, updatedAt: new Date().toISOString() },
-      });
-    }
-
-    (req as BusinessRequest).listingId = listing.id;
     return next();
   } catch (error) {
     return handleListingError(error, res);
   }
 };
 
-const listingIdOf = (req: Request): number =>
-  (req as BusinessRequest).listingId as number;
+// Non-null only after requireBusinessAuth has run.
+const callerOf = (req: Request): string => (req as BusinessRequest).clerkUserId as string;
+const listingOf = (req: Request) => (req as BusinessRequest).listing ?? null;
+
+// Everything the business is allowed to see about its own listing. Stripe's
+// identifiers and the Clerk id are internal plumbing the portal never needs.
+const ownListingView = <T extends { stripeCustomerId: unknown; stripeSubscriptionId: unknown; clerkUserId: unknown }>(
+  listing: T,
+) => {
+  const { stripeCustomerId, stripeSubscriptionId, clerkUserId, ...safe } = listing;
+  return safe;
+};
 
 // ── Local Offers: admin routes ────────────────────────────────────────────────
-
-app.post("/business-listings", requireAdmin, async (req: Request, res: Response) => {
-  try {
-    const businessName = cleanListingField(
-      req.body?.businessName,
-      LISTING_FIELD_LIMITS.businessName,
-    );
-    const contactEmail =
-      typeof req.body?.contactEmail === "string"
-        ? req.body.contactEmail.trim().toLowerCase()
-        : "";
-
-    if (!businessName || !EMAIL_PATTERN.test(contactEmail)) {
-      return res.status(400).json({ error: "Invalid businessName or contactEmail" });
-    }
-
-    const existing = await prisma.businessListing.findUnique({
-      where: { contactEmail },
-    });
-    if (existing) {
-      return res.status(409).json({ error: "A listing already exists for that email" });
-    }
-
-    const now = new Date().toISOString();
-    const listing = await prisma.businessListing.create({
-      data: {
-        businessName,
-        discountText: "",
-        description: "",
-        contactEmail,
-        createdAt: now,
-        updatedAt: now,
-      },
-    });
-
-    // Clerk sends the invitation email and hosts the password setup page.
-    // A failure here doesn't discard the row - the invitation can be resent.
-    try {
-      await getClerk().invitations.createInvitation({
-        emailAddress: contactEmail,
-        redirectUrl: `${normaliseBaseUrl(requireEnv("PORTAL_BASE_URL"))}/sign-up`,
-        ignoreExisting: true,
-      });
-    } catch (error) {
-      console.error("Clerk invitation failed:", error);
-      return res.status(201).json({ ...listing, invitationSent: false });
-    }
-
-    return res.status(201).json({ ...listing, invitationSent: true });
-  } catch (error) {
-    return handleListingError(error, res);
-  }
-});
 
 app.get("/business-listings/pending", requireAdmin, async (req: Request, res: Response) => {
   try {
@@ -946,25 +889,67 @@ app.get("/business-listings", async (req: Request, res: Response) => {
 
 // ── Local Offers: business routes (the portal) ────────────────────────────────
 
-app.get("/business-listings/me", requireBusinessAuth, async (req: Request, res: Response) => {
+// A business signs itself up: it creates its own listing, then pays for it.
+// The listing stays invisible to the app until it is both approved and paid,
+// so an unwanted signup costs nothing beyond a row in the pending queue.
+app.post("/business-listings/me", requireBusinessAuth, async (req: Request, res: Response) => {
   try {
-    const listing = await prisma.businessListing.findUnique({
-      where: { id: listingIdOf(req) },
-    });
-    if (!listing) return res.status(404).json({ error: "Listing not found" });
+    if (listingOf(req)) {
+      return res.status(409).json({ error: "You already have a listing" });
+    }
 
-    const { stripeCustomerId, stripeSubscriptionId, clerkUserId, ...safe } = listing;
-    return res.json(safe);
+    const businessName = cleanListingField(req.body?.businessName, LISTING_FIELD_LIMITS.businessName);
+    const discountText = cleanListingField(req.body?.discountText, LISTING_FIELD_LIMITS.discountText);
+    const description = cleanListingField(req.body?.description, LISTING_FIELD_LIMITS.description);
+
+    if (!businessName || !discountText || !description) {
+      return res.status(400).json({
+        error: "businessName, discountText and description are all required",
+      });
+    }
+
+    // Taken from the Clerk account rather than the request body, so it is
+    // always an address whose owner actually signed in.
+    const user = await getClerk().users.getUser(callerOf(req));
+    const contactEmail = user.primaryEmailAddress?.emailAddress?.trim().toLowerCase();
+    if (!contactEmail) {
+      return res.status(400).json({ error: "Your account has no email address" });
+    }
+
+    const clash = await prisma.businessListing.findUnique({ where: { contactEmail } });
+    if (clash) {
+      return res.status(409).json({ error: "A listing already exists for that email address" });
+    }
+
+    const now = new Date().toISOString();
+    const listing = await prisma.businessListing.create({
+      data: {
+        businessName,
+        discountText,
+        description,
+        contactEmail,
+        clerkUserId: callerOf(req),
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+
+    return res.status(201).json(ownListingView(listing));
   } catch (error) {
     return handleListingError(error, res);
   }
 });
 
+app.get("/business-listings/me", requireBusinessAuth, (req: Request, res: Response) => {
+  const listing = listingOf(req);
+  if (!listing) return res.status(404).json({ error: NO_LISTING_ERROR });
+  return res.json(ownListingView(listing));
+});
+
 app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res: Response) => {
   try {
-    const listingId = listingIdOf(req);
-    const existing = await prisma.businessListing.findUnique({ where: { id: listingId } });
-    if (!existing) return res.status(404).json({ error: "Listing not found" });
+    const existing = listingOf(req);
+    if (!existing) return res.status(404).json({ error: NO_LISTING_ERROR });
 
     const updates: {
       businessName?: string;
@@ -1011,12 +996,11 @@ app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res
     updates.updatedAt = new Date().toISOString();
 
     const listing = await prisma.businessListing.update({
-      where: { id: listingId },
+      where: { id: existing.id },
       data: updates,
     });
 
-    const { stripeCustomerId, stripeSubscriptionId, clerkUserId, ...safe } = listing;
-    return res.json(safe);
+    return res.json(ownListingView(listing));
   } catch (error) {
     return handleListingError(error, res);
   }
@@ -1024,10 +1008,8 @@ app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res
 
 app.post("/business-listings/me/checkout", requireBusinessAuth, async (req: Request, res: Response) => {
   try {
-    const listing = await prisma.businessListing.findUnique({
-      where: { id: listingIdOf(req) },
-    });
-    if (!listing) return res.status(404).json({ error: "Listing not found" });
+    const listing = listingOf(req);
+    if (!listing) return res.status(404).json({ error: NO_LISTING_ERROR });
     if (listing.active) {
       return res.status(409).json({ error: "Subscription is already active" });
     }
@@ -1056,10 +1038,8 @@ app.post("/business-listings/me/checkout", requireBusinessAuth, async (req: Requ
 
 app.post("/business-listings/me/portal", requireBusinessAuth, async (req: Request, res: Response) => {
   try {
-    const listing = await prisma.businessListing.findUnique({
-      where: { id: listingIdOf(req) },
-    });
-    if (!listing) return res.status(404).json({ error: "Listing not found" });
+    const listing = listingOf(req);
+    if (!listing) return res.status(404).json({ error: NO_LISTING_ERROR });
     if (!listing.stripeCustomerId) {
       return res.status(409).json({ error: "No subscription to manage yet" });
     }
@@ -1077,10 +1057,8 @@ app.post("/business-listings/me/portal", requireBusinessAuth, async (req: Reques
 
 app.post("/business-listings/me/cancel", requireBusinessAuth, async (req: Request, res: Response) => {
   try {
-    const listing = await prisma.businessListing.findUnique({
-      where: { id: listingIdOf(req) },
-    });
-    if (!listing) return res.status(404).json({ error: "Listing not found" });
+    const listing = listingOf(req);
+    if (!listing) return res.status(404).json({ error: NO_LISTING_ERROR });
     if (!listing.stripeSubscriptionId) {
       return res.status(409).json({ error: "No subscription to cancel" });
     }
@@ -1108,8 +1086,10 @@ app.post("/business-listings/me/image-upload-url", requireBusinessAuth, async (r
       return res.status(400).json({ error: "Unsupported contentType" });
     }
 
-    const listingId = listingIdOf(req);
-    const key = `listings/${listingId}-${Date.now()}.${extension}`;
+    const listing = listingOf(req);
+    if (!listing) return res.status(404).json({ error: NO_LISTING_ERROR });
+
+    const key = `listings/${listing.id}-${Date.now()}.${extension}`;
 
     const uploadUrl = await getSignedUrl(
       getR2(),

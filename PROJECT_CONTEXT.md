@@ -88,11 +88,11 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | `DELETE /bin-subscriptions`          | Unregister a token from bin reminders                   |
 | `GET /fuel-prices`                   | Cached fuel prices for local stations                   |
 | `GET /business-listings`             | Live Local Offers listings (`approved && active` only)  |
-| `POST /business-listings` 🔒         | Create a draft listing and send a Clerk invitation      |
 | `GET /business-listings/pending` 🔒  | Listings awaiting manual approval                       |
 | `POST /business-listings/:id/approve` 🔒 | Mark a listing as meeting the discount rule         |
 | `POST /business-listings/:id/unapprove` 🔒 | Withdraw approval                                 |
-| `GET /business-listings/me` 🔑       | The caller's own listing                                |
+| `POST /business-listings/me` 🔑      | A business creates its own listing after signing up     |
+| `GET /business-listings/me` 🔑       | The caller's own listing (404 before they create one)   |
 | `PATCH /business-listings/me` 🔑     | Edit listing content                                    |
 | `POST /business-listings/me/checkout` 🔑 | Stripe Checkout session URL                         |
 | `POST /business-listings/me/portal` 🔑 | Stripe Customer Portal session URL                    |
@@ -198,9 +198,10 @@ Both reference Rowswood Timber directly, including the logo asset. Changing spon
 
 ### Local Offers
 
-The replacement for the hardcoded sponsor: local businesses pay £15/month by Stripe subscription to advertise a **genuine discount** to residents. Businesses are invited by email rather than signing up publicly, and manage their own listing through a web portal (a separate repo).
+The replacement for the hardcoded sponsor: local businesses pay £15/month by Stripe subscription to advertise a **genuine discount** to residents. Businesses are emailed a link to the portal (a separate repo), sign themselves up, write their own listing and pay for it.
 
-- **Authentication** is handled by **Clerk** - it owns passwords, invitation emails and password resets, so no credential reaches this backend. The portal sends a Clerk session token as a bearer token; `requireBusinessAuth` verifies it and links the Clerk account to a listing on first sign-in by matching the invited email address.
+- **Authentication** is handled by **Clerk** - it owns sign-up, passwords and password resets, so no credential reaches this backend. The portal sends a Clerk session token as a bearer token and `requireBusinessAuth` verifies it. Sign-up is open: a signed-in caller with no listing is an expected state rather than an error, and creating one is the next thing they do. A listing is owned by the Clerk account that created it (`clerkUserId` is unique, so one account means one listing), and its contact address is read from that account rather than the request body.
+- **Nothing a stranger signs up for is visible.** A listing reaches the app only once it is approved and paid, so an unwanted sign-up costs no more than a row in the pending queue.
 - **Billing** is Stripe Checkout in subscription mode. `customer.subscription.*` webhooks are the single source of truth for `active`, so cancelling from the portal and cancelling from Stripe's own Customer Portal behave identically.
 - **Images** are uploaded directly to Cloudflare R2 via a short-lived signed URL; the portal PATCHes the resulting public URL back once the upload succeeds.
 - Editing `discountText` resets `approved` to `false` so the discount gets re-reviewed. Name, description and image edits do not, so a typo fix can't pull a paying listing out of the app.
