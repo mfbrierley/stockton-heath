@@ -3,17 +3,17 @@
 // Verifies the Local Offers backend end to end against real Clerk and Stripe,
 // without needing the business portal to exist.
 //
-// It creates a throwaway Clerk user and mints a session token for it, which is
-// the same kind of token the portal will send, so every JWT-gated route can be
-// exercised from a script.
+// It creates a throwaway Clerk user and mints a session token for it - the
+// same kind of token the portal will send - so the whole self-serve path can
+// be walked from a script: sign up, create a listing, get reviewed, pay.
 //
 //   cd backend
 //   BACKEND_URL=https://stocktonheath.duckdns.org \
 //   ADMIN_TOKEN=... CLERK_SECRET_KEY=sk_test_... \
 //   node scripts/verify-local-offers.mjs
 //
-// Cleans up the Clerk user it creates. Prints the one command needed to remove
-// the test listing row at the end.
+// Deletes the Clerk user it creates, and prints the one command needed to
+// remove the test listing row.
 
 import { createClerkClient } from "@clerk/backend";
 
@@ -34,7 +34,6 @@ let skipped = 0;
 const pass = (msg) => { passed++; console.log(`  PASS  ${msg}`); };
 const fail = (msg) => { failed++; console.log(`  FAIL  ${msg}`); };
 const skip = (msg) => { skipped++; console.log(`  SKIP  ${msg}`); };
-
 const check = (ok, msg) => (ok ? pass(msg) : fail(msg));
 
 const api = async (path, { method = "GET", token, admin, body } = {}) => {
@@ -61,56 +60,17 @@ let clerkUserId = null;
 try {
   console.log(`\nVerifying ${BACKEND_URL}\n`);
 
-  // ── The existing app keeps working ──────────────────────────────────────────
   console.log("Existing routes");
   check((await api("/health")).status === 200, "GET /health");
   check((await api("/bridge-alerts")).status === 200, "GET /bridge-alerts");
 
-  // ── Public route ────────────────────────────────────────────────────────────
   console.log("\nPublic route");
   const publicBefore = await api("/business-listings");
-  check(publicBefore.status === 200 && Array.isArray(publicBefore.json), "GET /business-listings returns a list");
+  check(publicBefore.status === 200 && Array.isArray(publicBefore.json),
+    "GET /business-listings returns a list");
 
-  // ── Admin ───────────────────────────────────────────────────────────────────
-  console.log("\nAdmin routes");
-  const noAuth = await fetch(`${BACKEND_URL}/business-listings`, { method: "POST" });
-  check(noAuth.status === 401, "POST /business-listings rejects a missing admin token");
-
-  const created = await api("/business-listings", {
-    method: "POST",
-    admin: true,
-    body: { businessName: "Verification Test Business", contactEmail: TEST_EMAIL },
-  });
-  if (created.status === 409) {
-    fail(`a listing for ${TEST_EMAIL} already exists - remove it and re-run (see cleanup below)`);
-    throw new Error("stale test listing");
-  }
-  check(created.status === 201, `POST /business-listings creates a listing (${created.status})`);
-  listingId = created.json?.id ?? null;
-  check(
-    created.json?.invitationSent === true,
-    created.json?.invitationSent === true
-      ? "Clerk invitation sent"
-      : "Clerk invitation FAILED - check CLERK_SECRET_KEY and PORTAL_BASE_URL on the server",
-  );
-
-  const pending = await api("/business-listings/pending", { admin: true });
-  check(
-    pending.status === 200 && pending.json?.some((l) => l.id === listingId),
-    "GET /business-listings/pending shows it awaiting approval",
-  );
-
-  check((await api(`/business-listings/${listingId}/approve`, { method: "POST", admin: true })).status === 200,
-    "POST approve");
-
-  const afterApprove = await api("/business-listings");
-  check(
-    !afterApprove.json?.some((l) => l.id === listingId),
-    "approved but unpaid listing stays hidden from the app",
-  );
-
-  // ── Business auth via a real Clerk session token ────────────────────────────
-  console.log("\nBusiness routes (real Clerk session token)");
+  // ── A business signs itself up ──────────────────────────────────────────────
+  console.log("\nSign-up (real Clerk session token)");
   let jwt;
   try {
     const user = await clerk.users.createUser({
@@ -132,13 +92,52 @@ try {
   check((await api("/business-listings/me", { token: "not-a-real-token" })).status === 401,
     "GET /me rejects a bogus token");
 
-  const me = await api("/business-listings/me", { token: jwt });
-  check(me.status === 200, `GET /me with a real token (${me.status})`);
-  check(me.json?.businessName === "Verification Test Business",
-    "GET /me returns the listing linked by invited email address");
-  check(me.json?.stripeCustomerId === undefined && me.json?.clerkUserId === undefined,
-    "GET /me omits internal identifiers");
+  const beforeCreating = await api("/business-listings/me", { token: jwt });
+  check(beforeCreating.status === 404,
+    "a signed-in business with no listing yet gets 404, not a refusal");
 
+  // ── It creates its own listing ──────────────────────────────────────────────
+  console.log("\nCreating a listing");
+  check((await api("/business-listings/me", {
+    method: "POST", token: jwt, body: { businessName: "Verification Test Business" },
+  })).status === 400, "creation requires a discount, not just a name");
+
+  const created = await api("/business-listings/me", {
+    method: "POST",
+    token: jwt,
+    body: {
+      businessName: "Verification Test Business",
+      discountText: "10% off for residents",
+      description: "A listing created by the verification script.",
+    },
+  });
+  check(created.status === 201, `POST /me creates the listing (${created.status})`);
+  listingId = created.json?.id ?? null;
+  check(created.json?.contactEmail === TEST_EMAIL,
+    "contact address is taken from the Clerk account, not the request body");
+
+  check((await api("/business-listings/me", {
+    method: "POST", token: jwt,
+    body: { businessName: "Second", discountText: "x", description: "y" },
+  })).status === 409, "a business cannot create a second listing");
+
+  // ── Review ──────────────────────────────────────────────────────────────────
+  console.log("\nReview");
+  const pending = await api("/business-listings/pending", { admin: true });
+  check(pending.status === 200 && pending.json?.some((l) => l.id === listingId),
+    "the new listing appears in the pending queue");
+  check((await api("/business-listings/pending")).status === 401,
+    "the pending queue rejects a missing admin token");
+
+  check((await api(`/business-listings/${listingId}/approve`, { method: "POST", admin: true })).status === 200,
+    "approve");
+
+  const afterApprove = await api("/business-listings");
+  check(!afterApprove.json?.some((l) => l.id === listingId),
+    "approved but unpaid listing stays hidden from the app");
+
+  // ── Editing rules ───────────────────────────────────────────────────────────
+  console.log("\nEditing");
   const descEdit = await api("/business-listings/me", {
     method: "PATCH", token: jwt, body: { description: "A description edit." },
   });
@@ -146,7 +145,7 @@ try {
     "editing the description keeps approval (a typo fix can't pull a paying listing)");
 
   const discountEdit = await api("/business-listings/me", {
-    method: "PATCH", token: jwt, body: { discountText: "10% off for residents" },
+    method: "PATCH", token: jwt, body: { discountText: "15% off for residents" },
   });
   check(discountEdit.status === 200 && discountEdit.json?.approved === false,
     "editing the discount resets approval for re-review");
@@ -156,7 +155,7 @@ try {
   check((await api("/business-listings/me", { method: "PATCH", token: jwt, body: { imageUrl: "https://evil.example.com/x.png" } })).status === 400,
     "PATCH rejects an image URL from another host");
 
-  // ── Stripe ──────────────────────────────────────────────────────────────────
+  // ── Paying ──────────────────────────────────────────────────────────────────
   console.log("\nStripe");
   const checkout = await api("/business-listings/me/checkout", { method: "POST", token: jwt });
   if (checkout.status === 503) {
@@ -166,11 +165,9 @@ try {
       `POST /me/checkout returns a Stripe Checkout URL (${checkout.status})`);
     if (checkout.json?.url) console.log(`        ${checkout.json.url.slice(0, 78)}...`);
   }
+  check((await api("/business-listings/me/cancel", { method: "POST", token: jwt })).status === 409,
+    "cancel refuses when there is no subscription yet");
 
-  const cancel = await api("/business-listings/me/cancel", { method: "POST", token: jwt });
-  check(cancel.status === 409, "cancel refuses when there is no subscription yet");
-
-  // ── R2 ──────────────────────────────────────────────────────────────────────
   console.log("\nImage upload");
   const upload = await api("/business-listings/me/image-upload-url", {
     method: "POST", token: jwt, body: { contentType: "image/png" },
@@ -187,20 +184,15 @@ try {
 } catch (error) {
   fail(`stopped early: ${error instanceof Error ? error.message : error}`);
 } finally {
-  // ── Cleanup ─────────────────────────────────────────────────────────────────
   console.log("\nCleanup");
   if (clerkUserId) {
     try {
       await clerk.users.deleteUser(clerkUserId);
       pass("deleted the throwaway Clerk user");
-    } catch (error) {
+    } catch {
       fail(`could not delete Clerk user ${clerkUserId} - remove it in the dashboard`);
     }
   }
-  try {
-    const invites = await clerk.invitations.getInvitationList({ query: TEST_EMAIL, status: "pending" });
-    for (const invite of invites.data ?? []) await clerk.invitations.revokeInvitation(invite.id);
-  } catch { /* nothing to revoke */ }
 
   console.log(`\n${passed} passed, ${failed} failed, ${skipped} skipped`);
   if (listingId) {
