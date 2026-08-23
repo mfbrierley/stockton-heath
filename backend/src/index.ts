@@ -1,8 +1,13 @@
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { createClerkClient, verifyToken } from "@clerk/backend";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
+import cors from "cors";
 import { createHash, timingSafeEqual } from "crypto";
 import { setDefaultResultOrder } from "dns";
 import "dotenv/config";
 import express, { NextFunction, Request, Response } from "express";
+import Stripe from "stripe";
 import { PrismaClient } from "./generated/prisma/client";
 
 setDefaultResultOrder("ipv4first");
@@ -344,6 +349,11 @@ const sendPushNotifications = async (alert: BridgeAlert): Promise<void> => {
 const app = express();
 const port = 3001;
 
+// Stripe signs the exact bytes it sends, so its webhook needs the raw body.
+// Registered above the global JSON parser: body-parser marks the request as
+// already read, so express.json() then leaves this one path alone.
+app.use("/stripe/webhook", express.raw({ type: "application/json" }));
+
 app.use(express.json());
 
 const adapter = new PrismaLibSql({
@@ -640,6 +650,582 @@ app.get("/fuel-prices", (req: Request, res: Response) => {
     return res.status(503).json({ error: "Fuel prices not yet available" });
   }
   return res.json(cachedFuelPrices);
+});
+
+// ── Local Offers ──────────────────────────────────────────────────────────────
+
+// Local businesses pay a monthly subscription to advertise a genuine discount
+// to residents. A listing only reaches the app when it is both `approved` (a
+// manual editorial check that the discount is real) and `active` (Stripe says
+// the subscription is paid). The two are deliberately independent: a business
+// can be paying but unreviewed, or reviewed but no longer paying.
+
+// Config is read lazily rather than validated at boot. `deploy:backend` stops
+// and removes the running container before starting the new one, so throwing
+// on a missing variable would take the whole backend down - weather, fuel,
+// bridge alerts and bin reminders included - instead of disabling only the
+// feature whose config is absent. Missing config surfaces as a 503 here, the
+// same way requireAdmin behaves without ADMIN_TOKEN.
+class MissingConfigError extends Error {
+  constructor(name: string) {
+    super(`${name} is not configured`);
+    this.name = "MissingConfigError";
+  }
+}
+
+const requireEnv = (name: string): string => {
+  const value = process.env[name];
+  if (!value) throw new MissingConfigError(name);
+  return value;
+};
+
+const handleListingError = (error: unknown, res: Response): Response => {
+  if (error instanceof MissingConfigError) {
+    console.error(error.message);
+    return res.status(503).json({ error: "This feature is not configured" });
+  }
+  console.error(error);
+  return res.status(500).json({ error: "Something went wrong" });
+};
+
+let stripeClient: Stripe | null = null;
+const getStripe = (): Stripe => {
+  if (!stripeClient) stripeClient = new Stripe(requireEnv("STRIPE_SECRET_KEY"));
+  return stripeClient;
+};
+
+let clerkClient: ReturnType<typeof createClerkClient> | null = null;
+const getClerk = (): ReturnType<typeof createClerkClient> => {
+  if (!clerkClient) {
+    clerkClient = createClerkClient({ secretKey: requireEnv("CLERK_SECRET_KEY") });
+  }
+  return clerkClient;
+};
+
+let r2Client: S3Client | null = null;
+const getR2 = (): S3Client => {
+  if (!r2Client) {
+    r2Client = new S3Client({
+      region: "auto",
+      endpoint: `https://${requireEnv("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: requireEnv("R2_ACCESS_KEY_ID"),
+        secretAccessKey: requireEnv("R2_SECRET_ACCESS_KEY"),
+      },
+    });
+  }
+  return r2Client;
+};
+
+// Selected explicitly so a column added to BusinessListing later cannot leak
+// into the app response, which anyone with the app can read.
+const PUBLIC_LISTING_FIELDS = {
+  id: true,
+  businessName: true,
+  discountText: true,
+  description: true,
+  imageUrl: true,
+} as const;
+
+const LISTING_FIELD_LIMITS = {
+  businessName: 80,
+  discountText: 120,
+  description: 600,
+} as const;
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Stripe statuses that mean the listing has been paid for.
+const PAID_SUBSCRIPTION_STATUSES = new Set<string>(["active", "trialing"]);
+
+const ALLOWED_IMAGE_TYPES = new Map<string, string>([
+  ["image/jpeg", "jpg"],
+  ["image/png", "png"],
+  ["image/webp", "webp"],
+]);
+
+const cleanListingField = (value: unknown, max: number): string | null => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > max) return null;
+  return trimmed;
+};
+
+const normaliseBaseUrl = (value: string): string => value.replace(/\/+$/, "");
+
+// The portal is a browser app on its own origin, so it needs CORS. Scoped to
+// PORTAL_BASE_URL alone; the mobile app sends no Origin header and is
+// unaffected, as are all the existing routes.
+const portalCors = cors({
+  origin: (origin, callback) => {
+    const allowed = process.env.PORTAL_BASE_URL;
+    if (!origin || !allowed) return callback(null, false);
+    return callback(null, origin === normaliseBaseUrl(allowed));
+  },
+});
+
+app.use("/business-listings", portalCors);
+
+// ── Business authentication (Clerk) ───────────────────────────────────────────
+
+// Clerk owns passwords, invitation emails and password resets, so no
+// credential ever reaches this backend. The portal sends the Clerk session
+// token as a bearer token and this verifies it.
+type BusinessRequest = Request & { listingId?: number };
+
+const requireBusinessAuth = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const header = req.get("authorization") ?? "";
+    const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+    if (!token) return res.status(401).json({ error: "Unauthorized" });
+
+    const secretKey = requireEnv("CLERK_SECRET_KEY");
+    let clerkUserId: string;
+    try {
+      const payload = await verifyToken(token, { secretKey });
+      clerkUserId = payload.sub;
+    } catch {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    let listing = await prisma.businessListing.findUnique({
+      where: { clerkUserId },
+    });
+
+    // The listing is created by the admin before the business has a Clerk
+    // account, so the two are linked on first sign-in by matching the address
+    // the invitation was sent to. Only ever binds an unclaimed listing.
+    if (!listing) {
+      const user = await getClerk().users.getUser(clerkUserId);
+      const email = user.primaryEmailAddress?.emailAddress?.trim().toLowerCase();
+      if (!email) return res.status(403).json({ error: "No listing for this account" });
+
+      const unclaimed = await prisma.businessListing.findUnique({
+        where: { contactEmail: email },
+      });
+      if (!unclaimed || unclaimed.clerkUserId) {
+        return res.status(403).json({ error: "No listing for this account" });
+      }
+
+      listing = await prisma.businessListing.update({
+        where: { id: unclaimed.id },
+        data: { clerkUserId, updatedAt: new Date().toISOString() },
+      });
+    }
+
+    (req as BusinessRequest).listingId = listing.id;
+    return next();
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+};
+
+const listingIdOf = (req: Request): number =>
+  (req as BusinessRequest).listingId as number;
+
+// ── Local Offers: admin routes ────────────────────────────────────────────────
+
+app.post("/business-listings", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const businessName = cleanListingField(
+      req.body?.businessName,
+      LISTING_FIELD_LIMITS.businessName,
+    );
+    const contactEmail =
+      typeof req.body?.contactEmail === "string"
+        ? req.body.contactEmail.trim().toLowerCase()
+        : "";
+
+    if (!businessName || !EMAIL_PATTERN.test(contactEmail)) {
+      return res.status(400).json({ error: "Invalid businessName or contactEmail" });
+    }
+
+    const existing = await prisma.businessListing.findUnique({
+      where: { contactEmail },
+    });
+    if (existing) {
+      return res.status(409).json({ error: "A listing already exists for that email" });
+    }
+
+    const now = new Date().toISOString();
+    const listing = await prisma.businessListing.create({
+      data: {
+        businessName,
+        discountText: "",
+        description: "",
+        contactEmail,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+
+    // Clerk sends the invitation email and hosts the password setup page.
+    // A failure here doesn't discard the row - the invitation can be resent.
+    try {
+      await getClerk().invitations.createInvitation({
+        emailAddress: contactEmail,
+        redirectUrl: `${normaliseBaseUrl(requireEnv("PORTAL_BASE_URL"))}/sign-up`,
+        ignoreExisting: true,
+      });
+    } catch (error) {
+      console.error("Clerk invitation failed:", error);
+      return res.status(201).json({ ...listing, invitationSent: false });
+    }
+
+    return res.status(201).json({ ...listing, invitationSent: true });
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+});
+
+app.get("/business-listings/pending", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    // Everything awaiting review. A row with `active: true` is a business
+    // already paying - either a new signup or a live listing that edited its
+    // discount and dropped back into the queue.
+    const listings = await prisma.businessListing.findMany({
+      where: { approved: false },
+      orderBy: { createdAt: "asc" },
+    });
+    return res.json(listings);
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+});
+
+const setListingApproval = async (
+  req: Request,
+  res: Response,
+  approved: boolean,
+): Promise<Response> => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: "Invalid id" });
+    }
+
+    const existing = await prisma.businessListing.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: "Listing not found" });
+
+    const listing = await prisma.businessListing.update({
+      where: { id },
+      data: { approved, updatedAt: new Date().toISOString() },
+    });
+    return res.json(listing);
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+};
+
+app.post("/business-listings/:id/approve", requireAdmin, (req: Request, res: Response) =>
+  setListingApproval(req, res, true),
+);
+
+app.post("/business-listings/:id/unapprove", requireAdmin, (req: Request, res: Response) =>
+  setListingApproval(req, res, false),
+);
+
+// ── Local Offers: public route (the app) ──────────────────────────────────────
+
+app.get("/business-listings", async (req: Request, res: Response) => {
+  try {
+    const listings = await prisma.businessListing.findMany({
+      where: { approved: true, active: true },
+      select: PUBLIC_LISTING_FIELDS,
+      orderBy: { businessName: "asc" },
+    });
+    return res.json(listings);
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+});
+
+// ── Local Offers: business routes (the portal) ────────────────────────────────
+
+app.get("/business-listings/me", requireBusinessAuth, async (req: Request, res: Response) => {
+  try {
+    const listing = await prisma.businessListing.findUnique({
+      where: { id: listingIdOf(req) },
+    });
+    if (!listing) return res.status(404).json({ error: "Listing not found" });
+
+    const { stripeCustomerId, stripeSubscriptionId, clerkUserId, ...safe } = listing;
+    return res.json(safe);
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+});
+
+app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res: Response) => {
+  try {
+    const listingId = listingIdOf(req);
+    const existing = await prisma.businessListing.findUnique({ where: { id: listingId } });
+    if (!existing) return res.status(404).json({ error: "Listing not found" });
+
+    const updates: {
+      businessName?: string;
+      discountText?: string;
+      description?: string;
+      imageUrl?: string;
+      approved?: boolean;
+      updatedAt?: string;
+    } = {};
+
+    for (const field of ["businessName", "discountText", "description"] as const) {
+      if (req.body?.[field] === undefined) continue;
+      const value = cleanListingField(req.body[field], LISTING_FIELD_LIMITS[field]);
+      if (value === null) return res.status(400).json({ error: `Invalid ${field}` });
+      updates[field] = value;
+    }
+
+    // Only a URL this backend just handed out may be stored, so the field
+    // can't be pointed at an arbitrary host.
+    if (req.body?.imageUrl !== undefined) {
+      const publicBase = process.env.R2_PUBLIC_URL;
+      const value = typeof req.body.imageUrl === "string" ? req.body.imageUrl.trim() : "";
+      if (!publicBase || !value.startsWith(`${normaliseBaseUrl(publicBase)}/`)) {
+        return res.status(400).json({ error: "Invalid imageUrl" });
+      }
+      updates.imageUrl = value;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: "No valid fields to update" });
+    }
+
+    // Changing the discount drops the listing back to unapproved so the
+    // genuine-discount rule gets re-checked. Name, description and image
+    // edits don't, so fixing a typo can't pull a paying listing out of the
+    // app until the next manual review.
+    if (
+      updates.discountText !== undefined &&
+      updates.discountText !== existing.discountText
+    ) {
+      updates.approved = false;
+    }
+
+    updates.updatedAt = new Date().toISOString();
+
+    const listing = await prisma.businessListing.update({
+      where: { id: listingId },
+      data: updates,
+    });
+
+    const { stripeCustomerId, stripeSubscriptionId, clerkUserId, ...safe } = listing;
+    return res.json(safe);
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+});
+
+app.post("/business-listings/me/checkout", requireBusinessAuth, async (req: Request, res: Response) => {
+  try {
+    const listing = await prisma.businessListing.findUnique({
+      where: { id: listingIdOf(req) },
+    });
+    if (!listing) return res.status(404).json({ error: "Listing not found" });
+    if (listing.active) {
+      return res.status(409).json({ error: "Subscription is already active" });
+    }
+
+    const portalBase = normaliseBaseUrl(requireEnv("PORTAL_BASE_URL"));
+    const session = await getStripe().checkout.sessions.create({
+      mode: "subscription",
+      line_items: [{ price: requireEnv("STRIPE_PRICE_ID"), quantity: 1 }],
+      client_reference_id: String(listing.id),
+      metadata: { listingId: String(listing.id) },
+      // Copied onto the subscription so the later subscription.* webhooks can
+      // find the listing without relying on the customer mapping.
+      subscription_data: { metadata: { listingId: String(listing.id) } },
+      ...(listing.stripeCustomerId
+        ? { customer: listing.stripeCustomerId }
+        : { customer_email: listing.contactEmail }),
+      success_url: `${portalBase}/billing?checkout=success`,
+      cancel_url: `${portalBase}/billing?checkout=cancelled`,
+    });
+
+    return res.json({ url: session.url });
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+});
+
+app.post("/business-listings/me/portal", requireBusinessAuth, async (req: Request, res: Response) => {
+  try {
+    const listing = await prisma.businessListing.findUnique({
+      where: { id: listingIdOf(req) },
+    });
+    if (!listing) return res.status(404).json({ error: "Listing not found" });
+    if (!listing.stripeCustomerId) {
+      return res.status(409).json({ error: "No subscription to manage yet" });
+    }
+
+    const session = await getStripe().billingPortal.sessions.create({
+      customer: listing.stripeCustomerId,
+      return_url: `${normaliseBaseUrl(requireEnv("PORTAL_BASE_URL"))}/billing`,
+    });
+
+    return res.json({ url: session.url });
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+});
+
+app.post("/business-listings/me/cancel", requireBusinessAuth, async (req: Request, res: Response) => {
+  try {
+    const listing = await prisma.businessListing.findUnique({
+      where: { id: listingIdOf(req) },
+    });
+    if (!listing) return res.status(404).json({ error: "Listing not found" });
+    if (!listing.stripeSubscriptionId) {
+      return res.status(409).json({ error: "No subscription to cancel" });
+    }
+
+    // Stays live for the period already paid for. `active` is deliberately
+    // left alone - customer.subscription.deleted is the single source of
+    // truth, so cancelling here and cancelling from Stripe's own portal
+    // follow identical code paths.
+    await getStripe().subscriptions.update(listing.stripeSubscriptionId, {
+      cancel_at_period_end: true,
+    });
+
+    return res.json({ ok: true });
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+});
+
+app.post("/business-listings/me/image-upload-url", requireBusinessAuth, async (req: Request, res: Response) => {
+  try {
+    const contentType =
+      typeof req.body?.contentType === "string" ? req.body.contentType : "";
+    const extension = ALLOWED_IMAGE_TYPES.get(contentType);
+    if (!extension) {
+      return res.status(400).json({ error: "Unsupported contentType" });
+    }
+
+    const listingId = listingIdOf(req);
+    const key = `listings/${listingId}-${Date.now()}.${extension}`;
+
+    const uploadUrl = await getSignedUrl(
+      getR2(),
+      new PutObjectCommand({
+        Bucket: requireEnv("R2_BUCKET_NAME"),
+        Key: key,
+        ContentType: contentType,
+      }),
+      { expiresIn: 300 },
+    );
+
+    // The portal PATCHes this back once the upload succeeds, so a failed
+    // upload can't leave a broken image showing in the app.
+    const imageUrl = `${normaliseBaseUrl(requireEnv("R2_PUBLIC_URL"))}/${key}`;
+    return res.json({ uploadUrl, imageUrl });
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+});
+
+// ── Local Offers: Stripe webhook ──────────────────────────────────────────────
+
+// Authenticated by Stripe's own signature rather than ADMIN_TOKEN. The raw
+// body it needs is preserved by the express.raw mount above express.json().
+app.post("/stripe/webhook", async (req: Request, res: Response) => {
+  try {
+    const signature = req.get("stripe-signature");
+    if (!signature) return res.status(400).json({ error: "Missing signature" });
+
+    let event: Stripe.Event;
+    try {
+      event = getStripe().webhooks.constructEvent(
+        req.body as Buffer,
+        signature,
+        requireEnv("STRIPE_WEBHOOK_SECRET"),
+      );
+    } catch (error) {
+      if (error instanceof MissingConfigError) throw error;
+      console.error(
+        "Stripe signature verification failed:",
+        error instanceof Error ? error.message : error,
+      );
+      return res.status(400).json({ error: "Invalid signature" });
+    }
+
+    const now = new Date().toISOString();
+
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object;
+        const listingId = Number(
+          session.client_reference_id ?? session.metadata?.listingId,
+        );
+        if (!Number.isInteger(listingId)) {
+          console.error("checkout.session.completed without a listing id");
+          break;
+        }
+
+        const subscriptionId =
+          typeof session.subscription === "string"
+            ? session.subscription
+            : (session.subscription?.id ?? null);
+        const customerId =
+          typeof session.customer === "string"
+            ? session.customer
+            : (session.customer?.id ?? null);
+
+        let subscriptionStatus = "incomplete";
+        if (subscriptionId) {
+          const subscription =
+            await getStripe().subscriptions.retrieve(subscriptionId);
+          subscriptionStatus = subscription.status;
+        }
+
+        await prisma.businessListing.updateMany({
+          where: { id: listingId },
+          data: {
+            stripeCustomerId: customerId,
+            stripeSubscriptionId: subscriptionId,
+            subscriptionStatus,
+            active: PAID_SUBSCRIPTION_STATUSES.has(subscriptionStatus),
+            updatedAt: now,
+          },
+        });
+        break;
+      }
+
+      case "customer.subscription.updated":
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object;
+        const listingId = Number(subscription.metadata?.listingId);
+        const deleted = event.type === "customer.subscription.deleted";
+
+        // updateMany rather than update: a webhook for a listing that no
+        // longer exists must not throw, or Stripe retries it indefinitely.
+        await prisma.businessListing.updateMany({
+          where: Number.isInteger(listingId)
+            ? { id: listingId }
+            : { stripeSubscriptionId: subscription.id },
+          data: {
+            subscriptionStatus: deleted ? "canceled" : subscription.status,
+            active: !deleted && PAID_SUBSCRIPTION_STATUSES.has(subscription.status),
+            updatedAt: now,
+          },
+        });
+        break;
+      }
+
+      default:
+        break;
+    }
+
+    return res.json({ received: true });
+  } catch (error) {
+    return handleListingError(error, res);
+  }
 });
 
 // ── Bin Notifications ─────────────────────────────────────────────────────────

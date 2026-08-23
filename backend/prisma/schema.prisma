@@ -35,3 +35,20 @@ model AppMeta {
   key   String @id
   value String
 }
+
+model BusinessListing {
+  id                   Int     @id @default(autoincrement())
+  businessName         String
+  discountText         String
+  description          String
+  imageUrl             String?
+  contactEmail         String  @unique
+  clerkUserId          String? @unique
+  stripeCustomerId     String? @unique
+  stripeSubscriptionId String? @unique
+  subscriptionStatus   String  @default("incomplete")
+  approved             Boolean @default(false)
+  active               Boolean @default(false)
+  createdAt            String
+  updatedAt            String
+}

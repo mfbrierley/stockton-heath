@@ -87,6 +87,20 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | `POST /bin-subscriptions`            | Register a token + UPRN for bin reminders               |
 | `DELETE /bin-subscriptions`          | Unregister a token from bin reminders                   |
 | `GET /fuel-prices`                   | Cached fuel prices for local stations                   |
+| `GET /business-listings`             | Live Local Offers listings (`approved && active` only)  |
+| `POST /business-listings` 🔒         | Create a draft listing and send a Clerk invitation      |
+| `GET /business-listings/pending` 🔒  | Listings awaiting manual approval                       |
+| `POST /business-listings/:id/approve` 🔒 | Mark a listing as meeting the discount rule         |
+| `POST /business-listings/:id/unapprove` 🔒 | Withdraw approval                                 |
+| `GET /business-listings/me` 🔑       | The caller's own listing                                |
+| `PATCH /business-listings/me` 🔑     | Edit listing content                                    |
+| `POST /business-listings/me/checkout` 🔑 | Stripe Checkout session URL                         |
+| `POST /business-listings/me/portal` 🔑 | Stripe Customer Portal session URL                    |
+| `POST /business-listings/me/cancel` 🔑 | Cancel at period end                                  |
+| `POST /business-listings/me/image-upload-url` 🔑 | Signed R2 upload URL                        |
+| `POST /stripe/webhook`               | Stripe subscription events (signature-verified)         |
+
+🔑 marks a business portal route, authenticated by a Clerk session token via `requireBusinessAuth`.
 
 🔒 marks an admin-only route. These require an `x-admin-token` header matching the `ADMIN_TOKEN` environment variable, enforced by the `requireAdmin` middleware in `src/index.ts`. The comparison is timing-safe, and the check **fails closed** - if `ADMIN_TOKEN` is unset the routes return `503` rather than falling open. They are gated because they either spend money (a metered twitterapi.io call) or reach every subscribed device (push).
 
@@ -100,6 +114,7 @@ Uses **Turso** (a hosted libSQL/SQLite service) via **Prisma** ORM. Four tables:
 - `BridgeSubscription` - Expo push tokens subscribed to bridge alerts
 - `BinSubscription` - Expo push tokens subscribed to bin reminders, each paired with a UPRN
 - `AppMeta` - simple key/value store; currently holds `lastBinNotificationDate` for reminder de-duplication
+- `BusinessListing` - a paid Local Offers listing. `approved` (manual editorial review) and `active` (Stripe subscription in good standing) are independent; a listing reaches the app only when both are true
 
 Migrations live in `backend/prisma/migrations/`. Note that the original `PushToken` table was replaced by the two subscription tables in `20260601000000_replace_push_token_with_subscriptions`.
 
@@ -160,6 +175,16 @@ Note that `EXPO_PUBLIC_*` variables are inlined into the client bundle at build 
 - `ADMIN_TOKEN` - shared secret for the admin-only routes above. Generate with `openssl rand -hex 32`. Without it those routes return `503`.
 - `FUEL_FINDER_CLIENT_ID` / `FUEL_FINDER_CLIENT_SECRET` - Gov.uk Fuel Finder OAuth credentials
 
+Local Offers (all optional - the feature returns `503` until they are set):
+
+- `CLERK_SECRET_KEY` - Clerk backend API key; verifies portal sessions and sends invitations
+- `STRIPE_SECRET_KEY` - Stripe secret key
+- `STRIPE_WEBHOOK_SECRET` - signing secret for `POST /stripe/webhook`
+- `STRIPE_PRICE_ID` - the £15/month recurring price
+- `PORTAL_BASE_URL` - the business portal's origin; also the CORS allow-list and Stripe's redirect target
+- `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET_NAME` - Cloudflare R2 credentials for listing images
+- `R2_PUBLIC_URL` - base URL images are served from
+
 ---
 
 ## Monetisation
@@ -170,6 +195,16 @@ The app currently carries a single hardcoded sponsor:
 - `components/SponsorBadge.tsx` - a compact "sponsored by" strip on the Services and Bridge tabs
 
 Both reference Rowswood Timber directly, including the logo asset. Changing sponsor currently means editing the components and shipping a build.
+
+### Local Offers
+
+The replacement for the hardcoded sponsor: local businesses pay £15/month by Stripe subscription to advertise a **genuine discount** to residents. Businesses are invited by email rather than signing up publicly, and manage their own listing through a web portal (a separate repo).
+
+- **Authentication** is handled by **Clerk** - it owns passwords, invitation emails and password resets, so no credential reaches this backend. The portal sends a Clerk session token as a bearer token; `requireBusinessAuth` verifies it and links the Clerk account to a listing on first sign-in by matching the invited email address.
+- **Billing** is Stripe Checkout in subscription mode. `customer.subscription.*` webhooks are the single source of truth for `active`, so cancelling from the portal and cancelling from Stripe's own Customer Portal behave identically.
+- **Images** are uploaded directly to Cloudflare R2 via a short-lived signed URL; the portal PATCHes the resulting public URL back once the upload succeeds.
+- Editing `discountText` resets `approved` to `false` so the discount gets re-reviewed. Name, description and image edits do not, so a typo fix can't pull a paying listing out of the app.
+- All Local Offers config is read lazily. A missing variable returns `503` from the affected route rather than throwing at boot, because `deploy:backend` removes the running container before starting the new one - a boot-time throw would take weather, fuel, bridge alerts and bin reminders down with it.
 
 ---
 
@@ -186,6 +221,9 @@ Both reference Rowswood Timber directly, including the logo asset. Changing spon
 | Containerisation     | Docker                                                                              |
 | Hosting              | DigitalOcean Droplet                                                                |
 | Build / distribution | EAS Build, EAS Submit, EAS Update, App Store                                        |
+| Business auth        | Clerk (`@clerk/backend`)                                                            |
+| Payments             | Stripe (Checkout, Customer Portal, subscription webhooks)                           |
+| Image storage        | Cloudflare R2 (signed uploads via the S3-compatible API)                             |
 | External APIs        | OpenWeather One Call, twitterapi.io, Gov.uk Fuel Finder, Warrington Borough Council |
 
 ---
