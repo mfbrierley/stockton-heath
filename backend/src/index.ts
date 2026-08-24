@@ -758,7 +758,21 @@ const portalCors = cors({
   origin: (origin, callback) => {
     const allowed = process.env.PORTAL_BASE_URL;
     if (!origin || !allowed) return callback(null, false);
-    return callback(null, origin === normaliseBaseUrl(allowed));
+
+    // PORTAL_BASE_URL can carry a path, because the portal may be mounted
+    // under one and Stripe's redirects need it. A browser's Origin header
+    // never has a path, so compare against the origin alone - otherwise a
+    // PORTAL_BASE_URL like https://example.com/business can never match the
+    // https://example.com the browser actually sends.
+    let allowedOrigin: string;
+    try {
+      allowedOrigin = new URL(allowed).origin;
+    } catch {
+      console.error("PORTAL_BASE_URL is not a valid URL:", allowed);
+      return callback(null, false);
+    }
+
+    return callback(null, origin === allowedOrigin);
   },
 });
 
@@ -795,7 +809,14 @@ const requireBusinessAuth = async (
     try {
       const payload = await verifyToken(token, { secretKey });
       clerkUserId = payload.sub;
-    } catch {
+    } catch (error) {
+      // Logged because an unexplained 401 here is indistinguishable from a
+      // wrong key, a key from a different Clerk instance, or an expired
+      // token - and the difference is the whole diagnosis.
+      console.error(
+        "Clerk token verification failed:",
+        error instanceof Error ? error.message : error,
+      );
       return res.status(401).json({ error: "Unauthorized" });
     }
 
