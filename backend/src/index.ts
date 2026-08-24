@@ -758,7 +758,21 @@ const portalCors = cors({
   origin: (origin, callback) => {
     const allowed = process.env.PORTAL_BASE_URL;
     if (!origin || !allowed) return callback(null, false);
-    return callback(null, origin === normaliseBaseUrl(allowed));
+
+    // PORTAL_BASE_URL can carry a path, because the portal may be mounted
+    // under one and Stripe's redirects need it. A browser's Origin header
+    // never has a path, so compare against the origin alone - otherwise a
+    // PORTAL_BASE_URL like https://example.com/business can never match the
+    // https://example.com the browser actually sends.
+    let allowedOrigin: string;
+    try {
+      allowedOrigin = new URL(allowed).origin;
+    } catch {
+      console.error("PORTAL_BASE_URL is not a valid URL:", allowed);
+      return callback(null, false);
+    }
+
+    return callback(null, origin === allowedOrigin);
   },
 });
 
