@@ -733,6 +733,15 @@ const LISTING_FIELD_LIMITS = {
   description: 600,
 } as const;
 
+// Managed Payments is Stripe's merchant-of-record product, enabled by default
+// on the account. It adds 3.5% per transaction and requires a product tax
+// code, neither of which suits selling advertising to businesses a few miles
+// away - so checkout opts out explicitly rather than relying on an
+// account-level default that Stripe controls. Not typed by stripe@22 yet.
+type CheckoutSessionParams = Stripe.Checkout.SessionCreateParams & {
+  managed_payments?: { enabled: boolean };
+};
+
 // Stripe statuses that mean the listing has been paid for.
 const PAID_SUBSCRIPTION_STATUSES = new Set<string>(["active", "trialing"]);
 
@@ -1036,8 +1045,9 @@ app.post("/business-listings/me/checkout", requireBusinessAuth, async (req: Requ
     }
 
     const portalBase = normaliseBaseUrl(requireEnv("PORTAL_BASE_URL"));
-    const session = await getStripe().checkout.sessions.create({
+    const params: CheckoutSessionParams = {
       mode: "subscription",
+      managed_payments: { enabled: false },
       line_items: [{ price: requireEnv("STRIPE_PRICE_ID"), quantity: 1 }],
       client_reference_id: String(listing.id),
       metadata: { listingId: String(listing.id) },
@@ -1049,7 +1059,9 @@ app.post("/business-listings/me/checkout", requireBusinessAuth, async (req: Requ
         : { customer_email: listing.contactEmail }),
       success_url: `${portalBase}/billing?checkout=success`,
       cancel_url: `${portalBase}/billing?checkout=cancelled`,
-    });
+    };
+
+    const session = await getStripe().checkout.sessions.create(params);
 
     return res.json({ url: session.url });
   } catch (error) {
