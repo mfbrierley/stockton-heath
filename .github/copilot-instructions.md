@@ -105,47 +105,65 @@ const LONGITUDE = -2.5811; // Stockton Heath, Warrington
 
 ### Environment variables (backend `backend/.env`)
 
-| Variable                    | Purpose                                   |
-| --------------------------- | ----------------------------------------- |
-| `DATABASE_URL`              | Turso libSQL URL                          |
-| `TURSO_AUTH_TOKEN`          | Turso auth token                          |
-| `TWITTERAPI_IO_API_KEY`     | twitterapi.io key for bridge alert tweets |
-| `FUEL_FINDER_CLIENT_ID`     | Gov.uk Fuel Finder OAuth client ID        |
-| `FUEL_FINDER_CLIENT_SECRET` | Gov.uk Fuel Finder OAuth client secret    |
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | Turso libSQL URL |
+| `TURSO_AUTH_TOKEN` | Turso auth token |
+| `ADMIN_TOKEN` | Shared secret for admin-only routes (`x-admin-token` header) |
+| `TWITTERAPI_IO_API_KEY` | twitterapi.io key for bridge alert tweets |
+| `FUEL_FINDER_CLIENT_ID` / `FUEL_FINDER_CLIENT_SECRET` | Gov.uk Fuel Finder OAuth credentials |
+| `CLERK_SECRET_KEY` | Verifies business portal session tokens |
+| `STRIPE_SECRET_KEY` / `STRIPE_PRICE_ID` / `STRIPE_WEBHOOK_SECRET` | Local Offers subscriptions |
+| `PORTAL_BASE_URL` | Business portal base URL; Stripe redirects and the CORS allow-list |
+| `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET_NAME` / `R2_PUBLIC_URL` | Cloudflare R2, for listing images |
+
+Local Offers config is read lazily: a missing variable makes only its own route
+return `503`. Never throw at boot - `deploy:backend` removes the running
+container before starting the new one, so a startup crash takes the whole
+backend down.
 
 ### API Routes
 
-| Method | Route                            | Description                                   |
-| ------ | -------------------------------- | --------------------------------------------- |
-| GET    | `/`                              | Health check string                           |
-| GET    | `/health`                        | JSON `{ ok: true }`                           |
-| GET    | `/bridge-alerts`                 | All bridge alerts (newest first)              |
-| GET    | `/bridge-alerts/latest`          | Most recent bridge alert                      |
-| GET    | `/bridge-alerts/check/:userName` | Trigger a manual poll from a Twitter username |
-| POST   | `/push-tokens`                   | Register an Expo push token                   |
-| GET    | `/fuel-prices`                   | Cached local fuel prices                      |
+Admin routes are gated by `requireAdmin` (`x-admin-token`); business routes by
+`requireBusinessAuth` (a Clerk session token as a bearer token).
+
+| Method | Route | Auth |
+| --- | --- | --- |
+| GET | `/` , `/health` | public |
+| GET | `/bridge-alerts` , `/bridge-alerts/latest` | public |
+| GET | `/bridge-alerts/check/:userName` | admin |
+| POST | `/bridge-alerts/test-notification` | admin |
+| GET | `/test-key` | admin |
+| POST / DELETE | `/bridge-subscriptions` , `/bin-subscriptions` | public |
+| GET | `/fuel-prices` | public |
+| GET | `/business-listings` | public - only `approved && active` |
+| GET | `/business-listings/pending` | admin |
+| POST | `/business-listings/:id/approve` , `/:id/unapprove` | admin |
+| POST / GET / PATCH | `/business-listings/me` | business |
+| POST | `/business-listings/me/checkout` , `/portal` , `/cancel` , `/image-upload-url` | business |
+| POST | `/stripe/webhook` | Stripe signature |
 
 ### Background polling
 
-- **Bridge alerts:** polls `twitterapi.io` every **10 minutes** for tweets from `trafficwarr` containing "Swingbridge Alert". Only runs 6am–10pm UK time. Sends Expo push notifications on new alerts.
+- **Bridge alerts:** polls `twitterapi.io` every **10 minutes** for tweets from `trafficwarr` containing "Swingbridge Alert". Only runs 6am-10pm UK time. Sends Expo push notifications on new alerts.
 - **Fuel prices:** polls Gov.uk Fuel Finder API every **30 minutes**, caches results in memory for 3 local stations (Wilderspool Causeway, Latchford, Morrisons).
+- **Bin reminders:** checked every minute, fires at **18:00 UK**. Groups `BinSubscription` rows by UPRN, queries the council API, and pushes to anyone with a collection tomorrow. De-duplicated per day via `AppMeta`.
 
 ### Database models (Prisma)
 
-```prisma
-model BridgeAlert {
-  id         Int    @id @default(autoincrement())
-  tweetId    String @unique
-  tweetText  String
-  postedAt   String
-  detectedAt String
-}
+`BridgeAlert`, `BridgeSubscription`, `BinSubscription`, `AppMeta`,
+`BusinessListing`. See `backend/prisma/schema.prisma` for the definitions.
 
-model PushToken {
-  id    Int    @id @default(autoincrement())
-  token String @unique
-}
-```
+**Migrations are applied by hand.** The live Turso database has no
+`_prisma_migrations` table, so `prisma migrate dev` would reset it (destroying
+every push token) and `prisma migrate deploy` would fail recreating tables that
+already exist. Write the migration file for the record, then apply its SQL with
+`turso db shell`.
+
+> For anything beyond the summaries above - the Local Offers design, deployment
+> failure modes, and the constraints behind them - `PROJECT_CONTEXT.md` at the
+> repo root is the source of truth. Prefer updating that file over duplicating
+> detail here.
 
 ---
 
@@ -176,6 +194,7 @@ The repo is cloned at `/opt/stockton-heath` on the droplet. The backend runs as 
 
 ```bash
 cd /opt/stockton-heath && git pull
+docker image prune -f
 docker build -t stockton-heath-backend ./backend
 docker stop stockton-heath-backend && docker rm stockton-heath-backend
 docker run -d \
@@ -185,6 +204,14 @@ docker run -d \
   --env-file ./backend/.env \
   stockton-heath-backend
 ```
+
+`docker image prune -f` matters: every deploy leaves the previous image
+untagged, and nothing else removes them. Without it the droplet's disk fills
+until builds fail.
+
+Note the order. Once `docker stop && docker rm` have run the old container is
+gone, so a container that crashes on startup leaves the backend down. A *build*
+failure is safe by comparison - it stops before anything is torn down.
 
 ---
 
