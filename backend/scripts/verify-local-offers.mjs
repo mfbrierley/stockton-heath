@@ -56,6 +56,7 @@ const clerk = createClerkClient({ secretKey: CLERK_SECRET_KEY });
 
 let listingId = null;
 let clerkUserId = null;
+let checkoutUrl = null;
 
 try {
   console.log(`\nVerifying ${BACKEND_URL}\n`);
@@ -172,7 +173,12 @@ try {
   } else {
     check(checkout.status === 200 && typeof checkout.json?.url === "string" && checkout.json.url.includes("stripe.com"),
       `POST /me/checkout returns a Stripe Checkout URL (${checkout.status})`);
-    if (checkout.json?.url) console.log(`        ${checkout.json.url.slice(0, 78)}...`);
+    // Printed in full, not truncated: opening it and paying with a test card
+    // is the only thing that exercises the webhook, which nothing else here
+    // can reach. Test mode, so the link is not sensitive.
+    if (checkout.json?.url) {
+      checkoutUrl = checkout.json.url;
+    }
   }
   check((await api("/business-listings/me/cancel", { method: "POST", token: jwt })).status === 409,
     "cancel refuses when there is no subscription yet");
@@ -206,8 +212,15 @@ try {
   }
 
   console.log(`\n${passed} passed, ${failed} failed, ${skipped} skipped`);
+
+  if (checkoutUrl) {
+    console.log("\nTo exercise the Stripe webhook, pay this with card 4242 4242 4242 4242,");
+    console.log("any future expiry and any CVC. Leave the test listing in place until after:");
+    console.log(`\n  ${checkoutUrl}`);
+  }
+
   if (listingId) {
-    console.log(`\nRemove the test listing with:\n  turso db shell stockton-heath "DELETE FROM BusinessListing WHERE contactEmail='${TEST_EMAIL}';"`);
+    console.log(`\nThen remove the test listing with:\n  turso db shell stockton-heath "DELETE FROM BusinessListing WHERE contactEmail='${TEST_EMAIL}';"`);
   }
   process.exit(failed > 0 ? 1 : 0);
 }
