@@ -111,6 +111,15 @@ try {
       description: "A listing created by the verification script.",
     },
   });
+  // A listing row from an earlier run blocks this one, because contactEmail is
+  // unique. Bail out with the cleanup command rather than letting every later
+  // check fail for want of a listing.
+  if (created.status === 409) {
+    fail(`a listing for ${TEST_EMAIL} is left over from a previous run`);
+    console.log(`\n  Remove it and run this again:\n    turso db shell stockton-heath "DELETE FROM BusinessListing WHERE contactEmail='${TEST_EMAIL}';"`);
+    throw new Error("stale test listing from a previous run");
+  }
+
   check(created.status === 201, `POST /me creates the listing (${created.status})`);
   listingId = created.json?.id ?? null;
   check(created.json?.contactEmail === TEST_EMAIL,
@@ -182,7 +191,9 @@ try {
     method: "POST", token: jwt, body: { contentType: "application/pdf" },
   })).status === 400, "image upload rejects a non-image type");
 } catch (error) {
-  fail(`stopped early: ${error instanceof Error ? error.message : error}`);
+  if (!(error instanceof Error && error.message === "stale test listing from a previous run")) {
+    fail(`stopped early: ${error instanceof Error ? error.message : error}`);
+  }
 } finally {
   console.log("\nCleanup");
   if (clerkUserId) {
