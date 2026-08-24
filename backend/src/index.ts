@@ -795,7 +795,14 @@ const requireBusinessAuth = async (
     try {
       const payload = await verifyToken(token, { secretKey });
       clerkUserId = payload.sub;
-    } catch {
+    } catch (error) {
+      // Logged because an unexplained 401 here is indistinguishable from a
+      // wrong key, a key from a different Clerk instance, or an expired
+      // token - and the difference is the whole diagnosis.
+      console.error(
+        "Clerk token verification failed:",
+        error instanceof Error ? error.message : error,
+      );
       return res.status(401).json({ error: "Unauthorized" });
     }
 
