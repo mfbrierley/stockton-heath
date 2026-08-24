@@ -108,7 +108,7 @@ All other routes are public and unauthenticated, which is intended - they are re
 
 ### Database
 
-Uses **Turso** (a hosted libSQL/SQLite service) via **Prisma** ORM. Four tables:
+Uses **Turso** (a hosted libSQL/SQLite service) via **Prisma** ORM. Five tables:
 
 - `BridgeAlert` - each detected bridge closure tweet (tweetId, tweetText, postedAt, detectedAt)
 - `BridgeSubscription` - Expo push tokens subscribed to bridge alerts
@@ -116,7 +116,22 @@ Uses **Turso** (a hosted libSQL/SQLite service) via **Prisma** ORM. Four tables:
 - `AppMeta` - simple key/value store; currently holds `lastBinNotificationDate` for reminder de-duplication
 - `BusinessListing` - a paid Local Offers listing. `approved` (manual editorial review) and `active` (Stripe subscription in good standing) are independent; a listing reaches the app only when both are true
 
-Migrations live in `backend/prisma/migrations/`. Note that the original `PushToken` table was replaced by the two subscription tables in `20260601000000_replace_push_token_with_subscriptions`.
+#### Migrations are applied by hand
+
+**Do not point Prisma's migration commands at the live database.** The files in `backend/prisma/migrations/` are kept as a record of the schema, but the live Turso database has no `_prisma_migrations` table - its tables were created by running the SQL directly. Consequently:
+
+- `prisma migrate dev` would see drift and **reset the database**, destroying every Expo push token. Those exist nowhere else, and losing them silently stops bin and bridge notifications for every subscribed user, with no recovery short of each of them toggling the setting off and on.
+- `prisma migrate deploy` would treat the database as empty and fail partway through recreating tables that already exist, leaving migrations in a failed state that blocks future ones.
+
+To add a table, write the migration file for the record, then apply its SQL directly:
+
+```bash
+turso db shell stockton-heath < backend/prisma/migrations/<name>/migration.sql
+```
+
+Nothing applies migrations automatically - the Dockerfile only runs `prisma generate && tsc`. (`backend/dbsetup.js` does call `prisma migrate deploy`, but it is a leftover from an abandoned Fly.io setup, is never copied into the image, and is never executed. It is misleading and worth deleting.)
+
+Two historical notes: the original `PushToken` table was replaced by the two subscription tables in `20260601000000_replace_push_token_with_subscriptions`; and `AppMeta` was absent from the live database until August 2026, which meant bin reminders fell back to an in-memory guard and could double-send if the container restarted between 18:00 and 19:00 UK.
 
 ### Background Jobs
 
@@ -134,11 +149,23 @@ Invalid Expo push tokens returned by the push service are pruned from the releva
 
 ### Backend
 
-- Hosted on a **DigitalOcean Droplet** (Ubuntu)
+- Hosted on a **DigitalOcean Droplet** (Ubuntu) - 1 vCPU, 1GB RAM, 25GB disk
 - Domain: `https://stocktonheath.duckdns.org` (DuckDNS for dynamic DNS)
 - Runs as a plain **Docker container** (`docker run`) on port 3001
-- Deployed with `npm run deploy:backend`, which SSHes into the droplet, pulls, rebuilds the image and restarts the container
+- Deployed with `npm run deploy:backend`, which SSHes into the droplet, pulls, prunes dangling images, rebuilds and restarts the container
 - No CI/CD pipeline - all deployments are manual
+
+The deploy command is one `&&` chain, which gives it two behaviours worth knowing:
+
+- **A build failure is safe.** The chain stops before `docker stop`, so the running container is never touched.
+- **A boot failure is not.** Once `docker stop && docker rm` have run the old container is gone, so a container that crashes on startup leaves the backend down - no weather, fuel, bridge alerts or bin reminders. This is why nothing in `index.ts` throws at boot over missing configuration; missing config disables its own feature and nothing else.
+
+Two constraints have blocked deploys before:
+
+- **Disk.** Every deploy left the previous image untagged and nothing removed them, reaching 99.8% of a 10GB disk. `deploy:backend` now runs `docker image prune -f` before building.
+- **Memory.** `tsc` needs a little over 256MB and Node caps its own heap from available RAM, so builds died with "JavaScript heap out of memory". The Dockerfile sets `NODE_OPTIONS=--max-old-space-size=512` for the build.
+
+`backend/Dockerfile` installs, builds and prunes in a **single** `RUN`. A later layer cannot reclaim space from an earlier one, so splitting them shipped the entire dev dependency tree inside the image no matter what the prune removed. `backend/package.json` also once listed `expo`, `react` and `react-native`, which dragged the whole React Native and iOS toolchain into the server image - 978 packages for a server that needs 287.
 
 ### Frontend (iOS)
 
@@ -175,13 +202,13 @@ Note that `EXPO_PUBLIC_*` variables are inlined into the client bundle at build 
 - `ADMIN_TOKEN` - shared secret for the admin-only routes above. Generate with `openssl rand -hex 32`. Without it those routes return `503`.
 - `FUEL_FINDER_CLIENT_ID` / `FUEL_FINDER_CLIENT_SECRET` - Gov.uk Fuel Finder OAuth credentials
 
-Local Offers (all optional - the feature returns `503` until they are set):
+Local Offers (all optional - each route returns `503` until the variables it needs are set). As of August 2026 everything except the four `R2_*` values is configured on the droplet, with Stripe in a test-mode sandbox:
 
-- `CLERK_SECRET_KEY` - Clerk backend API key; verifies portal sessions and sends invitations
+- `CLERK_SECRET_KEY` - Clerk backend API key; verifies portal session tokens and reads the signed-in business's email address
 - `STRIPE_SECRET_KEY` - Stripe secret key
 - `STRIPE_WEBHOOK_SECRET` - signing secret for `POST /stripe/webhook`
-- `STRIPE_PRICE_ID` - the £15/month recurring price
-- `PORTAL_BASE_URL` - the business portal's origin; also the CORS allow-list and Stripe's redirect target
+- `STRIPE_PRICE_ID` - the £20/month recurring price
+- `PORTAL_BASE_URL` - the portal's base URL, currently `https://stockton-heath-support.vercel.app/business`. May carry a path: Stripe's redirect URLs are built from the whole value, while CORS compares against its origin alone.
 - `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET_NAME` - Cloudflare R2 credentials for listing images
 - `R2_PUBLIC_URL` - base URL images are served from
 
@@ -198,14 +225,46 @@ Both reference Rowswood Timber directly, including the logo asset. Changing spon
 
 ### Local Offers
 
-The replacement for the hardcoded sponsor: local businesses pay £15/month by Stripe subscription to advertise a **genuine discount** to residents. Businesses are emailed a link to the portal (a separate repo), sign themselves up, write their own listing and pay for it.
+The replacement for the hardcoded sponsor: local businesses pay **£20/month** by Stripe subscription to advertise a **genuine discount** to residents - the editorial rule that keeps the feature useful rather than just advertising. Businesses are emailed a link to the portal, sign themselves up, write their own listing and pay for it.
+
+The portal is a small React app that does not exist yet. It will live in the **`stockton-heath-support`** repo, served at `https://stockton-heath-support.vercel.app/business` - not a separate repository, as originally planned.
 
 - **Authentication** is handled by **Clerk** - it owns sign-up, passwords and password resets, so no credential reaches this backend. The portal sends a Clerk session token as a bearer token and `requireBusinessAuth` verifies it. Sign-up is open: a signed-in caller with no listing is an expected state rather than an error, and creating one is the next thing they do. A listing is owned by the Clerk account that created it (`clerkUserId` is unique, so one account means one listing), and its contact address is read from that account rather than the request body.
 - **Nothing a stranger signs up for is visible.** A listing reaches the app only once it is approved and paid, so an unwanted sign-up costs no more than a row in the pending queue.
-- **Billing** is Stripe Checkout in subscription mode. `customer.subscription.*` webhooks are the single source of truth for `active`, so cancelling from the portal and cancelling from Stripe's own Customer Portal behave identically.
+- **Billing** is Stripe Checkout in subscription mode. `customer.subscription.*` webhooks are the single source of truth for `active`, so cancelling from the portal and cancelling from Stripe's own Customer Portal behave identically. The cancel route sets `cancel_at_period_end` and deliberately does not touch `active` itself.
+- **Checkout opts out of Stripe Managed Payments** (`managed_payments: { enabled: false }`). That is Stripe's merchant-of-record product, enabled by default on the account: it adds 3.5% per transaction, requires a product tax code, and would make Stripe rather than the app's owner the party selling advertising. Without opting out, checkout fails outright. It is set in code rather than the dashboard so the decision travels with the repository. The parameter is newer than `stripe@22`'s types, so the params type is extended locally.
+- **The webhook needs the raw request body.** `express.raw` is mounted on `/stripe/webhook` above the global `express.json()`; body-parser marks the request as already read, so the JSON parser leaves that one path alone.
 - **Images** are uploaded directly to Cloudflare R2 via a short-lived signed URL; the portal PATCHes the resulting public URL back once the upload succeeds.
 - Editing `discountText` resets `approved` to `false` so the discount gets re-reviewed. Name, description and image edits do not, so a typo fix can't pull a paying listing out of the app.
 - All Local Offers config is read lazily. A missing variable returns `503` from the affected route rather than throwing at boot, because `deploy:backend` removes the running container before starting the new one - a boot-time throw would take weather, fuel, bridge alerts and bin reminders down with it.
+- **CORS** is scoped to `PORTAL_BASE_URL` and compares against its **origin**, since a browser's `Origin` header never carries a path and `PORTAL_BASE_URL` does. The mobile app sends no `Origin` header and is unaffected, as are all the pre-existing routes.
+
+#### Verifying it
+
+`backend/scripts/verify-local-offers.mjs` walks the whole flow against the deployed server and real Clerk, without needing the portal: it creates a throwaway Clerk user, mints the same kind of session token the portal will send, then signs up, creates a listing, checks the pending queue, approves, and exercises the editing rules. Integrations that aren't configured report `SKIP` rather than failing.
+
+```bash
+cd backend
+BACKEND_URL=https://stocktonheath.duckdns.org ADMIN_TOKEN=... CLERK_SECRET_KEY=sk_test_... \
+  node scripts/verify-local-offers.mjs
+```
+
+It leaves one listing row behind, prints the command to remove it, and prints the Stripe checkout URL - paying that with card `4242 4242 4242 4242` is the only way to exercise the webhook, since nothing else can make Stripe call the server.
+
+#### Current status (August 2026)
+
+| Piece | State |
+| --- | --- |
+| `BusinessListing` table | created on the live database |
+| Admin review routes | working |
+| Public route the app reads | working, returns `[]` |
+| Clerk sign-up, login, listing creation | working; sign-ups are **open**, not invitation-only |
+| Stripe checkout and webhook | configured and paid end to end in a **sandbox** (test mode) |
+| Cloudflare R2 image upload | **not configured** - the routes return `503` |
+| The business portal | **not built** |
+| The app's Local Offers screen | **not built** - nothing to show until a listing is approved and paid |
+
+Stripe is in a sandbox with test keys. Going live means repeating the product, price and webhook setup in the live account and swapping all four `STRIPE_*` values.
 
 ---
 
