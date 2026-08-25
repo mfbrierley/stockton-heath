@@ -1372,9 +1372,12 @@ app.post("/stripe/webhook", async (req: Request, res: Response) => {
               `metadata listingId ${subscription.metadata?.listingId ?? "none"})`,
           );
         } else {
+          // Both cancellation signals logged, since which one Stripe uses
+          // depends on how the cancellation was made.
           console.log(
             `${event.type} applied: status ${subscription.status}, ` +
-              `cancelAtPeriodEnd ${subscription.cancel_at_period_end}`,
+              `cancel_at_period_end ${subscription.cancel_at_period_end}, ` +
+              `cancel_at ${subscription.cancel_at ?? "null"}`,
           );
         }
         break;
