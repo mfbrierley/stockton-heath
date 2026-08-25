@@ -1,14 +1,24 @@
 // Notification email for Local Offers.
 //
-// Sent through Gmail's SMTP with an app password, which needs no domain of
-// its own and no third-party service. Gmail allows far more per day than a
-// village app will ever send.
+// Sent through the Gmail API over HTTPS rather than SMTP. DigitalOcean blocks
+// outbound SMTP (ports 25, 465 and 587) on every droplet and declined to lift
+// it, so nodemailer could never open a connection. The Gmail API runs on 443,
+// which is not blocked, and mail genuinely comes from the Google account that
+// authorised it - so it has Gmail's own deliverability rather than a
+// third party's.
+//
+// Hand-rolled against fetch rather than pulling in googleapis: the droplet has
+// 1GB of RAM and a history of deploys failing on disk, and this needs no
+// dependency at all.
 //
 // Configured lazily like the other integrations: nothing here throws at boot,
 // because a missing mail setting must not take weather, bins, fuel and bridge
 // alerts down with it. If email isn't configured the send is skipped and
 // logged, and whatever the business was doing still succeeds.
-import nodemailer, { type Transporter } from "nodemailer";
+
+const TOKEN_URL = "https://oauth2.googleapis.com/token";
+const SEND_URL =
+  "https://gmail.googleapis.com/gmail/v1/users/me/messages/send";
 
 interface Message {
   to: string;
@@ -16,52 +26,142 @@ interface Message {
   body: string;
 }
 
-let transporter: Transporter | null = null;
-let transportUnavailable = false;
+// Access tokens last an hour. Cached so a burst of notifications doesn't
+// fetch a new one for each.
+let cachedToken: { value: string; expiresAt: number } | null = null;
+let configWarned = false;
 
-const getTransporter = (): Transporter | null => {
-  if (transporter) return transporter;
-  if (transportUnavailable) return null;
+const oauthConfig = (): { id: string; secret: string; refresh: string } | null => {
+  const id = process.env.GOOGLE_CLIENT_ID;
+  const secret = process.env.GOOGLE_CLIENT_SECRET;
+  const refresh = process.env.GOOGLE_REFRESH_TOKEN;
+  if (!id || !secret || !refresh) {
+    if (!configWarned) {
+      console.error(
+        "GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET/GOOGLE_REFRESH_TOKEN are not all set - email is disabled",
+      );
+      configWarned = true;
+    }
+    return null;
+  }
+  return { id, secret, refresh };
+};
 
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASSWORD;
-  if (!user || !pass) {
-    console.error("SMTP_USER/SMTP_PASSWORD are not set - email is disabled");
-    transportUnavailable = true;
+const getAccessToken = async (): Promise<string | null> => {
+  if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) {
+    return cachedToken.value;
+  }
+
+  const config = oauthConfig();
+  if (!config) return null;
+
+  const response = await fetch(TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: config.id,
+      client_secret: config.secret,
+      refresh_token: config.refresh,
+      grant_type: "refresh_token",
+    }),
+  });
+
+  if (!response.ok) {
+    // The usual cause is a revoked refresh token: Google drops these when the
+    // account password is reset, and after 7 days while the OAuth app is still
+    // in "Testing". Both need the setup script running again.
+    console.error(
+      `Gmail token refresh failed (${response.status}): ${await response.text()}`,
+    );
     return null;
   }
 
-  transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: { user, pass },
-  });
-  return transporter;
+  const data = (await response.json()) as {
+    access_token?: string;
+    expires_in?: number;
+  };
+  if (!data.access_token) {
+    console.error("Gmail token refresh returned no access token");
+    return null;
+  }
+
+  cachedToken = {
+    value: data.access_token,
+    expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000,
+  };
+  return cachedToken.value;
 };
 
-const fromAddress = (): string => {
-  const user = process.env.SMTP_USER ?? "";
-  return process.env.MAIL_FROM ?? `Stockton Heath <${user}>`;
+const senderAddress = (): string => process.env.GMAIL_ADDRESS ?? "";
+
+const fromHeader = (): string => {
+  const address = senderAddress();
+  return process.env.MAIL_FROM ?? `Stockton Heath <${address}>`;
 };
 
 // Where the app's owner wants to hear about new listings and payments.
 // Defaults to the sending account, which is the common case.
 const ownerAddress = (): string | null =>
-  process.env.OWNER_EMAIL ?? process.env.SMTP_USER ?? null;
+  process.env.OWNER_EMAIL ?? process.env.GMAIL_ADDRESS ?? null;
+
+const isAscii = (value: string): boolean => /^[\x20-\x7E]*$/.test(value);
+
+// A header carrying anything outside plain ASCII - an accented business name,
+// a curly apostrophe - has to be encoded, or the header is invalid.
+const encodeHeader = (value: string): string =>
+  isAscii(value)
+    ? value
+    : `=?UTF-8?B?${Buffer.from(value, "utf8").toString("base64")}?=`;
+
+const buildMessage = (message: Message): string => {
+  // Base64 with CRLF folding: the bodies here have lines well over the 998
+  // characters a raw message is allowed.
+  const body = Buffer.from(message.body, "utf8")
+    .toString("base64")
+    .replace(/(.{76})/g, "$1\r\n");
+
+  const headers = [
+    `From: ${fromHeader()}`,
+    `To: ${message.to}`,
+    `Subject: ${encodeHeader(message.subject)}`,
+    "MIME-Version: 1.0",
+    'Content-Type: text/plain; charset="UTF-8"',
+    "Content-Transfer-Encoding: base64",
+  ].join("\r\n");
+
+  return `${headers}\r\n\r\n${body}`;
+};
+
+// Gmail wants the whole RFC 2822 message base64url encoded.
+const toRaw = (message: string): string =>
+  Buffer.from(message, "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 
 // Never rejects. Notification is a side effect of someone's action, so a mail
 // failure must not turn their successful save into an error. Failures are
 // logged loudly enough to find later.
 export const send = async (message: Message): Promise<void> => {
   try {
-    const transport = getTransporter();
-    if (!transport) return;
+    const token = await getAccessToken();
+    if (!token) return;
 
-    await transport.sendMail({
-      from: fromAddress(),
-      to: message.to,
-      subject: message.subject,
-      text: message.body,
+    const response = await fetch(SEND_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ raw: toRaw(buildMessage(message)) }),
     });
+
+    if (!response.ok) {
+      console.error(
+        `Failed to send "${message.subject}" to ${message.to} (${response.status}): ${await response.text()}`,
+      );
+    }
   } catch (error) {
     console.error(
       `Failed to send "${message.subject}" to ${message.to}:`,
@@ -71,7 +171,8 @@ export const send = async (message: Message): Promise<void> => {
 };
 
 // Deliberately not awaited by callers: the business's request shouldn't wait
-// on Gmail. `send` swallows its own errors, so there is no unhandled rejection.
+// on Google. `send` swallows its own errors, so there is no unhandled
+// rejection.
 export const notify = (message: Message): void => {
   void send(message);
 };
@@ -79,7 +180,7 @@ export const notify = (message: Message): void => {
 export const notifyOwner = (subject: string, body: string): void => {
   const to = ownerAddress();
   if (!to) {
-    console.error("OWNER_EMAIL/SMTP_USER are not set - owner not notified");
+    console.error("OWNER_EMAIL/GMAIL_ADDRESS are not set - owner not notified");
     return;
   }
   notify({ to, subject, body });

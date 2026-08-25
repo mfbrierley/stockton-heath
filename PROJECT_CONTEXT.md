@@ -219,14 +219,23 @@ Local Offers (all optional - each route returns `503` until the variables it nee
 - `R2_PUBLIC_URL` - base URL images are served from
 
 Notification email (optional - with none of it set, nothing is sent and every request still
-succeeds; failures are logged, never returned to the caller):
+succeeds; failures are logged, never returned to the caller).
 
-- `SMTP_USER` - the Gmail address notifications are sent from
-- `SMTP_PASSWORD` - a Google **app password** for that account, not the account password
+Sent through the **Gmail API over HTTPS**, not SMTP. DigitalOcean blocks outbound SMTP on
+every droplet (ports 25, 465 and 587) and declined to lift it, so nodemailer could never
+open a connection. The Gmail API runs on 443 and mail genuinely comes from the authorising
+account, so deliverability is Gmail's own.
+
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` - an OAuth **Desktop app** client from the
+  Google Cloud console, with the Gmail API enabled
+- `GOOGLE_REFRESH_TOKEN` - produced by `backend/scripts/get-gmail-refresh-token.mjs`, which
+  walks the one-off consent flow. Google revokes it if the account password is reset, and
+  after 7 days while the OAuth app is still in "Testing" - **publish the app** to avoid that.
+- `GMAIL_ADDRESS` - the address mail is sent from; must be the account that authorised
 - `OWNER_EMAIL` - where "needs approving" and "new subscriber" notices go, and the account
-  allowed to approve from the portal UI. Defaults to `SMTP_USER` for notifications, but must
-  be set explicitly to enable owner approval from the browser.
-- `MAIL_FROM` - optional display sender, defaults to `Stockton Heath <SMTP_USER>`
+  allowed to approve from the portal UI. Defaults to `GMAIL_ADDRESS` for notifications, but
+  must be set explicitly to enable owner approval from the browser.
+- `MAIL_FROM` - optional display sender, defaults to `Stockton Heath <GMAIL_ADDRESS>`
 
 ---
 
