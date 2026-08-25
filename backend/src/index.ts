@@ -1250,10 +1250,23 @@ app.post("/business-listings/me/resume", requireBusinessAuth, async (req: Reques
       return res.status(409).json({ error: "No subscription to restart" });
     }
 
-    const subscription = await getStripe().subscriptions.update(
+    // Stripe refuses both parameters in one call - "Received both
+    // cancel_at_period_end and cancel_at parameters. Please pass in only one."
+    // - and which of them holds the cancellation depends on how it was made:
+    // the Customer Portal sets cancel_at, while cancel_at_period_end is the
+    // older signal. So clear one, then clear the other only if it survives,
+    // rather than betting on which applies.
+    let subscription = await getStripe().subscriptions.update(
       listing.stripeSubscriptionId,
-      { cancel_at_period_end: false, cancel_at: null },
+      { cancel_at: null },
     );
+
+    if (subscription.cancel_at_period_end) {
+      subscription = await getStripe().subscriptions.update(
+        listing.stripeSubscriptionId,
+        { cancel_at_period_end: false },
+      );
+    }
 
     // Stored from Stripe's response rather than assumed, as the cancel route
     // does, so what the business sees is what Stripe actually recorded.
