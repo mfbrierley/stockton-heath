@@ -8,6 +8,12 @@ import { setDefaultResultOrder } from "dns";
 import "dotenv/config";
 import express, { NextFunction, Request, Response } from "express";
 import Stripe from "stripe";
+import {
+  listingApproved,
+  listingCreated,
+  listingUpdated,
+  subscriptionStarted,
+} from "./email";
 import { PrismaClient } from "./generated/prisma/client";
 
 setDefaultResultOrder("ipv4first");
@@ -853,9 +859,58 @@ const ownListingView = <T extends { stripeCustomerId: unknown; stripeSubscriptio
   return safe;
 };
 
+// The owner approves listings from the portal as well as from a script, so
+// admin routes accept either the shared admin token or a Clerk session token
+// belonging to OWNER_EMAIL. Fails closed: with no OWNER_EMAIL set, only the
+// token works, exactly as before.
+const isOwnerEmail = (email: string | null | undefined): boolean => {
+  const owner = process.env.OWNER_EMAIL?.trim().toLowerCase();
+  if (!owner || !email) return false;
+  return email.trim().toLowerCase() === owner;
+};
+
+const callerIsOwner = async (req: Request): Promise<boolean> => {
+  const header = req.get("authorization") ?? "";
+  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  if (!token) return false;
+
+  // Outside the try, like requireBusinessAuth: a missing key is a
+  // configuration fault worth a 503, not a silent "not the owner".
+  const secretKey = requireEnv("CLERK_SECRET_KEY");
+  let clerkUserId: string;
+  try {
+    const payload = await verifyToken(token, { secretKey });
+    clerkUserId = payload.sub;
+  } catch {
+    return false;
+  }
+
+  const user = await getClerk().users.getUser(clerkUserId);
+  return isOwnerEmail(user.primaryEmailAddress?.emailAddress);
+};
+
+const requireAdminOrOwner = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  // Scripts and curl keep using the admin token, so the verification script
+  // and any existing tooling are unaffected.
+  if (req.get("x-admin-token")) return requireAdmin(req, res, next);
+
+  try {
+    if (!(await callerIsOwner(req))) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    return next();
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+};
+
 // ── Local Offers: admin routes ────────────────────────────────────────────────
 
-app.get("/business-listings/pending", requireAdmin, async (req: Request, res: Response) => {
+app.get("/business-listings/pending", requireAdminOrOwner, async (req: Request, res: Response) => {
   try {
     // Everything awaiting review. A row with `active: true` is a business
     // already paying - either a new signup or a live listing that edited its
@@ -888,17 +943,35 @@ const setListingApproval = async (
       where: { id },
       data: { approved, updatedAt: new Date().toISOString() },
     });
+
+    // Only on approval, and only when it's a change - re-approving something
+    // already approved shouldn't email the business again.
+    if (approved && !existing.approved) listingApproved(listing);
+
     return res.json(listing);
   } catch (error) {
     return handleListingError(error, res);
   }
 };
 
-app.post("/business-listings/:id/approve", requireAdmin, (req: Request, res: Response) =>
+// Everything, not just the queue: the approvals screen also shows what is
+// already live, so a listing can be pulled back out if it needs to be.
+app.get("/business-listings/admin", requireAdminOrOwner, async (req: Request, res: Response) => {
+  try {
+    const listings = await prisma.businessListing.findMany({
+      orderBy: [{ approved: "asc" }, { createdAt: "desc" }],
+    });
+    return res.json(listings.map(ownListingView));
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+});
+
+app.post("/business-listings/:id/approve", requireAdminOrOwner, (req: Request, res: Response) =>
   setListingApproval(req, res, true),
 );
 
-app.post("/business-listings/:id/unapprove", requireAdmin, (req: Request, res: Response) =>
+app.post("/business-listings/:id/unapprove", requireAdminOrOwner, (req: Request, res: Response) =>
   setListingApproval(req, res, false),
 );
 
@@ -964,6 +1037,10 @@ app.post("/business-listings/me", requireBusinessAuth, async (req: Request, res:
       },
     });
 
+    // Not awaited: the business's listing is saved either way, and a slow
+    // mail server shouldn't hold up their response.
+    listingCreated(listing);
+
     return res.status(201).json(ownListingView(listing));
   } catch (error) {
     return handleListingError(error, res);
@@ -974,6 +1051,19 @@ app.get("/business-listings/me", requireBusinessAuth, (req: Request, res: Respon
   const listing = listingOf(req);
   if (!listing) return res.status(404).json({ error: NO_LISTING_ERROR });
   return res.json(ownListingView(listing));
+});
+
+// So the portal knows whether to show the approvals link. The admin routes
+// enforce this themselves; this only decides what the UI offers.
+app.get("/business-listings/me/is-owner", requireBusinessAuth, async (req: Request, res: Response) => {
+  try {
+    const user = await getClerk().users.getUser(callerOf(req));
+    return res.json({
+      owner: isOwnerEmail(user.primaryEmailAddress?.emailAddress),
+    });
+  } catch (error) {
+    return handleListingError(error, res);
+  }
 });
 
 app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res: Response) => {
@@ -1016,10 +1106,10 @@ app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res
     // genuine-discount rule gets re-checked. Name, description and image
     // edits don't, so fixing a typo can't pull a paying listing out of the
     // app until the next manual review.
-    if (
+    const discountChanged =
       updates.discountText !== undefined &&
-      updates.discountText !== existing.discountText
-    ) {
+      updates.discountText !== existing.discountText;
+    if (discountChanged) {
       updates.approved = false;
     }
 
@@ -1029,6 +1119,8 @@ app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res
       where: { id: existing.id },
       data: updates,
     });
+
+    listingUpdated(listing, discountChanged);
 
     return res.json(ownListingView(listing));
   } catch (error) {
@@ -1207,6 +1299,14 @@ app.post("/stripe/webhook", async (req: Request, res: Response) => {
             updatedAt: now,
           },
         });
+
+        // checkout.session.completed fires once per successful checkout, so
+        // it's the one place a "someone subscribed" note can be sent without
+        // repeating it on every later subscription.updated event.
+        const paid = await prisma.businessListing.findUnique({
+          where: { id: listingId },
+        });
+        if (paid) subscriptionStarted(paid, paid.approved);
         break;
       }
 
