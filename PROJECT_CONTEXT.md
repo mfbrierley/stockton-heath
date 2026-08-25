@@ -89,10 +89,12 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | `GET /fuel-prices`                   | Cached fuel prices for local stations                   |
 | `GET /business-listings`             | Live Local Offers listings (`approved && active` only)  |
 | `GET /business-listings/pending` 🔒  | Listings awaiting manual approval                       |
+| `GET /business-listings/admin` 🔒    | Every listing, unapproved first, for the approvals screen |
 | `POST /business-listings/:id/approve` 🔒 | Mark a listing as meeting the discount rule         |
 | `POST /business-listings/:id/unapprove` 🔒 | Withdraw approval                                 |
 | `POST /business-listings/me` 🔑      | A business creates its own listing after signing up     |
 | `GET /business-listings/me` 🔑       | The caller's own listing (404 before they create one)   |
+| `GET /business-listings/me/is-owner` 🔑 | Whether the caller is the owner, so the portal knows whether to offer the approvals link |
 | `PATCH /business-listings/me` 🔑     | Edit listing content                                    |
 | `POST /business-listings/me/checkout` 🔑 | Stripe Checkout session URL                         |
 | `POST /business-listings/me/portal` 🔑 | Stripe Customer Portal session URL                    |
@@ -101,6 +103,10 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | `POST /stripe/webhook`               | Stripe subscription events (signature-verified)         |
 
 🔑 marks a business portal route, authenticated by a Clerk session token via `requireBusinessAuth`.
+
+🔒 routes accept **either** the `x-admin-token` header or a Clerk session token belonging to
+`OWNER_EMAIL`, so approvals work from the portal UI as well as from a script. With no
+`OWNER_EMAIL` set only the token works, exactly as before.
 
 🔒 marks an admin-only route. These require an `x-admin-token` header matching the `ADMIN_TOKEN` environment variable, enforced by the `requireAdmin` middleware in `src/index.ts`. The comparison is timing-safe, and the check **fails closed** - if `ADMIN_TOKEN` is unset the routes return `503` rather than falling open. They are gated because they either spend money (a metered twitterapi.io call) or reach every subscribed device (push).
 
@@ -211,6 +217,16 @@ Local Offers (all optional - each route returns `503` until the variables it nee
 - `PORTAL_BASE_URL` - the portal's base URL, currently `https://stockton-heath-support.vercel.app/business`. May carry a path: Stripe's redirect URLs are built from the whole value, while CORS compares against its origin alone.
 - `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET_NAME` - Cloudflare R2 credentials for listing images
 - `R2_PUBLIC_URL` - base URL images are served from
+
+Notification email (optional - with none of it set, nothing is sent and every request still
+succeeds; failures are logged, never returned to the caller):
+
+- `SMTP_USER` - the Gmail address notifications are sent from
+- `SMTP_PASSWORD` - a Google **app password** for that account, not the account password
+- `OWNER_EMAIL` - where "needs approving" and "new subscriber" notices go, and the account
+  allowed to approve from the portal UI. Defaults to `SMTP_USER` for notifications, but must
+  be set explicitly to enable owner approval from the browser.
+- `MAIL_FROM` - optional display sender, defaults to `Stockton Heath <SMTP_USER>`
 
 ---
 
