@@ -1173,7 +1173,10 @@ app.post("/business-listings/me/portal", requireBusinessAuth, async (req: Reques
 
     const session = await getStripe().billingPortal.sessions.create({
       customer: listing.stripeCustomerId,
-      return_url: `${normaliseBaseUrl(requireEnv("PORTAL_BASE_URL"))}/billing`,
+      // Marked so the portal knows the customer has just come back from
+      // changing something, and can wait for the webhook rather than
+      // trusting a read that may have raced it.
+      return_url: `${normaliseBaseUrl(requireEnv("PORTAL_BASE_URL"))}/billing?from=portal`,
     });
 
     return res.json({ url: session.url });
