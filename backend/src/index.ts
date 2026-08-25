@@ -14,6 +14,7 @@ import {
   listingUpdated,
   subscriptionStarted,
 } from "./email";
+import { subscriptionPeriod } from "./subscription";
 import { PrismaClient } from "./generated/prisma/client";
 
 setDefaultResultOrder("ipv4first");
@@ -751,6 +752,7 @@ type CheckoutSessionParams = Stripe.Checkout.SessionCreateParams & {
 // Stripe statuses that mean the listing has been paid for.
 const PAID_SUBSCRIPTION_STATUSES = new Set<string>(["active", "trialing"]);
 
+
 const ALLOWED_IMAGE_TYPES = new Map<string, string>([
   ["image/jpeg", "jpg"],
   ["image/png", "png"],
@@ -1192,8 +1194,20 @@ app.post("/business-listings/me/cancel", requireBusinessAuth, async (req: Reques
     // left alone - customer.subscription.deleted is the single source of
     // truth, so cancelling here and cancelling from Stripe's own portal
     // follow identical code paths.
-    await getStripe().subscriptions.update(listing.stripeSubscriptionId, {
-      cancel_at_period_end: true,
+    const subscription = await getStripe().subscriptions.update(
+      listing.stripeSubscriptionId,
+      { cancel_at_period_end: true },
+    );
+
+    // Stored so the portal can still show the cancellation after a reload.
+    // Taken from Stripe's response rather than assumed, so what the business
+    // sees is what Stripe actually recorded.
+    await prisma.businessListing.update({
+      where: { id: listing.id },
+      data: {
+        ...subscriptionPeriod(subscription),
+        updatedAt: new Date().toISOString(),
+      },
     });
 
     return res.json({ ok: true });
@@ -1283,10 +1297,15 @@ app.post("/stripe/webhook", async (req: Request, res: Response) => {
             : (session.customer?.id ?? null);
 
         let subscriptionStatus = "incomplete";
+        let period: ReturnType<typeof subscriptionPeriod> = {
+          cancelAtPeriodEnd: false,
+          currentPeriodEnd: null,
+        };
         if (subscriptionId) {
           const subscription =
             await getStripe().subscriptions.retrieve(subscriptionId);
           subscriptionStatus = subscription.status;
+          period = subscriptionPeriod(subscription);
         }
 
         await prisma.businessListing.updateMany({
@@ -1296,6 +1315,7 @@ app.post("/stripe/webhook", async (req: Request, res: Response) => {
             stripeSubscriptionId: subscriptionId,
             subscriptionStatus,
             active: PAID_SUBSCRIPTION_STATUSES.has(subscriptionStatus),
+            ...period,
             updatedAt: now,
           },
         });
@@ -1325,6 +1345,11 @@ app.post("/stripe/webhook", async (req: Request, res: Response) => {
           data: {
             subscriptionStatus: deleted ? "canceled" : subscription.status,
             active: !deleted && PAID_SUBSCRIPTION_STATUSES.has(subscription.status),
+            // Covers a cancellation made from Stripe's own portal as well as
+            // ours. Once deleted there is nothing pending any more.
+            ...(deleted
+              ? { cancelAtPeriodEnd: false, currentPeriodEnd: null }
+              : subscriptionPeriod(subscription)),
             updatedAt: now,
           },
         });

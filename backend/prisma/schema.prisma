@@ -47,6 +47,8 @@ model BusinessListing {
   stripeCustomerId     String? @unique
   stripeSubscriptionId String? @unique
   subscriptionStatus   String  @default("incomplete")
+  cancelAtPeriodEnd    Boolean @default(false)
+  currentPeriodEnd     String?
   approved             Boolean @default(false)
   active               Boolean @default(false)
   createdAt            String
