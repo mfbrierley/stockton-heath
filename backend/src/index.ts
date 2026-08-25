@@ -1276,6 +1276,11 @@ app.post("/stripe/webhook", async (req: Request, res: Response) => {
 
     const now = new Date().toISOString();
 
+    // Logged because delivery is the hard part to see from the outside: an
+    // event Stripe records is not necessarily an event Stripe sends, and
+    // without this the two are indistinguishable from the server.
+    console.log(`Stripe webhook received: ${event.type}`);
+
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object;
@@ -1308,7 +1313,7 @@ app.post("/stripe/webhook", async (req: Request, res: Response) => {
           period = subscriptionPeriod(subscription);
         }
 
-        await prisma.businessListing.updateMany({
+        const checkoutUpdate = await prisma.businessListing.updateMany({
           where: { id: listingId },
           data: {
             stripeCustomerId: customerId,
@@ -1319,6 +1324,11 @@ app.post("/stripe/webhook", async (req: Request, res: Response) => {
             updatedAt: now,
           },
         });
+        if (checkoutUpdate.count === 0) {
+          console.error(
+            `checkout.session.completed matched no listing (listingId ${listingId})`,
+          );
+        }
 
         // checkout.session.completed fires once per successful checkout, so
         // it's the one place a "someone subscribed" note can be sent without
@@ -1338,7 +1348,7 @@ app.post("/stripe/webhook", async (req: Request, res: Response) => {
 
         // updateMany rather than update: a webhook for a listing that no
         // longer exists must not throw, or Stripe retries it indefinitely.
-        await prisma.businessListing.updateMany({
+        const subscriptionUpdate = await prisma.businessListing.updateMany({
           where: Number.isInteger(listingId)
             ? { id: listingId }
             : { stripeSubscriptionId: subscription.id },
@@ -1353,6 +1363,20 @@ app.post("/stripe/webhook", async (req: Request, res: Response) => {
             updatedAt: now,
           },
         });
+        // updateMany reports no error when it matches nothing, so a
+        // subscription whose metadata points at a listing that no longer
+        // exists would otherwise fail completely silently.
+        if (subscriptionUpdate.count === 0) {
+          console.error(
+            `${event.type} matched no listing (subscription ${subscription.id}, ` +
+              `metadata listingId ${subscription.metadata?.listingId ?? "none"})`,
+          );
+        } else {
+          console.log(
+            `${event.type} applied: status ${subscription.status}, ` +
+              `cancelAtPeriodEnd ${subscription.cancel_at_period_end}`,
+          );
+        }
         break;
       }
 
