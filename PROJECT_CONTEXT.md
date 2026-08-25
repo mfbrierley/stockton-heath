@@ -120,7 +120,7 @@ Uses **Turso** (a hosted libSQL/SQLite service) via **Prisma** ORM. Five tables:
 - `BridgeSubscription` - Expo push tokens subscribed to bridge alerts
 - `BinSubscription` - Expo push tokens subscribed to bin reminders, each paired with a UPRN
 - `AppMeta` - simple key/value store; currently holds `lastBinNotificationDate` for reminder de-duplication
-- `BusinessListing` - a paid Local Offers listing. `approved` (manual editorial review) and `active` (Stripe subscription in good standing) are independent; a listing reaches the app only when both are true
+- `BusinessListing` - a paid Local Offers listing. `approved` (manual editorial review) and `active` (Stripe subscription in good standing) are independent; a listing reaches the app only when both are true. `cancelAtPeriodEnd` and `currentPeriodEnd` mirror Stripe so the portal can show a pending cancellation: `active` stays true through one, because the business has paid to the end of the period, and without these two a cancelled subscription is indistinguishable from a healthy one after a page reload
 
 #### Migrations are applied by hand
 
@@ -129,7 +129,7 @@ Uses **Turso** (a hosted libSQL/SQLite service) via **Prisma** ORM. Five tables:
 - `prisma migrate dev` would see drift and **reset the database**, destroying every Expo push token. Those exist nowhere else, and losing them silently stops bin and bridge notifications for every subscribed user, with no recovery short of each of them toggling the setting off and on.
 - `prisma migrate deploy` would treat the database as empty and fail partway through recreating tables that already exist, leaving migrations in a failed state that blocks future ones.
 
-To add a table, write the migration file for the record, then apply its SQL directly:
+To add a table **or a column**, write the migration file for the record, then apply its SQL directly:
 
 ```bash
 turso db shell stockton-heath < backend/prisma/migrations/<name>/migration.sql
