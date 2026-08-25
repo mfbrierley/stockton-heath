@@ -97,8 +97,9 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | `GET /business-listings/me/is-owner` 🔑 | Whether the caller is the owner, so the portal knows whether to offer the approvals link |
 | `PATCH /business-listings/me` 🔑     | Edit listing content                                    |
 | `POST /business-listings/me/checkout` 🔑 | Stripe Checkout session URL                         |
-| `POST /business-listings/me/portal` 🔑 | Stripe Customer Portal session URL                    |
+| `POST /business-listings/me/portal` 🔑 | Stripe Customer Portal session URL. `{ flow: "payment_method_update" }` sends them straight to the card form and has Stripe redirect them back when done, rather than leaving them on the portal home with only a small "return to" link |
 | `POST /business-listings/me/cancel` 🔑 | Cancel at period end                                  |
+| `POST /business-listings/me/resume` 🔑 | Undo a pending cancellation                           |
 | `POST /business-listings/me/image-upload-url` 🔑 | Signed R2 upload URL                        |
 | `POST /stripe/webhook`               | Stripe subscription events (signature-verified)         |
 

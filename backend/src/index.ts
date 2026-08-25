@@ -1171,12 +1171,32 @@ app.post("/business-listings/me/portal", requireBusinessAuth, async (req: Reques
       return res.status(409).json({ error: "No subscription to manage yet" });
     }
 
+    // Marked so the portal knows the customer has just come back from
+    // changing something, and can wait for the webhook rather than trusting a
+    // read that may have raced it.
+    const returnUrl = `${normaliseBaseUrl(requireEnv("PORTAL_BASE_URL"))}/billing?from=portal`;
+
+    // Stripe's portal home only offers a small "return to" link, and after an
+    // action it is easy to miss - customers were left stranded there with the
+    // browser's back button as the only way out. Asking for a specific flow
+    // instead sends them straight to the one thing they came to do, and
+    // Stripe redirects them back itself when they finish.
+    const wantsCardUpdate = req.body?.flow === "payment_method_update";
+
     const session = await getStripe().billingPortal.sessions.create({
       customer: listing.stripeCustomerId,
-      // Marked so the portal knows the customer has just come back from
-      // changing something, and can wait for the webhook rather than
-      // trusting a read that may have raced it.
-      return_url: `${normaliseBaseUrl(requireEnv("PORTAL_BASE_URL"))}/billing?from=portal`,
+      return_url: returnUrl,
+      ...(wantsCardUpdate
+        ? {
+            flow_data: {
+              type: "payment_method_update" as const,
+              after_completion: {
+                type: "redirect" as const,
+                redirect: { return_url: returnUrl },
+              },
+            },
+          }
+        : {}),
     });
 
     return res.json({ url: session.url });
@@ -1209,6 +1229,40 @@ app.post("/business-listings/me/cancel", requireBusinessAuth, async (req: Reques
       where: { id: listing.id },
       data: {
         ...subscriptionPeriod(subscription),
+        updatedAt: new Date().toISOString(),
+      },
+    });
+
+    return res.json({ ok: true });
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+});
+
+// Cancelling was one-way here: undoing it meant a trip to Stripe's portal,
+// which is exactly the journey that stranded people. Both signals are cleared,
+// since either one alone keeps the subscription marked as ending.
+app.post("/business-listings/me/resume", requireBusinessAuth, async (req: Request, res: Response) => {
+  try {
+    const listing = listingOf(req);
+    if (!listing) return res.status(404).json({ error: NO_LISTING_ERROR });
+    if (!listing.stripeSubscriptionId) {
+      return res.status(409).json({ error: "No subscription to restart" });
+    }
+
+    const subscription = await getStripe().subscriptions.update(
+      listing.stripeSubscriptionId,
+      { cancel_at_period_end: false, cancel_at: null },
+    );
+
+    // Stored from Stripe's response rather than assumed, as the cancel route
+    // does, so what the business sees is what Stripe actually recorded.
+    await prisma.businessListing.update({
+      where: { id: listing.id },
+      data: {
+        ...subscriptionPeriod(subscription),
+        subscriptionStatus: subscription.status,
+        active: PAID_SUBSCRIPTION_STATUSES.has(subscription.status),
         updatedAt: new Date().toISOString(),
       },
     });
