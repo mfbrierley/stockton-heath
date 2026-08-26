@@ -201,36 +201,17 @@ interface ListingSummary {
   active: boolean;
 }
 
-export const listingCreated = (listing: ListingSummary): void => {
-  notify({
-    to: listing.contactEmail,
-    subject: "We've got your discount",
-    body:
-      `Thanks for adding ${listing.businessName} to Stockton Heath Discounts.\n\n` +
-      `Your discount: ${listing.discountText}\n\n` +
-      `A real person reads every discount before it appears in the app. ` +
-      `We'll email you as soon as yours is live.\n\n` +
-      (listing.active
-        ? ""
-        : `You'll also need a subscription before it can appear. You can set that up here:\n${PORTAL()}/billing\n`) +
-      SIGN_OFF,
-  });
-
-  notifyOwner(
-    `New listing to approve: ${listing.businessName}`,
-    `${listing.businessName} has created a listing and is waiting for approval.\n\n` +
-      `Discount: ${listing.discountText}\n` +
-      `Description: ${listing.description}\n` +
-      `Contact: ${listing.contactEmail}\n` +
-      `Subscribed: ${listing.active ? "yes" : "not yet"}\n\n` +
-      `Review it here:\n${PORTAL()}/admin\n`,
-  );
-};
-
 export const listingUpdated = (
   listing: ListingSummary,
   discountChanged: boolean,
 ): void => {
+  // Nobody has been told this listing exists yet, so there is nothing to
+  // correct. Editing before paying is part of writing the discount, not a
+  // change to something already out there - and both messages below would
+  // be untrue: it has never been in the app, and there is no subscription
+  // for it to be unaffected.
+  if (!listing.active) return;
+
   notify({
     to: listing.contactEmail,
     subject: discountChanged
@@ -274,15 +255,43 @@ export const listingApproved = (listing: ListingSummary): void => {
         SIGN_OFF
       : `The discount for ${listing.businessName} has been approved.\n\n` +
         `It will appear in the app as soon as your subscription is active. ` +
-        `You can set that up here:\n${PORTAL()}/billing` +
+        `You can set that up here:\n${PORTAL()}/listing` +
         SIGN_OFF,
   });
 };
 
+// Sent when the subscription starts, which is also the moment the discount
+// is really saved: a listing written but never paid for is nobody's news, so
+// nothing goes out before this.
 export const subscriptionStarted = (listing: ListingSummary, approved: boolean): void => {
+  notify({
+    to: listing.contactEmail,
+    subject: approved
+      ? "Your discount is live in the app"
+      : "We've got your discount",
+    body: approved
+      ? `Thanks — your £20 a month for ${listing.businessName} is set up, and ` +
+        `your discount is live in the Stockton Heath app.\n\n` +
+        `Your discount: ${listing.discountText}\n\n` +
+        `You can change it any time here:\n${PORTAL()}/listing` +
+        SIGN_OFF
+      : `Thanks — your £20 a month for ${listing.businessName} is set up and ` +
+        `your discount is saved.\n\n` +
+        `Your discount: ${listing.discountText}\n\n` +
+        `A real person reads every discount before it appears in the app, ` +
+        `usually within 24 hours. We'll email you as soon as yours is live — ` +
+        `there's nothing else for you to do.\n\n` +
+        `You can change it any time here:\n${PORTAL()}/listing` +
+        SIGN_OFF,
+  });
+
   notifyOwner(
-    `New subscriber: ${listing.businessName}`,
+    approved
+      ? `New subscriber: ${listing.businessName}`
+      : `New subscriber to approve: ${listing.businessName}`,
     `${listing.businessName} has started a subscription.\n\n` +
+      `Discount: ${listing.discountText}\n` +
+      `Description: ${listing.description}\n` +
       `Contact: ${listing.contactEmail}\n` +
       `Approved: ${approved ? "yes - they are now live in the app" : "not yet - still needs approving"}\n\n` +
       (approved ? "" : `Review it here:\n${PORTAL()}/admin\n`),
