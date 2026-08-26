@@ -316,7 +316,7 @@ export const subscriptionStarted = (listing: ListingSummary, approved: boolean):
       : `New subscriber to approve: ${listing.businessName}`,
     `${listing.businessName} has started a subscription.\n\n` +
       `Discount: ${listing.discountText}\n` +
-      `Description: ${listing.description}\n` +
+      `Description: ${listing.description || "(none given)"}\n` +
       `Contact: ${listing.contactEmail}\n` +
       `Approved: ${approved ? "yes - they are now live in the app" : "not yet - still needs approving"}\n\n` +
       (approved ? "" : `Review it here:\n${PORTAL()}/admin\n`),

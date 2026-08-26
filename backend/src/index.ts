@@ -766,6 +766,17 @@ const cleanListingField = (value: unknown, max: number): string | null => {
   return trimmed;
 };
 
+// The description is where a business puts any terms, so plenty of them have
+// nothing to say. Blank has to be told apart from unusable, which the
+// required fields never needed to do: "" is an answer, null is a rejection.
+const cleanOptionalField = (value: unknown, max: number): string | null => {
+  if (value === undefined || value === null) return "";
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (trimmed.length > max) return null;
+  return trimmed;
+};
+
 const normaliseBaseUrl = (value: string): string => value.replace(/\/+$/, "");
 
 // The portal is a browser app on its own origin, so it needs CORS. Scoped to
@@ -1005,12 +1016,15 @@ app.post("/business-listings/me", requireBusinessAuth, async (req: Request, res:
 
     const businessName = cleanListingField(req.body?.businessName, LISTING_FIELD_LIMITS.businessName);
     const discountText = cleanListingField(req.body?.discountText, LISTING_FIELD_LIMITS.discountText);
-    const description = cleanListingField(req.body?.description, LISTING_FIELD_LIMITS.description);
+    const description = cleanOptionalField(req.body?.description, LISTING_FIELD_LIMITS.description);
 
-    if (!businessName || !discountText || !description) {
+    if (!businessName || !discountText) {
       return res.status(400).json({
-        error: "businessName, discountText and description are all required",
+        error: "businessName and discountText are both required",
       });
+    }
+    if (description === null) {
+      return res.status(400).json({ error: "Invalid description" });
     }
 
     // Taken from the Clerk account rather than the request body, so it is
@@ -1085,7 +1099,12 @@ app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res
 
     for (const field of ["businessName", "discountText", "description"] as const) {
       if (req.body?.[field] === undefined) continue;
-      const value = cleanListingField(req.body[field], LISTING_FIELD_LIMITS[field]);
+      // Only the description may be cleared; emptying a name or a discount
+      // would leave a listing with nothing in it.
+      const value =
+        field === "description"
+          ? cleanOptionalField(req.body[field], LISTING_FIELD_LIMITS[field])
+          : cleanListingField(req.body[field], LISTING_FIELD_LIMITS[field]);
       if (value === null) return res.status(400).json({ error: `Invalid ${field}` });
       updates[field] = value;
     }
