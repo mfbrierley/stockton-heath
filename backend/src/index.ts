@@ -10,6 +10,7 @@ import express, { NextFunction, Request, Response } from "express";
 import Stripe from "stripe";
 import {
   listingApproved,
+  listingCreated,
   listingUpdated,
   subscriptionStarted,
 } from "./email";
@@ -1038,9 +1039,11 @@ app.post("/business-listings/me", requireBusinessAuth, async (req: Request, res:
       },
     });
 
-    // No email here. The row exists, but until a subscription starts it is
-    // invisible to residents and there is nothing for anyone to approve - so
-    // both notes go out from the checkout webhook instead.
+    // Not awaited: the business's listing is saved either way, and a slow
+    // mail server shouldn't hold up their response. Only the business hears
+    // about it - the owner is told when someone actually pays.
+    listingCreated(listing);
+
     return res.status(201).json(ownListingView(listing));
   } catch (error) {
     return handleListingError(error, res);
@@ -1175,7 +1178,7 @@ app.post("/business-listings/me/portal", requireBusinessAuth, async (req: Reques
     // Marked so the portal knows the customer has just come back from
     // changing something, and can wait for the webhook rather than trusting a
     // read that may have raced it.
-    const returnUrl = `${normaliseBaseUrl(requireEnv("PORTAL_BASE_URL"))}/billing?from=portal`;
+    const returnUrl = `${normaliseBaseUrl(requireEnv("PORTAL_BASE_URL"))}/listing?from=portal`;
 
     // Stripe's portal home only offers a small "return to" link, and after an
     // action it is easy to miss - customers were left stranded there with the
