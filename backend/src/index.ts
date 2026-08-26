@@ -10,7 +10,6 @@ import express, { NextFunction, Request, Response } from "express";
 import Stripe from "stripe";
 import {
   listingApproved,
-  listingCreated,
   listingUpdated,
   subscriptionStarted,
 } from "./email";
@@ -1039,10 +1038,9 @@ app.post("/business-listings/me", requireBusinessAuth, async (req: Request, res:
       },
     });
 
-    // Not awaited: the business's listing is saved either way, and a slow
-    // mail server shouldn't hold up their response.
-    listingCreated(listing);
-
+    // No email here. The row exists, but until a subscription starts it is
+    // invisible to residents and there is nothing for anyone to approve - so
+    // both notes go out from the checkout webhook instead.
     return res.status(201).json(ownListingView(listing));
   } catch (error) {
     return handleListingError(error, res);
@@ -1151,8 +1149,11 @@ app.post("/business-listings/me/checkout", requireBusinessAuth, async (req: Requ
       ...(listing.stripeCustomerId
         ? { customer: listing.stripeCustomerId }
         : { customer_email: listing.contactEmail }),
-      success_url: `${portalBase}/billing?checkout=success`,
-      cancel_url: `${portalBase}/billing?checkout=cancelled`,
+      // Back to the page they came from: writing the discount and paying for
+      // it are one step now, so both outcomes belong there rather than on a
+      // billing page they never visited.
+      success_url: `${portalBase}/listing?checkout=success`,
+      cancel_url: `${portalBase}/listing?checkout=cancelled`,
     };
 
     const session = await getStripe().checkout.sessions.create(params);
