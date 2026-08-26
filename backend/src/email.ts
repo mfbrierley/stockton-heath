@@ -205,6 +205,13 @@ export const listingUpdated = (
   listing: ListingSummary,
   discountChanged: boolean,
 ): void => {
+  // Nobody has been told this listing exists yet, so there is nothing to
+  // correct. Editing before paying is part of writing the discount, not a
+  // change to something already out there - and both messages below would
+  // be untrue: it has never been in the app, and there is no subscription
+  // for it to be unaffected.
+  if (!listing.active) return;
+
   notify({
     to: listing.contactEmail,
     subject: discountChanged
