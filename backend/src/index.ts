@@ -805,6 +805,10 @@ const portalCors = cors({
 });
 
 app.use("/business-listings", portalCors);
+// The admin pages are part of the same browser app, so they need the same
+// origin allowance. Without this the browser blocks the response before the
+// portal ever sees it, whatever the route itself decides.
+app.use("/admin", portalCors);
 
 // ── Business authentication (Clerk) ───────────────────────────────────────────
 
@@ -967,6 +971,59 @@ const setListingApproval = async (
   }
 };
 
+// Stops the billing immediately rather than at the end of the period, which is
+// the opposite of what a business cancelling for itself wants: an admin removing
+// a listing is taking it out now, so charging for the rest of the month would be
+// charging for something no resident can see.
+//
+// Tolerates a subscription Stripe no longer has, or one already cancelled: both
+// mean the goal is met, and neither should stop the row being archived.
+const cancelSubscriptionNow = async (subscriptionId: string): Promise<void> => {
+  try {
+    const existing = await getStripe().subscriptions.retrieve(subscriptionId);
+    if (existing.status === "canceled") return;
+    await getStripe().subscriptions.cancel(subscriptionId);
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    if (code === "resource_missing") {
+      console.error(`Subscription ${subscriptionId} no longer exists at Stripe`);
+      return;
+    }
+    throw error;
+  }
+};
+
+// Taking a listing out of the app for good. The row is kept and stamped rather
+// than deleted: the business's email and Clerk id stay claimed, so a removed
+// business cannot quietly sign up again as if new, and there is still something
+// to look back on when they ask why their discount went.
+//
+// `approved` and `active` are cleared as well as `removedAt` being set, so a
+// removed listing is filtered out by every existing query that only knows about
+// those two - including the app's, if it is running older code.
+const archiveListing = async (id: number) => {
+  const listing = await prisma.businessListing.findUnique({ where: { id } });
+  if (!listing) return null;
+
+  if (listing.stripeSubscriptionId) {
+    await cancelSubscriptionNow(listing.stripeSubscriptionId);
+  }
+
+  const now = new Date().toISOString();
+  return prisma.businessListing.update({
+    where: { id },
+    data: {
+      removedAt: listing.removedAt ?? now,
+      approved: false,
+      active: false,
+      subscriptionStatus: "canceled",
+      cancelAtPeriodEnd: false,
+      currentPeriodEnd: null,
+      updatedAt: now,
+    },
+  });
+};
+
 // Everything, not just the queue: the approvals screen also shows what is
 // already live, so a listing can be pulled back out if it needs to be.
 app.get("/business-listings/admin", requireAdminOrOwner, async (req: Request, res: Response) => {
@@ -988,12 +1045,167 @@ app.post("/business-listings/:id/unapprove", requireAdminOrOwner, (req: Request,
   setListingApproval(req, res, false),
 );
 
+// Unapproving hides a listing but leaves it paying; this ends both. Kept
+// separate from unapprove because it spends the business's money - it stops
+// their subscription there and then - so it is never something to reach for by
+// accident when all that was wanted was to take a discount down for a while.
+app.post("/business-listings/:id/remove", requireAdminOrOwner, async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: "Invalid id" });
+    }
+
+    const listing = await archiveListing(id);
+    if (!listing) return res.status(404).json({ error: "Listing not found" });
+
+    return res.json(ownListingView(listing));
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+});
+
+// ── Local Offers: admin user routes ───────────────────────────────────────────
+
+// Clerk pages its user list, and the village will not fill one page for a long
+// time - but "a long time" is not "never", and a silently truncated list of
+// accounts is the kind of bug nobody notices until it matters.
+const CLERK_PAGE_SIZE = 100;
+
+const listClerkUsers = async () => {
+  const clerk = getClerk();
+  const users = [];
+  let offset = 0;
+
+  for (;;) {
+    const page = await clerk.users.getUserList({
+      limit: CLERK_PAGE_SIZE,
+      offset,
+    });
+    users.push(...page.data);
+    if (page.data.length < CLERK_PAGE_SIZE) break;
+    offset += CLERK_PAGE_SIZE;
+  }
+
+  return users;
+};
+
+// Everyone who has ever signed up, whether or not they got as far as writing a
+// discount. Clerk owns the accounts and this database owns the listings, so
+// neither side alone can answer "who has signed up, and what have they got" -
+// which is the only question this page exists to answer.
+app.get("/admin/users", requireAdminOrOwner, async (req: Request, res: Response) => {
+  try {
+    const [users, listings] = await Promise.all([
+      listClerkUsers(),
+      prisma.businessListing.findMany(),
+    ]);
+
+    const byClerkId = new Map(
+      listings
+        .filter((listing) => listing.clerkUserId)
+        .map((listing) => [listing.clerkUserId as string, listing]),
+    );
+
+    const rows = users.map((user) => {
+      const email = user.primaryEmailAddress?.emailAddress ?? null;
+      const name = [user.firstName, user.lastName]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+      const listing = byClerkId.get(user.id) ?? null;
+
+      return {
+        id: user.id,
+        email,
+        name: name || null,
+        // Clerk records this in milliseconds; the rest of the API speaks ISO.
+        createdAt: new Date(user.createdAt).toISOString(),
+        isAdmin: isOwnerEmail(email),
+        listing: listing
+          ? {
+              id: listing.id,
+              businessName: listing.businessName,
+              approved: listing.approved,
+              active: listing.active,
+              subscriptionStatus: listing.subscriptionStatus,
+              cancelAtPeriodEnd: listing.cancelAtPeriodEnd,
+              currentPeriodEnd: listing.currentPeriodEnd,
+              removedAt: listing.removedAt,
+            }
+          : null,
+      };
+    });
+
+    // Newest first: the accounts worth looking at are almost always the ones
+    // that just appeared.
+    rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+    return res.json(rows);
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+});
+
+// Deleting an account is not undoable and takes their listing with it, so the
+// two ways it could be a mistake are refused outright rather than warned about:
+// a business that is still paying, and the owner's own account.
+app.delete("/admin/users/:clerkUserId", requireAdminOrOwner, async (req: Request, res: Response) => {
+  try {
+    const clerkUserId = req.params.clerkUserId;
+    if (typeof clerkUserId !== "string" || !clerkUserId) {
+      return res.status(400).json({ error: "Invalid id" });
+    }
+
+    let user;
+    try {
+      user = await getClerk().users.getUser(clerkUserId);
+    } catch {
+      return res.status(404).json({ error: "That account no longer exists" });
+    }
+
+    // Locking yourself out of the admin pages would need a trip to the Clerk
+    // dashboard to undo, and there is only ever one owner to lose.
+    if (isOwnerEmail(user.primaryEmailAddress?.emailAddress)) {
+      return res
+        .status(409)
+        .json({ error: "You cannot delete your own admin account" });
+    }
+
+    const listing = await prisma.businessListing.findUnique({
+      where: { clerkUserId },
+    });
+
+    // A paying business is never deleted by accident: end the subscription
+    // first, deliberately, and then the account can go.
+    if (listing?.active) {
+      return res.status(409).json({
+        error:
+          "This business has an active subscription. Remove their listing first, then delete the account.",
+      });
+    }
+
+    // Cancels anything still open at Stripe and keeps the row as a record. The
+    // row outlives the Clerk account on purpose: without it there would be
+    // nothing left to explain a charge that already happened.
+    if (listing) await archiveListing(listing.id);
+
+    await getClerk().users.deleteUser(clerkUserId);
+
+    return res.json({ ok: true });
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+});
+
 // ── Local Offers: public route (the app) ──────────────────────────────────────
 
 app.get("/business-listings", async (req: Request, res: Response) => {
   try {
+    // `removedAt` is belt and braces: archiving already clears approved and
+    // active, so a removed listing is out either way.
     const listings = await prisma.businessListing.findMany({
-      where: { approved: true, active: true },
+      where: { approved: true, active: true, removedAt: null },
       select: PUBLIC_LISTING_FIELDS,
       orderBy: { businessName: "asc" },
     });

@@ -51,6 +51,10 @@ model BusinessListing {
   currentPeriodEnd     String?
   approved             Boolean @default(false)
   active               Boolean @default(false)
+  // Set when an admin takes the listing out of the app. The row is kept rather
+  // than deleted, so the business's email and Clerk id stay claimed and there
+  // is still a record of what was there.
+  removedAt            String?
   createdAt            String
   updatedAt            String
 }

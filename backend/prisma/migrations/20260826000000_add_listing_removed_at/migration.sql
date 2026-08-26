@@ -1,0 +1,12 @@
+-- AlterTable
+--
+-- Additive and nullable, so the currently deployed code keeps working untouched
+-- once this is applied. Apply it BEFORE deploying the code that reads it - see
+-- PROJECT_CONTEXT.md, migrations are applied by hand:
+--
+--   turso db shell stockton-heath < backend/prisma/migrations/20260826000000_add_listing_removed_at/migration.sql
+--
+-- NULL means the listing has not been removed. A timestamp means an admin took
+-- it out of the app: the row is kept rather than deleted so the business's
+-- email and Clerk id stay claimed and there is still a record to look back on.
+ALTER TABLE "BusinessListing" ADD COLUMN "removedAt" TEXT;
