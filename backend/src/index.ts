@@ -1053,7 +1053,16 @@ app.get("/business-listings/admin", requireAdminOrOwner, async (req: Request, re
     const listings = await prisma.businessListing.findMany({
       orderBy: [{ approved: "asc" }, { createdAt: "desc" }],
     });
-    return res.json(listings.map(ownListingView));
+    // The same link the Users page carries, for the same reason: this page
+    // shows our mirror of Stripe, and the mirror is the thing an admin might
+    // want to check. Added after ownListingView rather than inside it,
+    // because that strips the raw ids every other caller must not see.
+    return res.json(
+      listings.map((listing) => ({
+        ...ownListingView(listing),
+        stripeUrl: listingStripeUrl(listing),
+      })),
+    );
   } catch (error) {
     return handleListingError(error, res);
   }

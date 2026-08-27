@@ -89,7 +89,7 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | `GET /fuel-prices`                   | Cached fuel prices for local stations                   |
 | `GET /business-listings`             | Live Local Offers listings (`approved && active` only)  |
 | `GET /business-listings/pending` 🔒  | Listings awaiting manual approval                       |
-| `GET /business-listings/admin` 🔒    | Every listing, unapproved first, for the approvals screen |
+| `GET /business-listings/admin` 🔒    | Every listing, unapproved first, for the approvals and Listings screens. Each carries a `stripeUrl` straight to the subscription (or the customer) in the Stripe dashboard |
 | `POST /business-listings/:id/approve` 🔒 | Mark a listing as meeting the discount rule         |
 | `POST /business-listings/:id/unapprove` 🔒 | Withdraw approval                                 |
 | `POST /business-listings/:id/remove` 🔒 | Take a listing out for good: cancels its Stripe subscription immediately, then deletes the row |
