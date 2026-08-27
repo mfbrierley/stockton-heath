@@ -255,6 +255,20 @@ account, so deliverability is Gmail's own.
 
 ---
 
+### Reminding a business that hasn't subscribed
+
+An hourly sweep (`remindUnpaidListings`) emails anyone whose discount is at least 24 hours
+old, isn't active, and has never had a Stripe subscription - once, ever. A lapsed business
+is deliberately excluded: they did subscribe, so "start your subscription" tells their story
+wrong.
+
+`RemindedListing` records who has been sent it; the insert is the lock, so the sweep can run
+as often as it likes. The migration that creates the table **seeds it with every listing that
+already exists**, so applying it can't blast a backlog of old signups. Only listings written
+after that point are ever nudged - to nudge an older one deliberately, delete its row.
+
+The sweep is not run at boot, so a redeploy is a quiet event rather than one that sends mail.
+
 ## Before going live
 
 Everything below is the owner's to do by hand - dashboards and environment

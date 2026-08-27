@@ -48,6 +48,16 @@ model WelcomedUser {
   welcomedAt  String
 }
 
+// One row per listing already sent the "you haven't subscribed yet" nudge.
+// The insert is the lock, so a listing is reminded exactly once however many
+// times the sweep runs. Deliberately not a relation: removing a listing
+// deletes its row, and a foreign key would either block that or erase the
+// record of having emailed them.
+model RemindedListing {
+  listingId  Int    @id
+  remindedAt String
+}
+
 model BusinessListing {
   id                   Int     @id @default(autoincrement())
   businessName         String

@@ -14,6 +14,7 @@ import {
   listingCreated,
   listingRemoved,
   listingUpdated,
+  subscriptionReminder,
   userSignedUp,
   welcomeUser,
   subscriptionStarted,
@@ -2079,6 +2080,75 @@ const checkBinNotifications = async (): Promise<void> => {
   }
 };
 
+// ── The one nudge ────────────────────────────────────────────────────────────
+
+const REMINDER_AFTER_MS = 24 * 60 * 60 * 1000;
+// Hourly. The gap is the resolution, not the delay: a discount written at
+// 10:00 is nudged somewhere between 24 and 25 hours later, which is what
+// "the next day" means to the person reading it.
+const REMINDER_SWEEP_MS = 60 * 60 * 1000;
+
+// A discount saved and then left. Written but never paid for is the one state
+// where someone has done all the work and none of it counts, and nothing
+// tells them so unless they come back and look.
+//
+// `stripeSubscriptionId: null` rather than just `active: false`: a lapsed
+// business has an id, and telling someone who paid for months to "start your
+// subscription" gets the story wrong. Their case is the portal's to explain.
+//
+// Never throws. This runs on a timer inside the same process as the weather,
+// bins, fuel and bridge alerts, and a database blip at 3am must cost a
+// reminder, not the village's bin notifications.
+const remindUnpaidListings = async (): Promise<void> => {
+  try {
+    const cutoff = new Date(Date.now() - REMINDER_AFTER_MS).toISOString();
+    const stale = await prisma.businessListing.findMany({
+      where: {
+        active: false,
+        stripeSubscriptionId: null,
+        createdAt: { lte: cutoff },
+      },
+    });
+    if (stale.length === 0) return;
+
+    // Read in one go rather than per listing: the sweep runs hourly and this
+    // is almost always "all of them, still reminded".
+    const already = new Set(
+      (
+        await prisma.remindedListing.findMany({
+          where: { listingId: { in: stale.map((listing) => listing.id) } },
+          select: { listingId: true },
+        })
+      ).map((row) => row.listingId),
+    );
+
+    for (const listing of stale) {
+      if (already.has(listing.id)) continue;
+
+      // The insert is the lock, exactly as the welcome email uses. Written
+      // before sending: a crash between the two costs one reminder, where
+      // the other order would send it again on every sweep for ever.
+      try {
+        await prisma.remindedListing.create({
+          data: { listingId: listing.id, remindedAt: new Date().toISOString() },
+        });
+      } catch {
+        continue;
+      }
+
+      console.log(
+        `Reminding ${listing.businessName} (listing ${listing.id}) that they have not subscribed`,
+      );
+      subscriptionReminder(listing);
+    }
+  } catch (error) {
+    console.error(
+      "Unpaid-listing reminder sweep failed:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SWING_BRIDGE_USER_NAME = "trafficwarr";
@@ -2104,6 +2174,14 @@ void checkBinNotifications();
 setInterval(() => {
   void checkBinNotifications();
 }, 60 * 1000);
+
+// Not run at boot. A redeploy would otherwise sweep immediately, which is
+// harmless - the table stops anything being sent twice - but it means the
+// first thing a deploy does is send mail, and a deploy should be a quiet
+// event. The first sweep is an hour in.
+setInterval(() => {
+  void remindUnpaidListings();
+}, REMINDER_SWEEP_MS);
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
