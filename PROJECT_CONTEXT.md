@@ -219,6 +219,17 @@ Local Offers (all optional - each route returns `503` until the variables it nee
 - `STRIPE_SECRET_KEY` - Stripe secret key
 - `STRIPE_WEBHOOK_SECRET` - signing secret for `POST /stripe/webhook`
 - `STRIPE_PRICE_ID` - the £20/month recurring price
+- `STRIPE_TAX_RATE_ID` - **optional.** A Stripe Tax Rate id (`txr_...`) for UK VAT at 20%,
+  created once in Dashboard → Tax rates. Set it and VAT is added on top of the £20 at
+  checkout and on every renewal, the portal advertises the price as excluding VAT, and each
+  payment emails a link to the VAT invoice. Leave it unset and the £20 is the whole of what
+  is charged, with no VAT mentioned anywhere - which is the correct state until the business
+  is VAT registered, because an invoice cannot show a VAT number that does not exist yet.
+  Set the portal's `VITE_PRICE_EXCLUDES_VAT` at the same time; one says what is charged, the
+  other says what is advertised, and they are meant to agree.
+  Two things in the Stripe dashboard have to be right for the invoice to be a valid VAT
+  invoice: the VAT number under Settings → Business, and `invoice.paid` in the webhook's
+  event list.
 - `PORTAL_BASE_URL` - the portal's base URL, currently `https://stockton-heath-support.vercel.app/business`. May carry a path: Stripe's redirect URLs are built from the whole value, while CORS compares against its origin alone.
 - `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET_NAME` - Cloudflare R2 credentials for listing images
 - `R2_PUBLIC_URL` - base URL images are served from

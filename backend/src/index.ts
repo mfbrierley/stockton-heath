@@ -9,6 +9,7 @@ import "dotenv/config";
 import express, { NextFunction, Request, Response } from "express";
 import Stripe from "stripe";
 import {
+  invoicePaid,
   listingApproved,
   listingCreated,
   listingRemoved,
@@ -750,6 +751,20 @@ const LISTING_FIELD_LIMITS = {
 // account-level default that Stripe controls. Not typed by stripe@22 yet.
 type CheckoutSessionParams = Stripe.Checkout.SessionCreateParams & {
   managed_payments?: { enabled: boolean };
+};
+
+// The VAT rate to add on top of the advertised price, as a Stripe Tax Rate id.
+//
+// Optional, and read rather than required, because charging VAT is not ours
+// to decide: until the business is VAT registered there is no number to put
+// on an invoice and no lawful way to add it. Unset means the price is the
+// whole of what is charged, exactly as it was before any of this existed.
+//
+// The portal has the matching switch (VITE_PRICE_EXCLUDES_VAT) for what it
+// says the price is. The two are set together - see PROJECT_CONTEXT.md.
+const vatRateIds = (): string[] | null => {
+  const id = process.env.STRIPE_TAX_RATE_ID;
+  return id ? [id] : null;
 };
 
 // Stripe statuses that mean the listing has been paid for.
@@ -1517,6 +1532,7 @@ app.post("/business-listings/me/checkout", requireBusinessAuth, async (req: Requ
     }
 
     const portalBase = normaliseBaseUrl(requireEnv("PORTAL_BASE_URL"));
+    const vatRates = vatRateIds();
     const params: CheckoutSessionParams = {
       mode: "subscription",
       managed_payments: { enabled: false },
@@ -1525,7 +1541,15 @@ app.post("/business-listings/me/checkout", requireBusinessAuth, async (req: Requ
       metadata: { listingId: String(listing.id) },
       // Copied onto the subscription so the later subscription.* webhooks can
       // find the listing without relying on the customer mapping.
-      subscription_data: { metadata: { listingId: String(listing.id) } },
+      //
+      // The VAT rate goes on the subscription, not on this one line item:
+      // Stripe copies default_tax_rates onto every invoice it raises from it,
+      // so the renewals in twelve months' time carry the same VAT as the
+      // first payment without anything here running again.
+      subscription_data: {
+        metadata: { listingId: String(listing.id) },
+        ...(vatRates ? { default_tax_rates: vatRates } : {}),
+      },
       ...(listing.stripeCustomerId
         ? { customer: listing.stripeCustomerId }
         : { customer_email: listing.contactEmail }),
@@ -1788,6 +1812,64 @@ app.post("/stripe/webhook", async (req: Request, res: Response) => {
           where: { id: listingId },
         });
         if (paid) subscriptionStarted(paid, paid.approved);
+        break;
+      }
+
+      // Every payment that actually leaves their bank, first and last. The
+      // subscription.* events fire on status changes, which is not the same
+      // thing: a renewal that goes through changes no status at all.
+      case "invoice.paid": {
+        const invoice = event.data.object;
+
+        // A £0 invoice is not a payment. Stripe raises them for trials and
+        // for periods a credit covers in full, and a receipt for nothing
+        // would be worse than silence.
+        if (!invoice.amount_paid) break;
+
+        // parent.subscription_details is where the subscription lives in the
+        // current API. Falling back to the customer covers an invoice raised
+        // outside a subscription, which should not happen here but costs one
+        // line to survive.
+        const parentSubscription = invoice.parent?.subscription_details?.subscription;
+        const subscriptionId =
+          typeof parentSubscription === "string"
+            ? parentSubscription
+            : (parentSubscription?.id ?? null);
+        const customerId =
+          typeof invoice.customer === "string"
+            ? invoice.customer
+            : (invoice.customer?.id ?? null);
+
+        const listing = subscriptionId
+          ? await prisma.businessListing.findFirst({
+              where: { stripeSubscriptionId: subscriptionId },
+            })
+          : customerId
+            ? await prisma.businessListing.findFirst({
+                where: { stripeCustomerId: customerId },
+              })
+            : null;
+
+        if (!listing) {
+          console.error(
+            `invoice.paid matched no listing (invoice ${invoice.id}, ` +
+              `subscription ${subscriptionId ?? "none"}, customer ${customerId ?? "none"})`,
+          );
+          break;
+        }
+
+        // total_taxes is every tax line on the invoice. Summed rather than
+        // taking the first, so a future second rate cannot silently vanish
+        // from the "plus £x VAT" line.
+        const tax = (invoice.total_taxes ?? []).reduce((sum, line) => sum + line.amount, 0);
+
+        invoicePaid(listing, {
+          total: invoice.amount_paid,
+          tax,
+          currency: invoice.currency,
+          url: invoice.hosted_invoice_url ?? null,
+          first: invoice.billing_reason === "subscription_create",
+        });
         break;
       }
 
