@@ -11,6 +11,7 @@ import Stripe from "stripe";
 import {
   listingApproved,
   listingCreated,
+  listingRemoved,
   listingUpdated,
   subscriptionStarted,
 } from "./email";
@@ -1089,6 +1090,16 @@ app.post("/business-listings/:id/remove", requireAdminOrOwner, async (req: Reque
 
     const listing = await removeListing(id);
     if (!listing) return res.status(404).json({ error: "Listing not found" });
+
+    // Sent from the route rather than from removeListing, which deleting a
+    // whole account also calls: someone whose sign-in has just been erased
+    // should not be told their discount is out of the app, as if the account
+    // were still there to do something about it.
+    //
+    // A row already stamped removedAt was taken out under the old behaviour,
+    // possibly weeks ago. Clearing it now is tidying up, not news, and
+    // telling them again would be the confusing part.
+    if (!listing.removedAt) listingRemoved(listing);
 
     // Not a listing view: there is no listing left to view. `{ ok: true }`
     // matches cancel and resume, the other routes that change state without
