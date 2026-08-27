@@ -977,7 +977,7 @@ const setListingApproval = async (
 // charging for something no resident can see.
 //
 // Tolerates a subscription Stripe no longer has, or one already cancelled: both
-// mean the goal is met, and neither should stop the row being archived.
+// mean the goal is met, and neither should stop the row being deleted.
 const cancelSubscriptionNow = async (subscriptionId: string): Promise<void> => {
   try {
     const existing = await getStripe().subscriptions.retrieve(subscriptionId);
@@ -993,15 +993,11 @@ const cancelSubscriptionNow = async (subscriptionId: string): Promise<void> => {
   }
 };
 
-// Taking a listing out of the app for good. The row is kept and stamped rather
-// than deleted: the business's email and Clerk id stay claimed, so a removed
-// business cannot quietly sign up again as if new, and there is still something
-// to look back on when they ask why their discount went.
-//
-// `approved` and `active` are cleared as well as `removedAt` being set, so a
-// removed listing is filtered out by every existing query that only knows about
-// those two - including the app's, if it is running older code.
-const archiveListing = async (id: number) => {
+// Taking a listing out of the app for good. The row is deleted outright,
+// which frees the business's email and Clerk id: signing in afterwards looks
+// exactly like the first visit ever did, and creating a listing again is a
+// normal signup rather than something the app has to specially allow.
+const removeListing = async (id: number) => {
   const listing = await prisma.businessListing.findUnique({ where: { id } });
   if (!listing) return null;
 
@@ -1009,19 +1005,12 @@ const archiveListing = async (id: number) => {
     await cancelSubscriptionNow(listing.stripeSubscriptionId);
   }
 
-  const now = new Date().toISOString();
-  return prisma.businessListing.update({
-    where: { id },
-    data: {
-      removedAt: listing.removedAt ?? now,
-      approved: false,
-      active: false,
-      subscriptionStatus: "canceled",
-      cancelAtPeriodEnd: false,
-      currentPeriodEnd: null,
-      updatedAt: now,
-    },
-  });
+  // deleteMany rather than delete, for the same reason the webhooks use
+  // updateMany: a row that has already gone must not throw. Two admins on the
+  // page, or one double-click that outruns the disabled button, would
+  // otherwise get a 500 for reaching exactly the state they asked for.
+  await prisma.businessListing.deleteMany({ where: { id } });
+  return listing;
 };
 
 // Everything, not just the queue: the approvals screen also shows what is
@@ -1056,10 +1045,13 @@ app.post("/business-listings/:id/remove", requireAdminOrOwner, async (req: Reque
       return res.status(400).json({ error: "Invalid id" });
     }
 
-    const listing = await archiveListing(id);
+    const listing = await removeListing(id);
     if (!listing) return res.status(404).json({ error: "Listing not found" });
 
-    return res.json(ownListingView(listing));
+    // Not a listing view: there is no listing left to view. `{ ok: true }`
+    // matches cancel and resume, the other routes that change state without
+    // handing back a record of something that still exists.
+    return res.json({ ok: true });
   } catch (error) {
     return handleListingError(error, res);
   }
@@ -1131,7 +1123,6 @@ app.get("/admin/users", requireAdminOrOwner, async (req: Request, res: Response)
               subscriptionStatus: listing.subscriptionStatus,
               cancelAtPeriodEnd: listing.cancelAtPeriodEnd,
               currentPeriodEnd: listing.currentPeriodEnd,
-              removedAt: listing.removedAt,
             }
           : null,
       };
@@ -1185,10 +1176,9 @@ app.delete("/admin/users/:clerkUserId", requireAdminOrOwner, async (req: Request
       });
     }
 
-    // Cancels anything still open at Stripe and keeps the row as a record. The
-    // row outlives the Clerk account on purpose: without it there would be
-    // nothing left to explain a charge that already happened.
-    if (listing) await archiveListing(listing.id);
+    // Cancels anything still open at Stripe and deletes the listing along
+    // with the account, so neither is left behind pointing at the other.
+    if (listing) await removeListing(listing.id);
 
     await getClerk().users.deleteUser(clerkUserId);
 
@@ -1202,10 +1192,8 @@ app.delete("/admin/users/:clerkUserId", requireAdminOrOwner, async (req: Request
 
 app.get("/business-listings", async (req: Request, res: Response) => {
   try {
-    // `removedAt` is belt and braces: archiving already clears approved and
-    // active, so a removed listing is out either way.
     const listings = await prisma.businessListing.findMany({
-      where: { approved: true, active: true, removedAt: null },
+      where: { approved: true, active: true },
       select: PUBLIC_LISTING_FIELDS,
       orderBy: { businessName: "asc" },
     });
