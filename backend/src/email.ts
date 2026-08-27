@@ -266,7 +266,7 @@ export const listingCreated = (listing: ListingSummary): void => {
       (listing.active
         ? `Someone reads every discount before it appears in the app, ` +
           `usually within 24 hours. We'll email you as soon as yours is live.\n`
-        : `It's saved, but residents can't see it yet — that needs a ` +
+        : `It's saved, but residents can't see it yet - that needs a ` +
           `subscription. It's ${PRICE()}, you can cancel any time, and you ` +
           `can start it here:\n${PORTAL()}/listing\n\n` +
           `Once it's running, someone reads your discount before it ` +
@@ -329,13 +329,13 @@ export const subscriptionReminder = (listing: ListingSummary): void => {
     to: listing.contactEmail,
     subject: `${listing.businessName} isn't in the app yet`,
     body:
-      `You wrote a discount for ${listing.businessName} yesterday — thanks ` +
+      `You wrote a discount for ${listing.businessName} yesterday - thanks ` +
       `for that.\n\n` +
       `Your discount: ${listing.discountText}\n\n` +
       `It's saved, but residents can't see it until your subscription ` +
       `starts. It's ${PRICE()}, you can cancel any time, and it takes a ` +
       `minute here:\n${PORTAL()}/listing\n\n` +
-      `If you've changed your mind that's completely fine — there's nothing ` +
+      `If you've changed your mind that's completely fine - there's nothing ` +
       `to cancel and nothing to reply to. This is the only reminder we'll ` +
       `send.\n\n` +
       `Any questions, just reply to this email.` +
@@ -350,7 +350,7 @@ export const listingApproved = (listing: ListingSummary): void => {
       ? "Your discount is live in the app"
       : "Your discount has been approved",
     body: listing.active
-      ? `Good news — the discount for ${listing.businessName} has been ` +
+      ? `Good news - the discount for ${listing.businessName} has been ` +
         `approved and is now live in the Stockton Heath app.\n\n` +
         `Residents can see it right now.\n\n` +
         `You can change it any time here:\n${PORTAL()}/listing` +
@@ -433,7 +433,7 @@ export const invoicePaid = (listing: ListingSummary, invoice: PaidInvoice): void
         ? `This is the first of your monthly payments. Your discount stays in ` +
           `the app for as long as it runs, and you can stop it any time ` +
           `here:\n${PORTAL()}/listing`
-        : `Nothing for you to do — your discount stays in the app.`) +
+        : `Nothing for you to do - your discount stays in the app.`) +
       SIGN_OFF,
   });
 };
@@ -450,15 +450,15 @@ export const subscriptionStarted = (listing: ListingSummary, approved: boolean):
       ? "Your discount is live in the app"
       : "Your subscription is set up",
     body: approved
-      ? `Thanks — your ${PRICE()} for ${listing.businessName} is set up, and ` +
+      ? `Thanks - your ${PRICE()} for ${listing.businessName} is set up, and ` +
         `your discount is live in the Stockton Heath app.\n\n` +
         `Your discount: ${listing.discountText}\n\n` +
         `You can change it any time here:\n${PORTAL()}/listing` +
         SIGN_OFF
-      : `Thanks — your ${PRICE()} for ${listing.businessName} is set up.\n\n` +
+      : `Thanks - your ${PRICE()} for ${listing.businessName} is set up.\n\n` +
         `Your discount: ${listing.discountText}\n\n` +
         `Someone reads every discount before it appears in the app, ` +
-        `usually within 24 hours. We'll email you as soon as yours is live — ` +
+        `usually within 24 hours. We'll email you as soon as yours is live - ` +
         `there's nothing else for you to do.\n\n` +
         `You can change it any time here:\n${PORTAL()}/listing` +
         SIGN_OFF,
