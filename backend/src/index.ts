@@ -1461,6 +1461,23 @@ app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res
     const existing = listingOf(req);
     if (!existing) return res.status(404).json({ error: NO_LISTING_ERROR });
 
+    // Paid for and not yet read: it is in the approval queue, and nothing
+    // changes it until someone has looked. The portal shows what is being
+    // checked rather than a form, but a hidden form is only hidden - this is
+    // what closes the race it exists to close, where an approval and an edit
+    // land in the same second and the edit wins, putting words in the app
+    // that nobody read.
+    //
+    // Deliberately every field, not only the discount. A name changed
+    // underneath the reviewer is the same problem as a discount changed
+    // underneath them: what goes live is not what was approved.
+    if (existing.active && !existing.approved) {
+      return res.status(409).json({
+        error:
+          "Your discount is being checked at the moment, so it can't be changed. It usually takes less than 24 hours, and we'll email you when it's live.",
+      });
+    }
+
     const updates: {
       businessName?: string;
       discountText?: string;
