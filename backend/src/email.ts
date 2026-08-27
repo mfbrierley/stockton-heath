@@ -218,10 +218,15 @@ interface ListingSummary {
   active: boolean;
 }
 
-// Sent once, the first time a new account is seen. Deliberately short: they
-// have just filled in a sign-up form and the only useful thing to say is
-// where to go next. Everything about the discount rule, the price and the
-// check waits for the emails that follow, when it is actually relevant.
+// Sent once, the first time a new account is seen - which is the first
+// authenticated request, made the moment the listing page loads. So it goes
+// out seconds before someone writes their discount, and is read minutes
+// after: it used to say "whenever you're ready, write your discount here",
+// which by then had almost always already happened.
+//
+// It says where things live instead. That is true on the day they sign up
+// and still true a year later, which is the only kind of thing worth putting
+// in an email nobody reads until later.
 export const welcomeUser = (email: string, name: string | null): void => {
   const greeting = name ? `Hello ${name},` : "Hello,";
   notify({
@@ -231,8 +236,8 @@ export const welcomeUser = (email: string, name: string | null): void => {
       `${greeting}\n\n` +
       `Thanks for signing up. Stockton Heath Discounts puts a real offer ` +
       `from your business in front of residents using the village app.\n\n` +
-      `Whenever you're ready, write your discount here:\n${PORTAL()}/listing\n\n` +
-      `That is also where you manage your account and your subscription. ` +
+      `You can manage your account and change your discount any time ` +
+      `here:\n${PORTAL()}/listing\n\n` +
       `Any questions, just reply to this email.` +
       SIGN_OFF,
   });
@@ -251,29 +256,11 @@ export const userSignedUp = (email: string, name: string | null): void => {
   );
 };
 
-// A discount now saves on its own, before anything is paid for, so this is
-// worth sending again: it confirms we have it and says what is still missing.
-// The owner is deliberately not copied - a listing nobody is paying for is
-// not theirs to approve yet, and saying so every time would fill their inbox
-// with people who never come back.
-export const listingCreated = (listing: ListingSummary): void => {
-  notify({
-    to: listing.contactEmail,
-    subject: "We've got your discount",
-    body:
-      `Thanks for adding ${listing.businessName} to Stockton Heath Discounts.\n\n` +
-      `Your discount: ${listing.discountText}\n\n` +
-      (listing.active
-        ? `Someone reads every discount before it appears in the app, ` +
-          `usually within 24 hours. We'll email you as soon as yours is live.\n`
-        : `It's saved, but residents can't see it yet - that needs a ` +
-          `subscription. It's ${PRICE()}, you can cancel any time, and you ` +
-          `can start it here:\n${PORTAL()}/listing\n\n` +
-          `Once it's running, someone reads your discount before it ` +
-          `appears in the app, usually within 24 hours.\n`) +
-      SIGN_OFF,
-  });
-};
+// Saving a discount sends nothing. It used to send "We've got your
+// discount", which said what the page they were still looking at already
+// said, to someone who had done nothing that needed confirming - and if they
+// then walked away, the day-later reminder covers it far better than a
+// receipt sent while they were still typing.
 
 export const listingUpdated = (
   listing: ListingSummary,

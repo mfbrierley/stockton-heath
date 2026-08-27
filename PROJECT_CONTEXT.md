@@ -267,6 +267,30 @@ account, so deliverability is Gmail's own.
 
 ---
 
+### Every email a business can get
+
+Deliberately short. Anything that only confirms what the page in front of them already
+says has been taken out - "We've got your discount" used to go out the moment someone
+saved one, which told them nothing and trained them to skim the rest.
+
+| When | Template |
+|---|---|
+| They sign up | `welcomeUser` |
+| Their subscription starts | `subscriptionStarted` |
+| Every payment | `invoicePaid` (the VAT invoice) |
+| A day later, still not paying | `subscriptionReminder`, once ever |
+| Their discount goes live | `listingApproved` |
+| They change a discount that was live | `listingUpdated` |
+| An admin removes their listing | `listingRemoved` |
+
+The last three are event-driven and are not optional extras: `listingApproved` is the
+email `subscriptionStarted` promises ("we'll email you as soon as yours is live"),
+`listingUpdated` explains why a live discount has come out of the app, and
+`listingRemoved` is the only thing that tells someone their listing has gone.
+
+The owner gets three of his own: `userSignedUp`, and copies inside `listingUpdated` and
+`subscriptionStarted`. Saving a discount sends nothing to anybody.
+
 ### Reminding a business that hasn't subscribed
 
 An hourly sweep (`remindUnpaidListings`) emails anyone whose discount is at least 24 hours
