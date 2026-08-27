@@ -284,6 +284,30 @@ export const listingApproved = (listing: ListingSummary): void => {
   });
 };
 
+// An admin has taken their discount out of the app. Nothing else told them:
+// the removal cancels their subscription at Stripe, and the webhook that
+// fires arrives to find the row already deleted, so it matches nothing and
+// says nothing. Without this they find out by noticing.
+//
+// The owner is not copied - they are the one who just did it.
+export const listingRemoved = (listing: ListingSummary): void => {
+  notify({
+    to: listing.contactEmail,
+    subject: "Your discount has been taken out of the app",
+    body:
+      `We've removed the discount for ${listing.businessName} from the ` +
+      `Stockton Heath app, so residents can no longer see it.\n\n` +
+      `The discount was: ${listing.discountText}\n\n` +
+      // Said first and plainly, because it is the part with money in it.
+      (listing.active
+        ? `Your £20 a month has been stopped, so you won't be charged again.\n\n`
+        : "") +
+      `If you think this is a mistake, or you'd like to know why, just reply ` +
+      `to this email and a person will get back to you.` +
+      SIGN_OFF,
+  });
+};
+
 // Sent when the subscription starts, which is also the moment the discount
 // is really saved: a listing written but never paid for is nobody's news, so
 // nothing goes out before this.
