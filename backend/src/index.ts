@@ -1092,6 +1092,37 @@ app.post("/business-listings/:id/remove", requireAdminOrOwner, async (req: Reque
 
 // ── Local Offers: admin user routes ───────────────────────────────────────────
 
+// A link straight to the real thing in Stripe, so the owner can check a
+// subscription's definite status rather than trusting our mirror of it.
+//
+// Built here rather than in the portal because the dashboard path differs
+// between test and live mode and only this side knows which key is in use -
+// and a link into the wrong mode is a 404 that looks like missing data.
+const stripeDashboardUrl = (path: string): string | null => {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return null;
+  // Anything that is not explicitly a live key is treated as test, so a
+  // sandbox or restricted key lands in the right place too.
+  const prefix = /_live_/.test(key) ? "" : "test/";
+  return `https://dashboard.stripe.com/${prefix}${path}`;
+};
+
+// The subscription is what the status column is about, so it wins. A customer
+// who has not subscribed yet still has a page worth opening; one who has
+// neither has nothing to link to.
+const listingStripeUrl = (listing: {
+  stripeSubscriptionId: string | null;
+  stripeCustomerId: string | null;
+}): string | null => {
+  if (listing.stripeSubscriptionId) {
+    return stripeDashboardUrl(`subscriptions/${listing.stripeSubscriptionId}`);
+  }
+  if (listing.stripeCustomerId) {
+    return stripeDashboardUrl(`customers/${listing.stripeCustomerId}`);
+  }
+  return null;
+};
+
 // Clerk pages its user list, and the village will not fill one page for a long
 // time - but "a long time" is not "never", and a silently truncated list of
 // accounts is the kind of bug nobody notices until it matters.
@@ -1156,6 +1187,7 @@ app.get("/admin/users", requireAdminOrOwner, async (req: Request, res: Response)
               subscriptionStatus: listing.subscriptionStatus,
               cancelAtPeriodEnd: listing.cancelAtPeriodEnd,
               currentPeriodEnd: listing.currentPeriodEnd,
+              stripeUrl: listingStripeUrl(listing),
             }
           : null,
       };
