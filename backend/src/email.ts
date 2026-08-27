@@ -214,12 +214,12 @@ export const listingCreated = (listing: ListingSummary): void => {
       `Thanks for adding ${listing.businessName} to Stockton Heath Discounts.\n\n` +
       `Your discount: ${listing.discountText}\n\n` +
       (listing.active
-        ? `A real person reads every discount before it appears in the app, ` +
+        ? `Someone reads every discount before it appears in the app, ` +
           `usually within 24 hours. We'll email you as soon as yours is live.\n`
         : `It's saved, but residents can't see it yet — that needs a ` +
           `subscription. It's £20 a month, you can cancel any time, and you ` +
           `can start it here:\n${PORTAL()}/listing\n\n` +
-          `Once it's running, a real person reads your discount before it ` +
+          `Once it's running, someone reads your discount before it ` +
           `appears in the app, usually within 24 hours.\n`) +
       SIGN_OFF,
   });
@@ -303,7 +303,7 @@ export const listingRemoved = (listing: ListingSummary): void => {
         ? `Your £20 a month has been stopped, so you won't be charged again.\n\n`
         : "") +
       `If you think this is a mistake, or you'd like to know why, just reply ` +
-      `to this email and a person will get back to you.` +
+      `to this email and someone will get back to you.` +
       SIGN_OFF,
   });
 };
@@ -327,7 +327,7 @@ export const subscriptionStarted = (listing: ListingSummary, approved: boolean):
         SIGN_OFF
       : `Thanks — your £20 a month for ${listing.businessName} is set up.\n\n` +
         `Your discount: ${listing.discountText}\n\n` +
-        `A real person reads every discount before it appears in the app, ` +
+        `Someone reads every discount before it appears in the app, ` +
         `usually within 24 hours. We'll email you as soon as yours is live — ` +
         `there's nothing else for you to do.\n\n` +
         `You can change it any time here:\n${PORTAL()}/listing` +
