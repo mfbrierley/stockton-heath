@@ -93,7 +93,7 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | `POST /business-listings/:id/approve` 🔒 | Mark a listing as meeting the discount rule         |
 | `POST /business-listings/:id/unapprove` 🔒 | Withdraw approval                                 |
 | `POST /business-listings/:id/remove` 🔒 | Take a listing out for good: cancels its Stripe subscription immediately, then deletes the row |
-| `GET /admin/users` 🔒                | Every Clerk account with its listing, if it has one, for the admin Users page |
+| `GET /admin/users` 🔒                | Every Clerk account with its listing, if it has one, for the admin Users page. Each listing carries a `stripeUrl` straight to the subscription (or the customer) in the Stripe dashboard |
 | `DELETE /admin/users/:clerkUserId` 🔒 | Erase a person: their Stripe customer, their listing, then their Clerk account. Frees their email for a fresh signup. Refuses while their listing is still paying, and refuses the owner's own account |
 | `POST /business-listings/me` 🔑      | A business creates its own listing after signing up     |
 | `GET /business-listings/me` 🔑       | The caller's own listing (404 before they create one)   |
