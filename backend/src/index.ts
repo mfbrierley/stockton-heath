@@ -1005,7 +1005,11 @@ const removeListing = async (id: number) => {
     await cancelSubscriptionNow(listing.stripeSubscriptionId);
   }
 
-  await prisma.businessListing.delete({ where: { id } });
+  // deleteMany rather than delete, for the same reason the webhooks use
+  // updateMany: a row that has already gone must not throw. Two admins on the
+  // page, or one double-click that outruns the disabled button, would
+  // otherwise get a 500 for reaching exactly the state they asked for.
+  await prisma.businessListing.deleteMany({ where: { id } });
   return listing;
 };
 
