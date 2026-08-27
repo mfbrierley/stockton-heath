@@ -315,6 +315,34 @@ export const listingUpdated = (
   }
 };
 
+// Sent once, a day after a discount was written that nobody has paid for.
+//
+// The only chasing this sends, and it says so: a business that has thought
+// better of it should be able to read this, do nothing, and know that is the
+// end of it. A nudge that reads like the first of five is worse than no
+// nudge, because the next thing they do is unsubscribe from all of it.
+//
+// The owner is not copied. Non-payers are a list he can already read on the
+// Approvals page, under a heading that says nobody is waiting on him.
+export const subscriptionReminder = (listing: ListingSummary): void => {
+  notify({
+    to: listing.contactEmail,
+    subject: `${listing.businessName} isn't in the app yet`,
+    body:
+      `You wrote a discount for ${listing.businessName} yesterday — thanks ` +
+      `for that.\n\n` +
+      `Your discount: ${listing.discountText}\n\n` +
+      `It's saved, but residents can't see it until your subscription ` +
+      `starts. It's ${PRICE()}, you can cancel any time, and it takes a ` +
+      `minute here:\n${PORTAL()}/listing\n\n` +
+      `If you've changed your mind that's completely fine — there's nothing ` +
+      `to cancel and nothing to reply to. This is the only reminder we'll ` +
+      `send.\n\n` +
+      `Any questions, just reply to this email.` +
+      SIGN_OFF,
+  });
+};
+
 export const listingApproved = (listing: ListingSummary): void => {
   notify({
     to: listing.contactEmail,
