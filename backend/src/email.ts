@@ -193,6 +193,23 @@ const PORTAL = (): string =>
 
 const SIGN_OFF = "\n\nStockton Heath\nThe community app for the village";
 
+// Whether VAT is added on top of the advertised price. The same switch the
+// checkout reads, so what we tell someone the price is and what Stripe
+// actually charges them can never disagree: one variable decides both.
+const vatAdded = (): boolean => Boolean(process.env.STRIPE_TAX_RATE_ID);
+
+// The subscription price as it is advertised. £20 is the price either way -
+// VAT is not ours, it just passes through us - so the only thing that changes
+// is whether we say so.
+const PRICE = (): string => (vatAdded() ? "£20 a month plus VAT" : "£20 a month");
+
+// Pence to "£24.00". Stripe reports every amount in the smallest unit, and a
+// receipt that says "2400" is not a receipt.
+const money = (amount: number, currency: string): string => {
+  const prefix = currency.toLowerCase() === "gbp" ? "£" : `${currency.toUpperCase()} `;
+  return `${prefix}${(amount / 100).toFixed(2)}`;
+};
+
 interface ListingSummary {
   businessName: string;
   discountText: string;
@@ -250,7 +267,7 @@ export const listingCreated = (listing: ListingSummary): void => {
         ? `Someone reads every discount before it appears in the app, ` +
           `usually within 24 hours. We'll email you as soon as yours is live.\n`
         : `It's saved, but residents can't see it yet — that needs a ` +
-          `subscription. It's £20 a month, you can cancel any time, and you ` +
+          `subscription. It's ${PRICE()}, you can cancel any time, and you ` +
           `can start it here:\n${PORTAL()}/listing\n\n` +
           `Once it's running, someone reads your discount before it ` +
           `appears in the app, usually within 24 hours.\n`) +
@@ -333,10 +350,62 @@ export const listingRemoved = (listing: ListingSummary): void => {
       `The discount was: ${listing.discountText}\n\n` +
       // Said first and plainly, because it is the part with money in it.
       (listing.active
-        ? `Your £20 a month has been stopped, so you won't be charged again.\n\n`
+        ? `Your subscription has been stopped, so you won't be charged again.\n\n`
         : "") +
       `If you think this is a mistake, or you'd like to know why, just reply ` +
       `to this email and someone will get back to you.` +
+      SIGN_OFF,
+  });
+};
+
+// What a paid invoice tells the customer, pulled out of the Stripe object by
+// the caller so this file needs nothing from the Stripe SDK.
+export interface PaidInvoice {
+  // Everything in the smallest currency unit, as Stripe reports it.
+  total: number;
+  tax: number;
+  currency: string;
+  // Stripe's own hosted invoice - the actual VAT document, with a Download
+  // PDF button on it. Linked rather than attached: it is always the current
+  // version, and it can be reached again months later without digging this
+  // email out.
+  url: string | null;
+  // The first payment of a subscription reads differently from the eleventh.
+  first: boolean;
+}
+
+// Sent every time money is actually taken - the first payment and every
+// renewal after it. Stripe can email its own invoices instead, but that is a
+// dashboard setting nothing here can see or check, and mail from us is the
+// half of the flow we can be sure went out.
+//
+// The owner is not copied. They get told once, when the subscription starts;
+// a note every month for every business would be a filing cabinet, not news.
+export const invoicePaid = (listing: ListingSummary, invoice: PaidInvoice): void => {
+  const vat = invoice.tax > 0;
+  const total = money(invoice.total, invoice.currency);
+  const document = vat ? "VAT invoice" : "invoice";
+
+  notify({
+    to: listing.contactEmail,
+    subject: vat ? "Your VAT invoice" : "Your invoice",
+    body:
+      `We've taken ${total} for ${listing.businessName}.\n\n` +
+      (vat
+        ? `That's ${money(invoice.total - invoice.tax, invoice.currency)} ` +
+          `plus ${money(invoice.tax, invoice.currency)} VAT.\n\n`
+        : "") +
+      (invoice.url
+        ? `Your ${document} is here:\n${invoice.url}\n\n`
+        : // No URL means Stripe hasn't hosted one, which should not happen for
+          // a subscription invoice - so say where it can still be found
+          // rather than pretending nothing is missing.
+          `Reply to this email if you need a copy of your ${document}.\n\n`) +
+      (invoice.first
+        ? `This is the first of your monthly payments. Your discount stays in ` +
+          `the app for as long as it runs, and you can stop it any time ` +
+          `here:\n${PORTAL()}/listing`
+        : `Nothing for you to do — your discount stays in the app.`) +
       SIGN_OFF,
   });
 };
@@ -353,12 +422,12 @@ export const subscriptionStarted = (listing: ListingSummary, approved: boolean):
       ? "Your discount is live in the app"
       : "Your subscription is set up",
     body: approved
-      ? `Thanks — your £20 a month for ${listing.businessName} is set up, and ` +
+      ? `Thanks — your ${PRICE()} for ${listing.businessName} is set up, and ` +
         `your discount is live in the Stockton Heath app.\n\n` +
         `Your discount: ${listing.discountText}\n\n` +
         `You can change it any time here:\n${PORTAL()}/listing` +
         SIGN_OFF
-      : `Thanks — your £20 a month for ${listing.businessName} is set up.\n\n` +
+      : `Thanks — your ${PRICE()} for ${listing.businessName} is set up.\n\n` +
         `Your discount: ${listing.discountText}\n\n` +
         `Someone reads every discount before it appears in the app, ` +
         `usually within 24 hours. We'll email you as soon as yours is live — ` +
