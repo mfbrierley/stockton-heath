@@ -36,6 +36,18 @@ model AppMeta {
   value String
 }
 
+// One row per business account we have already said hello to. Clerk owns
+// sign-up and this backend never sees the event, so the first authenticated
+// request a new account makes is the closest thing to a signal - and this is
+// the only thing that can tell that first request from the thousandth.
+//
+// Keyed on the Clerk id rather than the email so changing an address does not
+// earn a second welcome. Rows are never read back for anything else.
+model WelcomedUser {
+  clerkUserId String @id
+  welcomedAt  String
+}
+
 model BusinessListing {
   id                   Int     @id @default(autoincrement())
   businessName         String

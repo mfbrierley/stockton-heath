@@ -13,6 +13,8 @@ import {
   listingCreated,
   listingRemoved,
   listingUpdated,
+  userSignedUp,
+  welcomeUser,
   subscriptionStarted,
 } from "./email";
 import { subscriptionPeriod } from "./subscription";
@@ -827,6 +829,53 @@ type BusinessRequest = Request & {
 
 const NO_LISTING_ERROR = "You do not have a listing yet";
 
+// Clerk owns sign-up and never tells this backend about it, so the first
+// authenticated request an account makes stands in for the event, and the
+// WelcomedUser row is the only thing that can tell that request from every
+// one after it.
+//
+// The insert is the lock: whoever creates the row sends the emails, so two
+// requests arriving together cannot both send. The Clerk lookup happens
+// before it, so a Clerk failure leaves no row and the next request tries
+// again rather than marking them welcomed having sent nothing.
+//
+// Never awaited by the caller and never throws. A welcome that fails must
+// not fail the request it was riding on.
+const welcomeIfNew = async (clerkUserId: string): Promise<void> => {
+  try {
+    const known = await prisma.welcomedUser.findUnique({ where: { clerkUserId } });
+    if (known) return;
+
+    const user = await getClerk().users.getUser(clerkUserId);
+    const email = user.primaryEmailAddress?.emailAddress;
+    if (!email) return;
+
+    try {
+      await prisma.welcomedUser.create({
+        data: { clerkUserId, welcomedAt: new Date().toISOString() },
+      });
+    } catch {
+      // Lost the race on the primary key. The request that won is sending.
+      return;
+    }
+
+    // The owner signing in is not a new business. The row is still written,
+    // so this stops looking them up on every request they ever make.
+    if (isOwnerEmail(email)) return;
+
+    const name =
+      [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || null;
+
+    welcomeUser(email, name);
+    userSignedUp(email, name);
+  } catch (error) {
+    console.error(
+      "Welcome email skipped:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+};
+
 const requireBusinessAuth = async (
   req: Request,
   res: Response,
@@ -858,6 +907,12 @@ const requireBusinessAuth = async (
     request.listing = await prisma.businessListing.findUnique({
       where: { clerkUserId },
     });
+
+    // Anyone with a listing was welcomed long ago, so they skip this
+    // entirely: the extra lookup is paid only by accounts that have not
+    // written a discount, which is new signups and very little else.
+    if (!request.listing) void welcomeIfNew(clerkUserId);
+
     return next();
   } catch (error) {
     return handleListingError(error, res);
