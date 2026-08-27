@@ -255,6 +255,51 @@ account, so deliverability is Gmail's own.
 
 ---
 
+## Before going live
+
+Everything below is the owner's to do by hand - dashboards and environment
+variables, not code. The code for all of it is written and merged; it sits
+switched off until these are done, which is deliberate.
+
+### VAT (added August 2026, not yet switched on)
+
+The price is advertised as £20 excluding VAT, so Stripe adds 20% and every
+payment produces a VAT invoice. Nothing happens until all five of these are
+done, and doing them in the wrong order is worse than not starting:
+
+1. **Stripe → Settings → Business**: add the VAT registration number. This is
+   what makes the invoice a *VAT* invoice rather than a receipt; without it the
+   emails still send and are still not the document a customer needs.
+2. **Stripe → Tax rates**: create UK VAT at 20%, **exclusive** (not inclusive -
+   inclusive would take the VAT out of the £20 rather than add it on top).
+   Copy the `txr_...` id.
+3. **Droplet**: set `STRIPE_TAX_RATE_ID` to that id, then `npm run
+   deploy:backend`.
+4. **Stripe → Webhooks**: add `invoice.paid` to the endpoint's event list.
+   Without it no invoice email is ever sent, and nothing anywhere will
+   complain - the event simply never arrives.
+5. **Vercel**: set `VITE_PRICE_EXCLUDES_VAT=true` and redeploy.
+
+Steps 3-5 belong on the same day in either order. Between 3 and 5 the site
+advertises £20 while Stripe charges £24, which is the one genuinely bad state.
+
+**Leave Stripe's own invoice emails off** (Settings → Customer emails →
+"Successful payments"). The backend sends one carrying a link to the hosted
+invoice; turning Stripe's on as well means two emails for every payment.
+
+### Also outstanding
+
+- **Stripe is a test-mode sandbox.** Real cards do nothing until it is switched
+  to live, which also means new keys on the droplet.
+- **Clerk is a development instance.** A production instance has its own keys
+  and its own domain setup.
+- **Clerk password `min_length` is 15**, which is unusually strict for a
+  business signing up from a leaflet. 8 is the normal floor. Dashboard only.
+- **Photo upload is unbuilt.** The four `R2_*` variables are unset, so the
+  route returns 503 by design and the portal has no photo field.
+
+---
+
 ## Monetisation
 
 The app currently carries a single hardcoded sponsor:
