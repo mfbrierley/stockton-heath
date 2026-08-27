@@ -13,7 +13,7 @@
 -- Not a foreign key. Removing a listing deletes the row outright, and a
 -- constraint would either block that or quietly undo the record of having
 -- already emailed them. Ids are never reused, so a stale row is inert.
-CREATE TABLE "RemindedListing" (
+CREATE TABLE IF NOT EXISTS "RemindedListing" (
     "listingId" INTEGER NOT NULL PRIMARY KEY,
     "remindedAt" TEXT NOT NULL
 );
@@ -28,5 +28,5 @@ CREATE TABLE "RemindedListing" (
 --
 -- So the reminder only ever applies to listings written after this is
 -- applied. To nudge an old one deliberately, delete its row from here.
-INSERT INTO "RemindedListing" ("listingId", "remindedAt")
+INSERT OR IGNORE INTO "RemindedListing" ("listingId", "remindedAt")
 SELECT "id", 'backfilled-at-migration' FROM "BusinessListing";

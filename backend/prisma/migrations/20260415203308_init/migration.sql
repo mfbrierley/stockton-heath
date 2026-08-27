@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "BridgeAlert" (
+CREATE TABLE IF NOT EXISTS "BridgeAlert" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "tweetId" TEXT NOT NULL,
     "tweetText" TEXT NOT NULL,
@@ -8,4 +8,4 @@ CREATE TABLE "BridgeAlert" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "BridgeAlert_tweetId_key" ON "BridgeAlert"("tweetId");
+CREATE UNIQUE INDEX IF NOT EXISTS "BridgeAlert_tweetId_key" ON "BridgeAlert"("tweetId");
