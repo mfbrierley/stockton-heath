@@ -11,7 +11,6 @@ import Stripe from "stripe";
 import {
   invoicePaid,
   listingApproved,
-  listingCreated,
   listingRemoved,
   listingUpdated,
   subscriptionReminder,
@@ -1427,10 +1426,9 @@ app.post("/business-listings/me", requireBusinessAuth, async (req: Request, res:
       },
     });
 
-    // Not awaited: the business's listing is saved either way, and a slow
-    // mail server shouldn't hold up their response. Only the business hears
-    // about it - the owner is told when someone actually pays.
-    listingCreated(listing);
+    // Nothing is emailed. Saving a discount is not news to the person who
+    // just typed it, and the owner is told when someone actually pays. If
+    // they walk away here, the day-later reminder catches them.
 
     return res.status(201).json(ownListingView(listing));
   } catch (error) {
