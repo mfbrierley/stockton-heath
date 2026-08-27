@@ -201,6 +201,39 @@ interface ListingSummary {
   active: boolean;
 }
 
+// Sent once, the first time a new account is seen. Deliberately short: they
+// have just filled in a sign-up form and the only useful thing to say is
+// where to go next. Everything about the discount rule, the price and the
+// check waits for the emails that follow, when it is actually relevant.
+export const welcomeUser = (email: string, name: string | null): void => {
+  const greeting = name ? `Hello ${name},` : "Hello,";
+  notify({
+    to: email,
+    subject: "Welcome to Stockton Heath Discounts",
+    body:
+      `${greeting}\n\n` +
+      `Thanks for signing up. Stockton Heath Discounts puts a real offer ` +
+      `from your business in front of residents using the village app.\n\n` +
+      `Whenever you're ready, write your discount here:\n${PORTAL()}/listing\n\n` +
+      `That is also where you manage your account and your subscription. ` +
+      `Any questions, just reply to this email.` +
+      SIGN_OFF,
+  });
+};
+
+// The owner's copy. Sent at the same moment, so a signup is visible without
+// having to go and look.
+export const userSignedUp = (email: string, name: string | null): void => {
+  notifyOwner(
+    `New account: ${name ?? email}`,
+    `${name ?? "Someone"} has signed up for Stockton Heath Discounts.\n\n` +
+      `Email: ${email}\n\n` +
+      `They have not written a discount yet - this is the account only. ` +
+      `You'll get a separate note if they subscribe.\n\n` +
+      `Every account is here:\n${PORTAL()}/admin/users\n`,
+  );
+};
+
 // A discount now saves on its own, before anything is paid for, so this is
 // worth sending again: it confirms we have it and says what is still missing.
 // The owner is deliberately not copied - a listing nobody is paying for is
