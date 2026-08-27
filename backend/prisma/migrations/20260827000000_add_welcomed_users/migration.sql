@@ -14,7 +14,7 @@
 -- Nothing reads these rows back for any other purpose. An account deleted
 -- from the portal leaves its row behind, which is deliberate: it is a Clerk
 -- id and nothing else, and a re-used id cannot happen.
-CREATE TABLE "WelcomedUser" (
+CREATE TABLE IF NOT EXISTS "WelcomedUser" (
     "clerkUserId" TEXT NOT NULL PRIMARY KEY,
     "welcomedAt" TEXT NOT NULL
 );

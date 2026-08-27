@@ -140,6 +140,18 @@ To add a table **or a column**, write the migration file for the record, then ap
 turso db shell stockton-heath < backend/prisma/migrations/<name>/migration.sql
 ```
 
+Applying one twice is a normal accident - there is no ledger to say what has run, so the
+only record is memory. Every `CREATE TABLE`, `CREATE INDEX` and data-copy `INSERT` in these
+files is therefore written to survive it: `IF NOT EXISTS` and `INSERT OR IGNORE`, so re-running
+a whole file is a no-op rather than an error that stops it partway through. That last part is
+the point - a bare `CREATE TABLE` that fails aborts the file, so a migration that also seeds
+data would create nothing and seed nothing, but *look* like it had only failed the first step.
+
+The exception is `ALTER TABLE ... ADD COLUMN`, in `20260825000000_add_subscription_period_fields`
+and `20260826000000_add_listing_removed_at`. SQLite has no `IF NOT EXISTS` for it, so re-running
+those two fails with `duplicate column name`. That error is harmless and means the column is
+already there.
+
 Nothing applies migrations automatically - the Dockerfile only runs `prisma generate && tsc`. (`backend/dbsetup.js` does call `prisma migrate deploy`, but it is a leftover from an abandoned Fly.io setup, is never copied into the image, and is never executed. It is misleading and worth deleting.)
 
 Two historical notes: the original `PushToken` table was replaced by the two subscription tables in `20260601000000_replace_push_token_with_subscriptions`; and `AppMeta` was absent from the live database until August 2026, which meant bin reminders fell back to an in-memory guard and could double-send if the container restarted between 18:00 and 19:00 UK.

@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "BusinessListing" (
+CREATE TABLE IF NOT EXISTS "BusinessListing" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "businessName" TEXT NOT NULL,
     "discountText" TEXT NOT NULL,
@@ -17,13 +17,13 @@ CREATE TABLE "BusinessListing" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "BusinessListing_contactEmail_key" ON "BusinessListing"("contactEmail");
+CREATE UNIQUE INDEX IF NOT EXISTS "BusinessListing_contactEmail_key" ON "BusinessListing"("contactEmail");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "BusinessListing_clerkUserId_key" ON "BusinessListing"("clerkUserId");
+CREATE UNIQUE INDEX IF NOT EXISTS "BusinessListing_clerkUserId_key" ON "BusinessListing"("clerkUserId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "BusinessListing_stripeCustomerId_key" ON "BusinessListing"("stripeCustomerId");
+CREATE UNIQUE INDEX IF NOT EXISTS "BusinessListing_stripeCustomerId_key" ON "BusinessListing"("stripeCustomerId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "BusinessListing_stripeSubscriptionId_key" ON "BusinessListing"("stripeSubscriptionId");
+CREATE UNIQUE INDEX IF NOT EXISTS "BusinessListing_stripeSubscriptionId_key" ON "BusinessListing"("stripeSubscriptionId");
