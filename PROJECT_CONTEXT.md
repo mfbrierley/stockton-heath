@@ -92,7 +92,7 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | `GET /business-listings/admin` 🔒    | Every listing, unapproved first, for the approvals screen |
 | `POST /business-listings/:id/approve` 🔒 | Mark a listing as meeting the discount rule         |
 | `POST /business-listings/:id/unapprove` 🔒 | Withdraw approval                                 |
-| `POST /business-listings/:id/remove` 🔒 | Take a listing out for good: cancels its Stripe subscription immediately and stamps `removedAt`, keeping the row |
+| `POST /business-listings/:id/remove` 🔒 | Take a listing out for good: cancels its Stripe subscription immediately, then deletes the row |
 | `GET /admin/users` 🔒                | Every Clerk account with its listing, if it has one, for the admin Users page |
 | `DELETE /admin/users/:clerkUserId` 🔒 | Delete a Clerk account. Refuses while their listing is still paying, and refuses the owner's own account |
 | `POST /business-listings/me` 🔑      | A business creates its own listing after signing up     |
@@ -124,7 +124,7 @@ Uses **Turso** (a hosted libSQL/SQLite service) via **Prisma** ORM. Five tables:
 - `BridgeSubscription` - Expo push tokens subscribed to bridge alerts
 - `BinSubscription` - Expo push tokens subscribed to bin reminders, each paired with a UPRN
 - `AppMeta` - simple key/value store; currently holds `lastBinNotificationDate` for reminder de-duplication
-- `BusinessListing` - a paid Local Offers listing. `approved` (manual editorial review) and `active` (Stripe subscription in good standing) are independent; a listing reaches the app only when both are true. `removedAt` marks one an admin has taken out for good - the row is kept rather than deleted, so the business's email and Clerk id stay claimed and a removed business cannot quietly sign up again as if new. `cancelAtPeriodEnd` and `currentPeriodEnd` mirror Stripe so the portal can show a pending cancellation: `active` stays true through one, because the business has paid to the end of the period, and without these two a cancelled subscription is indistinguishable from a healthy one after a page reload
+- `BusinessListing` - a paid Local Offers listing. `approved` (manual editorial review) and `active` (Stripe subscription in good standing) are independent; a listing reaches the app only when both are true. `cancelAtPeriodEnd` and `currentPeriodEnd` mirror Stripe so the portal can show a pending cancellation: `active` stays true through one, because the business has paid to the end of the period, and without these two a cancelled subscription is indistinguishable from a healthy one after a page reload
 
 #### Migrations are applied by hand
 
@@ -265,7 +265,7 @@ The portal is a small React app that does not exist yet. It will live in the **`
 - **The webhook needs the raw request body.** `express.raw` is mounted on `/stripe/webhook` above the global `express.json()`; body-parser marks the request as already read, so the JSON parser leaves that one path alone.
 - **Images** are uploaded directly to Cloudflare R2 via a short-lived signed URL; the portal PATCHes the resulting public URL back once the upload succeeds.
 - Editing `discountText` resets `approved` to `false` so the discount gets re-reviewed. Name, description and image edits do not, so a typo fix can't pull a paying listing out of the app.
-- **An admin has two ways to take a listing down, and they are deliberately different.** Unapproving hides it while it carries on paying, and is undone with one click - that is the one to reach for. Removing it (`/remove`) cancels the subscription **there and then** rather than at the end of the period, because a business should not be charged for a month no resident can see; it stamps `removedAt`, clears `approved` and `active`, and is not undoable from the portal. Deleting a user goes through the same archiving path, so the two can't drift apart.
+- **An admin has two ways to take a listing down, and they are deliberately different.** Unapproving hides it while it carries on paying, and is undone with one click - that is the one to reach for. Removing it (`/remove`) cancels the subscription **there and then** rather than at the end of the period, because a business should not be charged for a month no resident can see; it then deletes the row outright, which frees the business's email and Clerk id, so signing in afterwards looks exactly like the first visit ever did. Not undoable from the portal. Deleting a user goes through the same route, so the two can't drift apart.
 - All Local Offers config is read lazily. A missing variable returns `503` from the affected route rather than throwing at boot, because `deploy:backend` removes the running container before starting the new one - a boot-time throw would take weather, fuel, bridge alerts and bin reminders down with it.
 - **CORS** is scoped to `PORTAL_BASE_URL` and compares against its **origin**, since a browser's `Origin` header never carries a path and `PORTAL_BASE_URL` does. The mobile app sends no `Origin` header and is unaffected, as are all the pre-existing routes.
 
