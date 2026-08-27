@@ -993,6 +993,39 @@ const cancelSubscriptionNow = async (subscriptionId: string): Promise<void> => {
   }
 };
 
+// Stripe keeps the customer object - their email, their name, their saved
+// cards - long after a subscription ends, so deleting our row alone leaves
+// their details sitting there. Looked up by email rather than by the row's
+// stripeCustomerId, because a listing removed on its own takes that id with
+// it and would otherwise strand the customer with nothing left pointing at
+// it.
+//
+// Invoices and charges survive this, and are meant to: they are financial
+// records, Stripe keeps them whatever happens to the customer, and they are
+// not ours to throw away.
+const deleteStripeCustomersFor = async (email: string): Promise<void> => {
+  let customers;
+  try {
+    customers = await getStripe().customers.list({ email, limit: 100 });
+  } catch (error) {
+    // Nothing is configured, so there is nothing at Stripe to delete. Any
+    // other failure is real and should stop the deletion rather than quietly
+    // leave records behind.
+    if (error instanceof MissingConfigError) return;
+    throw error;
+  }
+
+  for (const customer of customers.data) {
+    try {
+      await getStripe().customers.del(customer.id);
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      if (code === "resource_missing") continue;
+      throw error;
+    }
+  }
+};
+
 // Taking a listing out of the app for good. The row is deleted outright,
 // which frees the business's email and Clerk id: signing in afterwards looks
 // exactly like the first visit ever did, and creating a listing again is a
@@ -1155,26 +1188,44 @@ app.delete("/admin/users/:clerkUserId", requireAdminOrOwner, async (req: Request
       return res.status(404).json({ error: "That account no longer exists" });
     }
 
+    const email = user.primaryEmailAddress?.emailAddress ?? null;
+
     // Locking yourself out of the admin pages would need a trip to the Clerk
     // dashboard to undo, and there is only ever one owner to lose.
-    if (isOwnerEmail(user.primaryEmailAddress?.emailAddress)) {
+    if (isOwnerEmail(email)) {
       return res
         .status(409)
         .json({ error: "You cannot delete your own admin account" });
     }
 
-    const listing = await prisma.businessListing.findUnique({
-      where: { clerkUserId },
+    // By email as well as by Clerk id. The two normally agree, but a Clerk
+    // account deleted and remade with the same address leaves a row pointing
+    // at the old id - and contactEmail is unique, so a row matched by neither
+    // would hold that address for ever with no login left to reach it. That
+    // is the opposite of freeing their email.
+    const listing = await prisma.businessListing.findFirst({
+      where: email
+        ? { OR: [{ clerkUserId }, { contactEmail: email }] }
+        : { clerkUserId },
     });
 
     // A paying business is never deleted by accident: end the subscription
-    // first, deliberately, and then the account can go.
+    // first, deliberately, and then the account can go. Widening the lookup
+    // above also means this now catches an orphaned row that is still being
+    // charged, which it used to walk straight past.
     if (listing?.active) {
       return res.status(409).json({
         error:
           "This business has an active subscription. Remove their listing first, then delete the account.",
       });
     }
+
+    // Stripe first, then our row, then the account. Each step is safe to
+    // repeat, so a failure part-way is retried by pressing Delete again
+    // rather than leaving a half-deleted person nobody can finish off:
+    // a customer already gone is skipped, removeListing deletes nothing when
+    // there is nothing left, and a second run simply finds no listing.
+    if (email) await deleteStripeCustomersFor(email);
 
     // Cancels anything still open at Stripe and deletes the listing along
     // with the account, so neither is left behind pointing at the other.
