@@ -20,24 +20,55 @@ import { theme } from "../styles/theme";
 // send them to.
 const PORTAL_URL = "https://stockton-heath-support.vercel.app/business";
 
+// The one category with a fixed position in the filter row. Matched by value
+// because that is what the backend stores; if it were ever renamed there this
+// would stop pinning it and sort it alphabetically instead, which is a worse
+// row rather than a broken one.
+const OTHER = "Other";
+
 export default function Discounts() {
   const { listings, loading, refreshing, error, refresh } =
     useBusinessListings();
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<string | null>(null);
 
   const search = query.trim().toLowerCase();
+
+  // Built from the listings themselves rather than a copy of the backend's
+  // list, so there is no fourth place for the categories to drift out of step
+  // and no filter that returns nothing. Alphabetical with Other last, since
+  // "Other" is where a business lands when none of the rest fit and reads
+  // oddly in the middle of the row.
+  const categories = useMemo(() => {
+    const present = [...new Set(listings.map((listing) => listing.category))];
+    return present.sort((a, b) => {
+      if (a === OTHER) return 1;
+      if (b === OTHER) return -1;
+      return a.localeCompare(b);
+    });
+  }, [listings]);
+
+  // A category chosen and then emptied - every listing under it was edited,
+  // or stopped paying - would otherwise leave the screen filtered to nothing
+  // by a chip that is no longer on it.
+  const activeCategory =
+    category !== null && categories.includes(category) ? category : null;
 
   // Matches the discount as well as the name, so someone looking for
   // "coffee" or "10%" finds the shop offering it without having to know
   // what the shop is called.
   const matches = useMemo(() => {
-    if (!search) return listings;
-    return listings.filter(
-      (listing) =>
+    return listings.filter((listing) => {
+      if (activeCategory !== null && listing.category !== activeCategory) {
+        return false;
+      }
+      if (!search) return true;
+      return (
         listing.businessName.toLowerCase().includes(search) ||
-        listing.discountText.toLowerCase().includes(search),
-    );
-  }, [listings, search]);
+        listing.discountText.toLowerCase().includes(search)
+      );
+    });
+  }, [listings, search, activeCategory]);
 
   // An error only takes over the screen when there is nothing else to put
   // there. A refresh that fails with listings already up leaves them alone -
@@ -123,12 +154,64 @@ export default function Discounts() {
             )}
           </View>
 
+          {/* Only worth a row when there is a choice to make. One category
+              means every chip but "All" selects everything anyway. */}
+          {categories.length > 1 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              // Negative margins let the row bleed to the screen edges while
+              // the page keeps its 20pt gutter, so a scrollable row looks
+              // scrollable rather than stopping short of the edge.
+              style={styles.filterRow}
+              contentContainerStyle={styles.filterRowContent}
+            >
+              {[null, ...categories].map((option) => {
+                const selected = activeCategory === option;
+                return (
+                  <Pressable
+                    key={option ?? "all"}
+                    onPress={() => setCategory(option)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    style={[styles.filter, selected && styles.filterOn]}
+                  >
+                    <Text
+                      style={[
+                        styles.filterText,
+                        selected && styles.filterTextOn,
+                      ]}
+                    >
+                      {option ?? "All"}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          )}
+
           {matches.length === 0 ? (
             <View style={styles.card}>
               <Text style={globalStyles.cardTitle}>
-                Nothing matches “{query.trim()}”
+                {search
+                  ? `Nothing matches “${query.trim()}”`
+                  : `Nothing under ${activeCategory} just now`}
               </Text>
-              <Pressable onPress={() => setQuery("")}>
+              {/* Says which filters it is about to drop, because clearing
+                  both when only one was set reads as the screen forgetting
+                  what you asked for. */}
+              {search && activeCategory !== null && (
+                <Text style={[globalStyles.body, styles.muted]}>
+                  You are also only seeing {activeCategory}.
+                </Text>
+              )}
+              <Pressable
+                onPress={() => {
+                  setQuery("");
+                  setCategory(null);
+                }}
+              >
                 <Text style={[globalStyles.body, globalStyles.bodyLink]}>
                   Show every discount
                 </Text>
@@ -224,6 +307,34 @@ const styles = StyleSheet.create({
   },
   searchClear: {
     marginRight: 12,
+  },
+  filterRow: {
+    marginHorizontal: -20,
+  },
+  filterRowContent: {
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  filter: {
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: theme.colors.white,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral300,
+  },
+  filterOn: {
+    backgroundColor: theme.colors.green800,
+    borderColor: theme.colors.green800,
+  },
+  filterText: {
+    fontFamily: theme.fonts.bodyBold,
+    fontSize: 14,
+    lineHeight: 18,
+    color: theme.colors.neutral900,
+  },
+  filterTextOn: {
+    color: theme.colors.white,
   },
   linkRow: {
     flexDirection: "row",

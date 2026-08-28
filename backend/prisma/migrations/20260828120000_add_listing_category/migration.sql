@@ -1,0 +1,28 @@
+-- AlterTable
+--
+-- Additive and carries a default, so the currently deployed code keeps
+-- working untouched once this is applied. Apply it BEFORE deploying the code
+-- that reads it - see PROJECT_CONTEXT.md, migrations are applied by hand:
+--
+--   turso db shell stockton-heath < backend/prisma/migrations/20260828120000_add_listing_category/migration.sql
+--
+-- The category a resident filters the Discounts tab by. One of the eight
+-- labels in LISTING_CATEGORIES (backend/src/index.ts), stored as the label
+-- itself: SQLite has no enum, and the backend refuses anything off the list,
+-- so the column is an enum in all but name.
+--
+-- SQLite will not add a NOT NULL column to a populated table without a
+-- default, and there is no honest per-row answer available here anyway -
+-- every existing listing was written before the field existed and nobody has
+-- said what those businesses are. So they are all filed under 'Other', which
+-- is true rather than merely convenient, and each can be corrected either by
+-- the business from the portal or with a one-line UPDATE.
+--
+-- Only those older rows ever take the default. A new listing must choose:
+-- the portal will not submit without one, and the create route rejects a
+-- request that omits it.
+--
+-- Not re-runnable. SQLite has no ADD COLUMN IF NOT EXISTS, so applying this
+-- twice fails with "duplicate column name" - harmless, and the same exception
+-- the other ALTER TABLE migrations here carry.
+ALTER TABLE "BusinessListing" ADD COLUMN "category" TEXT NOT NULL DEFAULT 'Other';

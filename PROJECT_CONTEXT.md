@@ -46,7 +46,11 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
   discount as a green pill, and the terms underneath. Drawn to match
   `DiscountPreview` in the portal, which is what a business writes their
   listing against under the heading "How residents will see it"
-- Searchable by business name or discount wording, and pull-to-refresh
+- Searchable by business name or discount wording, and filterable by category
+  from a row of chips above the list. The chips are built from the categories
+  the listings actually use, not from a copy of the backend's list, so they
+  cannot drift out of step with it and no chip ever returns nothing
+- Pull-to-refresh
 - Refetches whenever the tab is focused rather than caching. A listing leaves
   the app the moment its discount or photo is edited, and removing one deletes
   the row, so a cached copy would advertise a discount that has been withdrawn
@@ -391,6 +395,13 @@ The replacement for the hardcoded sponsor: local businesses pay **£20/month** b
 The portal is a small React app that does not exist yet. It will live in the **`stockton-heath-support`** repo, served at `https://stockton-heath-support.vercel.app/business` - not a separate repository, as originally planned.
 
 - **Authentication** is handled by **Clerk** - it owns sign-up, passwords and password resets, so no credential reaches this backend. The portal sends a Clerk session token as a bearer token and `requireBusinessAuth` verifies it. Sign-up is open: a signed-in caller with no listing is an expected state rather than an error, and creating one is the next thing they do. A listing is owned by the Clerk account that created it (`clerkUserId` is unique, so one account means one listing), and its contact address is read from that account rather than the request body.
+- **Every listing carries a category**, one of eight defined by
+  `LISTING_CATEGORIES` in `backend/src/index.ts` and mirrored in the portal's
+  `listingFields.ts`. Stored as the label rather than a code, because SQLite
+  has no enum type and the backend refuses anything off the list anyway. It is
+  required to create a listing, and changing it does **not** send the listing
+  back for review - it is cataloguing, not a claim a resident acts on. Rows
+  written before the column existed were backfilled to `Other`.
 - **Nothing a stranger signs up for is visible.** A listing reaches the app only once it is approved and paid, so an unwanted sign-up costs no more than a row in the pending queue.
 - **Billing** is Stripe Checkout in subscription mode. `customer.subscription.*` webhooks are the single source of truth for `active`, so cancelling from the portal and cancelling from Stripe's own Customer Portal behave identically. The cancel route sets `cancel_at_period_end` and deliberately does not touch `active` itself.
 - **Checkout opts out of Stripe Managed Payments** (`managed_payments: { enabled: false }`). That is Stripe's merchant-of-record product, enabled by default on the account: it adds 3.5% per transaction, requires a product tax code, and would make Stripe rather than the app's owner the party selling advertising. Without opting out, checkout fails outright. It is set in code rather than the dashboard so the decision travels with the repository. The parameter is newer than `stripe@22`'s types, so the params type is extended locally.

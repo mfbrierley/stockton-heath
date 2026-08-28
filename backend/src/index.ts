@@ -733,6 +733,7 @@ const getR2 = (): S3Client => {
 const PUBLIC_LISTING_FIELDS = {
   id: true,
   businessName: true,
+  category: true,
   discountText: true,
   description: true,
   imageUrl: true,
@@ -743,6 +744,29 @@ const LISTING_FIELD_LIMITS = {
   discountText: 120,
   description: 600,
 } as const;
+
+// What a business files its discount under, and what a resident filters the
+// app by. Eight of them, because a list long enough to be precise is too long
+// to scan on a phone - and "Other" exists so that nobody is forced to file
+// themselves somewhere untrue.
+//
+// The order is the order they appear in the portal's dropdown. Stored as the
+// label rather than a code: SQLite has no enum type, and a readable value in
+// the database is worth more than a lookup table nobody has to hand.
+//
+// Mirrored in the portal (src/business/listingFields.ts). The app does not
+// carry a copy - it builds its filters from whatever categories the listings
+// actually use, so it cannot drift from this list.
+const LISTING_CATEGORIES = [
+  "Food & Drink",
+  "Hair & Beauty",
+  "Health & Wellbeing",
+  "Home & Garden",
+  "Shopping & Gifts",
+  "Professional Services",
+  "Motoring",
+  "Other",
+] as const;
 
 // Managed Payments is Stripe's merchant-of-record product, enabled by default
 // on the account. It adds 3.5% per transaction and requires a product tax
@@ -782,6 +806,17 @@ const cleanListingField = (value: unknown, max: number): string | null => {
   const trimmed = value.trim();
   if (!trimmed || trimmed.length > max) return null;
   return trimmed;
+};
+
+// A category has to be one of the eight, not merely a string of a sensible
+// length, so neither of the helpers around it fits: this is membership, not a
+// ceiling. Anything unrecognised is refused rather than quietly filed under
+// "Other", so a portal and a backend that disagree about the list say so
+// instead of silently mis-filing somebody's discount.
+const cleanCategory = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return (LISTING_CATEGORIES as readonly string[]).includes(trimmed) ? trimmed : null;
 };
 
 // The description is where a business puts any terms, so plenty of them have
@@ -1390,11 +1425,18 @@ app.post("/business-listings/me", requireBusinessAuth, async (req: Request, res:
     const businessName = cleanListingField(req.body?.businessName, LISTING_FIELD_LIMITS.businessName);
     const discountText = cleanListingField(req.body?.discountText, LISTING_FIELD_LIMITS.discountText);
     const description = cleanOptionalField(req.body?.description, LISTING_FIELD_LIMITS.description);
+    const category = cleanCategory(req.body?.category);
 
     if (!businessName || !discountText) {
       return res.status(400).json({
         error: "businessName and discountText are both required",
       });
+    }
+    // Its own branch rather than folded into the one above, because the two
+    // failures are not the same thing: a missing discount is a box nobody
+    // filled in, an unusable category is a value that is not on the list.
+    if (!category) {
+      return res.status(400).json({ error: "Choose a category for your business" });
     }
     if (description === null) {
       return res.status(400).json({ error: "Invalid description" });
@@ -1417,6 +1459,7 @@ app.post("/business-listings/me", requireBusinessAuth, async (req: Request, res:
     const listing = await prisma.businessListing.create({
       data: {
         businessName,
+        category,
         discountText,
         description,
         contactEmail,
@@ -1479,6 +1522,7 @@ app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res
 
     const updates: {
       businessName?: string;
+      category?: string;
       discountText?: string;
       description?: string;
       imageUrl?: string | null;
@@ -1496,6 +1540,16 @@ app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res
           : cleanListingField(req.body[field], LISTING_FIELD_LIMITS[field]);
       if (value === null) return res.status(400).json({ error: `Invalid ${field}` });
       updates[field] = value;
+    }
+
+    // Outside the loop above for the same reason imageUrl is: that loop
+    // length-checks free text, and a category is picked from a list. It
+    // cannot be cleared - a listing with no category would fall out of every
+    // filter in the app and show up in none of them.
+    if (req.body?.category !== undefined) {
+      const value = cleanCategory(req.body.category);
+      if (value === null) return res.status(400).json({ error: "Invalid category" });
+      updates.category = value;
     }
 
     // Only a URL this backend just handed out may be stored, so the field
@@ -1523,8 +1577,10 @@ app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res
     // genuine-discount rule gets re-checked. So does changing the photo: it
     // is the one field that reaches every resident as a picture nobody has
     // read, and an approval granted against one image says nothing about the
-    // next. Name and description edits still don't, so fixing a typo can't
-    // pull a paying listing out of the app.
+    // next. Name, description and category edits still don't, so fixing a typo
+    // can't pull a paying listing out of the app - and nor can a business
+    // correcting the shelf it filed itself on, which is cataloguing rather
+    // than a claim any resident acts on.
     const discountChanged =
       updates.discountText !== undefined &&
       updates.discountText !== existing.discountText;

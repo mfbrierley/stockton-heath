@@ -11,6 +11,12 @@
 export type BusinessListing = {
   id: number;
   businessName: string;
+  // One of the eight the backend allows. Not narrowed to a union here on
+  // purpose: the app is shipped separately from the backend, and a listing
+  // filed under a category added after this build went out should still
+  // appear rather than fail to type. The filters are built from whatever
+  // comes back, so a new one needs no change here.
+  category: string;
   discountText: string;
   description: string;
   imageUrl: string | null;
