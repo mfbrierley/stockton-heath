@@ -19,6 +19,7 @@ A local community app for Stockton Heath, Warrington (UK). Built with **Expo / R
     (tabs)/               # Bottom tab screens
       index.tsx           # Home tab – weather + local fuel prices
       services.tsx        # Bin collections / waste services
+      discounts.tsx       # Local business discounts (hidden on the production channel)
       bridge.tsx          # Swing bridge alerts + push notification opt-in
     about.tsx             # About / app info
     help.tsx              # Help / support info
@@ -73,6 +74,7 @@ backend/                  # Node.js/Express API server
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | Home (`index.tsx`)                                   | Weather (OpenWeather API, lat/lon hardcoded to Stockton Heath) + local fuel prices from backend         |
 | Services (`services.tsx`)                            | Postcode-based bin collection lookup via Warrington Borough Council API and local place links           |
+| Discounts (`discounts.tsx`)                          | Approved, paid-for business discounts from `GET /business-listings`, searchable by name. Hidden on the `production` EAS channel by `utils/discountsVisible.ts` until sign-off |
 | Bridge (`bridge.tsx`)                                | Latest swing bridge closure alert + push notification subscribe                                         |
 | About (`about.tsx`)                                  | App information and project context                                                                     |
 | Help (`help.tsx`)                                    | Help / support information                                                                              |
@@ -136,7 +138,7 @@ Admin routes are gated by `requireAdmin` (`x-admin-token`); business routes by
 | GET | `/test-key` | admin |
 | POST / DELETE | `/bridge-subscriptions` , `/bin-subscriptions` | public |
 | GET | `/fuel-prices` | public |
-| GET | `/business-listings` | public - only `approved && active` |
+| GET | `/business-listings` | public - only `approved && active`; read by the app's Discounts tab |
 | GET | `/business-listings/pending` | admin |
 | POST | `/business-listings/:id/approve` , `/:id/unapprove` | admin |
 | POST / GET / PATCH | `/business-listings/me` | business |

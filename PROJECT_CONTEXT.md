@@ -24,7 +24,7 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
   - Morrisons (Stockton Heath)
 - Fuel prices come from the backend, which polls the UK Government's **Fuel Finder API**
 - **Sponsor card** - a paid placement for a local business (currently Rowswood Timber). Hardcoded in `components/SponsorCard.tsx`
-- Summary cards linking through to bin collections and bridge alerts
+- Summary cards linking through to local discounts, bin collections and bridge alerts
 - Quick links to the **About** and **Help** screens
 
 #### Services Tab
@@ -37,6 +37,26 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
   - **Broomfields Leisure Centre** - opening hours, list of facilities (gym, pool, classes, football pitches, venue hire)
   - **Medical centres** - a list screen linking to Stockton Heath, Latchford and Stretton surgeries, each with opening hours and links to eConsult, appointments, prescriptions, test results
   - **Stockton Heath Post Office** - opening hours, full list of available services (banking, parcels, bills, passport check & send)
+
+#### Discounts Tab
+
+- The resident-facing half of Local Offers: a list of every listing that is
+  both approved and paid for, read from `GET /business-listings`
+- One card per business - photo (when there is one), business name, the
+  discount as a green pill, and the terms underneath. Drawn to match
+  `DiscountPreview` in the portal, which is what a business writes their
+  listing against under the heading "How residents will see it"
+- Searchable by business name, and pull-to-refresh
+- Refetches whenever the tab is focused rather than caching. A listing leaves
+  the app the moment its discount or photo is edited, and removing one deletes
+  the row, so a cached copy would advertise a discount that has been withdrawn
+- Links out to the portal at the bottom, for residents who run a business
+- **Hidden on the `production` EAS channel** by `utils/discountsVisible.ts`
+  while it is being finished. Dev builds and the internal `preview` channel
+  show it; App Store builds do not. `href: null` keeps the route registered, so
+  `stocktonheath://discounts` still reaches it inside a production build.
+  Going live is deleting that file and its two call sites, then
+  `npm run ui-update`
 
 #### Bridge Tab
 
@@ -401,12 +421,12 @@ It leaves one listing row behind, prints the command to remove it, and prints th
 | --- | --- |
 | `BusinessListing` table | created on the live database |
 | Admin review routes | working |
-| Public route the app reads | working, returns `[]` |
+| Public route the app reads | working; returns the approved, paid listings |
 | Clerk sign-up, login, listing creation | working; sign-ups are **open**, not invitation-only |
 | Stripe checkout and webhook | configured and paid end to end in a **sandbox** (test mode) |
 | Cloudflare R2 image upload | **not configured** - the routes return `503` |
-| The business portal | **not built** |
-| The app's Local Offers screen | **not built** - nothing to show until a listing is approved and paid |
+| The business portal | built, in `mfbrierley/stockton-heath-support` |
+| The app's Discounts tab | built, and **hidden on the `production` channel** until it is signed off - see below |
 
 Stripe is in a sandbox with test keys. Going live means repeating the product, price and webhook setup in the live account and swapping all four `STRIPE_*` values.
 
