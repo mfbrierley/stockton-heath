@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { createClerkClient, verifyToken } from "@clerk/backend";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
@@ -1132,6 +1132,44 @@ const deleteStripeCustomersFor = async (email: string): Promise<void> => {
   }
 };
 
+// A photo lives in R2, not in the database, so deleting a row is not the end
+// of it: the file carries on being served at its public URL for ever. That
+// matters most on a user deletion, which this app calls an erasure - and it
+// is not one while their photograph is still up.
+//
+// Never throws. Losing a file is not a reason to fail the deletion someone
+// actually asked for: a row that has gone but left a file behind is a
+// tidying job, while a delete that 500s leaves a half-erased person nobody
+// can finish off. Failures are logged with the URL, so they can be swept up
+// by hand.
+const deleteListingImage = async (imageUrl: string | null): Promise<void> => {
+  if (!imageUrl) return;
+  try {
+    const base = normaliseBaseUrl(requireEnv("R2_PUBLIC_URL"));
+    // Only ever a key this backend handed out. A stored URL pointing anywhere
+    // else is not ours, and a delete built from one would be aimed at a key
+    // we never wrote.
+    if (!imageUrl.startsWith(`${base}/`)) return;
+    const key = imageUrl.slice(base.length + 1);
+    if (!key) return;
+
+    await getR2().send(
+      new DeleteObjectCommand({
+        Bucket: requireEnv("R2_BUCKET_NAME"),
+        Key: key,
+      }),
+    );
+  } catch (error) {
+    // R2 not configured yet is not a failure - there is no bucket, so there
+    // is nothing of ours in it.
+    if (error instanceof MissingConfigError) return;
+    console.error(
+      `Could not delete listing image ${imageUrl}:`,
+      error instanceof Error ? error.message : error,
+    );
+  }
+};
+
 // Taking a listing out of the app for good. The row is deleted outright,
 // which frees the business's email and Clerk id: signing in afterwards looks
 // exactly like the first visit ever did, and creating a listing again is a
@@ -1149,6 +1187,12 @@ const removeListing = async (id: number) => {
   // page, or one double-click that outruns the disabled button, would
   // otherwise get a 500 for reaching exactly the state they asked for.
   await prisma.businessListing.deleteMany({ where: { id } });
+
+  // After the row, not before: a file deleted first would leave a listing
+  // pointing at nothing if the delete below failed. Awaited rather than left
+  // running, so an erasure has finished when it says it has.
+  await deleteListingImage(listing.imageUrl);
+
   return listing;
 };
 
@@ -1640,6 +1684,11 @@ app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res
       where: { id: existing.id },
       data: updates,
     });
+
+    // The picture they just replaced, or removed, is now referenced by
+    // nothing. After the update rather than before, so a failed write cannot
+    // leave the row pointing at a file that has already gone.
+    if (imageChanged) await deleteListingImage(existing.imageUrl);
 
     listingUpdated(listing, discountChanged, imageChanged);
 
