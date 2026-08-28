@@ -402,6 +402,13 @@ The portal is a small React app that does not exist yet. It will live in the **`
   required to create a listing, and changing it does **not** send the listing
   back for review - it is cataloguing, not a claim a resident acts on. Rows
   written before the column existed were backfilled to `Other`.
+- **The owner can re-file a listing** from the portal's Listings page, where
+  the category cell is a dropdown that saves on change
+  (`POST /business-listings/:id/category`). It **emails nobody**: being moved
+  to Home & Garden is not news a business can act on, and if they disagree
+  they can set it back from their own page. Its own route rather than a reuse
+  of `PATCH /me`, which sends `listingUpdated` unconditionally - that shortcut
+  is exactly what would send the email this must not send.
 - **Nothing a stranger signs up for is visible.** A listing reaches the app only once it is approved and paid, so an unwanted sign-up costs no more than a row in the pending queue.
 - **Billing** is Stripe Checkout in subscription mode. `customer.subscription.*` webhooks are the single source of truth for `active`, so cancelling from the portal and cancelling from Stripe's own Customer Portal behave identically. The cancel route sets `cancel_at_period_end` and deliberately does not touch `active` itself.
 - **Checkout opts out of Stripe Managed Payments** (`managed_payments: { enabled: false }`). That is Stripe's merchant-of-record product, enabled by default on the account: it adds 3.5% per transaction, requires a product tax code, and would make Stripe rather than the app's owner the party selling advertising. Without opting out, checkout fails outright. It is set in code rather than the dashboard so the decision travels with the repository. The parameter is newer than `stripe@22`'s types, so the params type is extended locally.

@@ -141,6 +141,7 @@ Admin routes are gated by `requireAdmin` (`x-admin-token`); business routes by
 | GET | `/business-listings` | public - only `approved && active`; read by the app's Discounts tab |
 | GET | `/business-listings/pending` | admin |
 | POST | `/business-listings/:id/approve` , `/:id/unapprove` | admin |
+| POST | `/business-listings/:id/category` | admin - re-files a listing, emails nobody |
 | POST / GET / PATCH | `/business-listings/me` | business |
 | POST | `/business-listings/me/checkout` , `/portal` , `/cancel` , `/image-upload-url` | business |
 | POST | `/stripe/webhook` | Stripe signature |

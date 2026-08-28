@@ -1182,6 +1182,50 @@ app.post("/business-listings/:id/unapprove", requireAdminOrOwner, (req: Request,
   setListingApproval(req, res, false),
 );
 
+// Re-filing a listing someone else wrote. Every row that predates the category
+// column was backfilled to "Other", and a business that picks the wrong shelf
+// is not going to know it - so the owner needs to be able to fix it without
+// asking them to log in, and without a shell open on the live database.
+//
+// It emails nobody, deliberately. Being told "we have moved you to Home &
+// Garden" is not news a business can act on, and the cost of getting it wrong
+// is that they set it back themselves from their own page, which they can:
+// their own PATCH accepts a category and, like this, leaves approval alone.
+//
+// Its own route rather than a reuse of PATCH /me, which would be the obvious
+// shortcut - that one sends listingUpdated unconditionally, so the shortcut is
+// exactly the thing that would send the email this must not send.
+//
+// No approval reset, for the same reason a business changing its own category
+// does not trigger one: it is cataloguing, not a claim any resident acts on.
+// No pending-queue lock either - the 409 on PATCH /me stops the words changing
+// underneath whoever is reading them, and the reader is who this is for.
+app.post("/business-listings/:id/category", requireAdminOrOwner, async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: "Invalid id" });
+    }
+
+    const category = cleanCategory(req.body?.category);
+    if (category === null) {
+      return res.status(400).json({ error: "Invalid category" });
+    }
+
+    const existing = await prisma.businessListing.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: "Listing not found" });
+
+    const listing = await prisma.businessListing.update({
+      where: { id },
+      data: { category, updatedAt: new Date().toISOString() },
+    });
+
+    return res.json(listing);
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+});
+
 // Unapproving hides a listing but leaves it paying; this ends both. Kept
 // separate from unapprove because it spends the business's money - it stops
 // their subscription there and then - so it is never something to reach for by
