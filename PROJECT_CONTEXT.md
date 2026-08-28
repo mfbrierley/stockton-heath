@@ -46,7 +46,7 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
   discount as a green pill, and the terms underneath. Drawn to match
   `DiscountPreview` in the portal, which is what a business writes their
   listing against under the heading "How residents will see it"
-- Searchable by business name, and pull-to-refresh
+- Searchable by business name or discount wording, and pull-to-refresh
 - Refetches whenever the tab is focused rather than caching. A listing leaves
   the app the moment its discount or photo is edited, and removing one deletes
   the row, so a cached copy would advertise a discount that has been withdrawn

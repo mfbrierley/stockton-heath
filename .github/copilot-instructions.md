@@ -74,7 +74,7 @@ backend/                  # Node.js/Express API server
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | Home (`index.tsx`)                                   | Weather (OpenWeather API, lat/lon hardcoded to Stockton Heath) + local fuel prices from backend         |
 | Services (`services.tsx`)                            | Postcode-based bin collection lookup via Warrington Borough Council API and local place links           |
-| Discounts (`discounts.tsx`)                          | Approved, paid-for business discounts from `GET /business-listings`, searchable by name. Hidden on the `production` EAS channel by `utils/discountsVisible.ts` until sign-off |
+| Discounts (`discounts.tsx`)                          | Approved, paid-for business discounts from `GET /business-listings`, searchable by business name or discount wording. Hidden on the `production` EAS channel by `utils/discountsVisible.ts` until sign-off |
 | Bridge (`bridge.tsx`)                                | Latest swing bridge closure alert + push notification subscribe                                         |
 | About (`about.tsx`)                                  | App information and project context                                                                     |
 | Help (`help.tsx`)                                    | Help / support information                                                                              |

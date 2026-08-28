@@ -27,10 +27,15 @@ export default function Discounts() {
 
   const search = query.trim().toLowerCase();
 
+  // Matches the discount as well as the name, so someone looking for
+  // "coffee" or "10%" finds the shop offering it without having to know
+  // what the shop is called.
   const matches = useMemo(() => {
     if (!search) return listings;
-    return listings.filter((listing) =>
-      listing.businessName.toLowerCase().includes(search),
+    return listings.filter(
+      (listing) =>
+        listing.businessName.toLowerCase().includes(search) ||
+        listing.discountText.toLowerCase().includes(search),
     );
   }, [listings, search]);
 
@@ -93,7 +98,7 @@ export default function Discounts() {
               style={styles.searchIcon}
             />
             <TextInput
-              placeholder="Search by business name"
+              placeholder="Search a business or a discount"
               placeholderTextColor={theme.colors.neutral600}
               value={query}
               onChangeText={setQuery}
@@ -121,7 +126,7 @@ export default function Discounts() {
           {matches.length === 0 ? (
             <View style={styles.card}>
               <Text style={globalStyles.cardTitle}>
-                No businesses match “{query.trim()}”
+                Nothing matches “{query.trim()}”
               </Text>
               <Pressable onPress={() => setQuery("")}>
                 <Text style={[globalStyles.body, globalStyles.bodyLink]}>
