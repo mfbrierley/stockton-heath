@@ -1,5 +1,3 @@
-import * as Updates from "expo-updates";
-
 // The Discounts tab is being finished while the app is live on the App Store,
 // so it stays out of sight until it is signed off. Production builds sit on
 // the "production" EAS channel; the dev server and internal preview builds do
@@ -12,11 +10,16 @@ import * as Updates from "expo-updates";
 //
 // Lives in utils/ rather than app/, because everything under app/ is a route.
 //
-// Read inside a try/catch because this runs at module scope, where a throw
-// would take the whole app down rather than just this one tab.
+// expo-updates is required lazily rather than imported at the top of the file.
+// Expo Go ships no ExpoUpdates native module, and the import itself throws
+// there - before any try/catch around a property read could catch it, taking
+// the whole app down with it. Expo Go only ever runs dev bundles, so __DEV__
+// short-circuits before the require is reached; a real build always has the
+// module, and the catch is there for the case nobody has thought of.
 export const DISCOUNTS_VISIBLE = (() => {
   if (__DEV__) return true;
   try {
+    const Updates = require("expo-updates") as { channel: string | null };
     return Updates.channel !== "production";
   } catch {
     return false;
