@@ -1481,7 +1481,7 @@ app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res
       businessName?: string;
       discountText?: string;
       description?: string;
-      imageUrl?: string;
+      imageUrl?: string | null;
       approved?: boolean;
       updatedAt?: string;
     } = {};
@@ -1499,14 +1499,20 @@ app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res
     }
 
     // Only a URL this backend just handed out may be stored, so the field
-    // can't be pointed at an arbitrary host.
+    // can't be pointed at an arbitrary host. An empty string is the one other
+    // thing accepted, and means "take my photo down" - without it a business
+    // that uploaded something they regret has no way back.
     if (req.body?.imageUrl !== undefined) {
-      const publicBase = process.env.R2_PUBLIC_URL;
       const value = typeof req.body.imageUrl === "string" ? req.body.imageUrl.trim() : "";
-      if (!publicBase || !value.startsWith(`${normaliseBaseUrl(publicBase)}/`)) {
-        return res.status(400).json({ error: "Invalid imageUrl" });
+      if (value === "") {
+        updates.imageUrl = null;
+      } else {
+        const publicBase = process.env.R2_PUBLIC_URL;
+        if (!publicBase || !value.startsWith(`${normaliseBaseUrl(publicBase)}/`)) {
+          return res.status(400).json({ error: "Invalid imageUrl" });
+        }
+        updates.imageUrl = value;
       }
-      updates.imageUrl = value;
     }
 
     if (Object.keys(updates).length === 0) {
@@ -1514,13 +1520,17 @@ app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res
     }
 
     // Changing the discount drops the listing back to unapproved so the
-    // genuine-discount rule gets re-checked. Name, description and image
-    // edits don't, so fixing a typo can't pull a paying listing out of the
-    // app until the next manual review.
+    // genuine-discount rule gets re-checked. So does changing the photo: it
+    // is the one field that reaches every resident as a picture nobody has
+    // read, and an approval granted against one image says nothing about the
+    // next. Name and description edits still don't, so fixing a typo can't
+    // pull a paying listing out of the app.
     const discountChanged =
       updates.discountText !== undefined &&
       updates.discountText !== existing.discountText;
-    if (discountChanged) {
+    const imageChanged =
+      updates.imageUrl !== undefined && updates.imageUrl !== existing.imageUrl;
+    if (discountChanged || imageChanged) {
       updates.approved = false;
     }
 
@@ -1531,7 +1541,7 @@ app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res
       data: updates,
     });
 
-    listingUpdated(listing, discountChanged);
+    listingUpdated(listing, discountChanged, imageChanged);
 
     return res.json(ownListingView(listing));
   } catch (error) {

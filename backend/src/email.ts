@@ -265,6 +265,10 @@ export const userSignedUp = (email: string, name: string | null): void => {
 export const listingUpdated = (
   listing: ListingSummary,
   discountChanged: boolean,
+  // A new photo goes back for review as well. It is the one field a business
+  // can change that reaches every resident without a word of it being read,
+  // so it is treated like the discount rather than like a name.
+  imageChanged = false,
 ): void => {
   // Nobody has been told this listing exists yet, so there is nothing to
   // correct. Editing before paying is part of writing the discount, not a
@@ -273,16 +277,22 @@ export const listingUpdated = (
   // for it to be unaffected.
   if (!listing.active) return;
 
+  const backForReview = discountChanged || imageChanged;
+
+  // The discount takes precedence when both changed: it is the thing the rule
+  // is about, and quoting the new wording back is the more useful message.
+  const what = discountChanged ? "discount" : "photo";
+
   notify({
     to: listing.contactEmail,
-    subject: discountChanged
-      ? "We're checking your new discount"
+    subject: backForReview
+      ? `We're checking your new ${what}`
       : "Your listing has been updated",
-    body: discountChanged
-      ? `You've changed the discount for ${listing.businessName} to:\n\n` +
-        `${listing.discountText}\n\n` +
-        `Because the discount itself changed, it comes out of the app until ` +
-        `we've read the new one. We'll email you when it's back. Your ` +
+    body: backForReview
+      ? `You've changed the ${what} for ${listing.businessName}` +
+        (discountChanged ? ` to:\n\n${listing.discountText}\n\n` : ".\n\n") +
+        `Because the ${what} changed, your listing comes out of the app until ` +
+        `we've looked at it. We'll email you when it's back. Your ` +
         `subscription and payments aren't affected.` +
         SIGN_OFF
       : `Your listing for ${listing.businessName} has been updated. ` +
@@ -290,12 +300,12 @@ export const listingUpdated = (
         SIGN_OFF,
   });
 
-  if (discountChanged) {
+  if (backForReview) {
     notifyOwner(
-      `Discount changed, needs approving: ${listing.businessName}`,
-      `${listing.businessName} has changed their discount and dropped back ` +
+      `${discountChanged ? "Discount" : "Photo"} changed, needs approving: ${listing.businessName}`,
+      `${listing.businessName} has changed their ${what} and dropped back ` +
         `into the approval queue.\n\n` +
-        `New discount: ${listing.discountText}\n` +
+        (discountChanged ? `New discount: ${listing.discountText}\n` : "") +
         `Contact: ${listing.contactEmail}\n\n` +
         `Review it here:\n${PORTAL()}/admin\n`,
     );
