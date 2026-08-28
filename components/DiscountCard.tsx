@@ -69,9 +69,14 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     backgroundColor: theme.colors.green100,
   },
+  // Sized up from the 13/16 globalStyles.statusBadgeText gives it. Overridden
+  // here rather than there because that style is shared with the open/closed
+  // badges on the recycling centre section, which should not move.
   badgeText: {
     color: theme.colors.green800,
     flexShrink: 1,
+    fontSize: 15,
+    lineHeight: 20,
   },
   description: {
     fontSize: 15,
