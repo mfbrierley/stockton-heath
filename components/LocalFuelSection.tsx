@@ -2,7 +2,9 @@ import { theme } from "@/app/styles/theme";
 import { Feather } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { FUEL_FINDER_URL } from "@/utils/dataSources";
 import { globalStyles } from "../app/styles/globalStyles";
+import SourceNote from "./SourceNote";
 
 type FuelPrice = {
   fuel_type: string;
@@ -147,6 +149,10 @@ export function LocalFuelSection() {
           {/* Footer */}
           <View style={styles.tableFooter}>
             <Text style={styles.tableFooterText}>UPDATED EVERY 30 MINS</Text>
+            <SourceNote
+              label="Prices from the UK Government's fuel price open data scheme. Source:"
+              url={FUEL_FINDER_URL}
+            />
           </View>
         </View>
       )}
@@ -235,6 +241,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 24,
     paddingTop: 12,
+    gap: 6,
   },
   tableFooterText: {
     fontFamily: theme.fonts.bodyBold,

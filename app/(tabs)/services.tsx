@@ -6,7 +6,9 @@ import LocalPlacesSection from "../../components/LocalPlacesSection";
 import PostcodeSection from "../../components/PostcodeSection";
 import RecyclingCentreSection from "../../components/RecyclingCentreSection";
 import SponsorBadge from "../../components/SponsorBadge";
+import SourceNote from "../../components/SourceNote";
 import WasteCollectionSection from "../../components/WasteCollectionSection";
+import { WARRINGTON_BINS_URL } from "../../utils/dataSources";
 import { theme } from "../styles/theme";
 import { AddressesResponse, UPRN } from "../types/binCollections";
 
@@ -131,11 +133,17 @@ export default function Services() {
         loading={loading}
         error={searchError}
       />
-      <WasteCollectionSection
-        binCollectionsData={binCollections}
-        isLoading={loading}
-        isAddressSet={!!userAddress}
-      />
+      <View style={styles.wasteSection}>
+        <WasteCollectionSection
+          binCollectionsData={binCollections}
+          isLoading={loading}
+          isAddressSet={!!userAddress}
+        />
+        <SourceNote
+          label="Collection days come from Warrington Borough Council. This is an unofficial app, not connected to the council. Source:"
+          url={WARRINGTON_BINS_URL}
+        />
+      </View>
       <View style={styles.sponsorBadgeSpacer}>
         <SponsorBadge />
       </View>
@@ -147,6 +155,9 @@ export default function Services() {
 }
 
 const styles = StyleSheet.create({
+  wasteSection: {
+    gap: 12,
+  },
   sponsorBadgeSpacer: {
     alignSelf: "stretch",
     marginVertical: -10,

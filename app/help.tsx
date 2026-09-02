@@ -1,10 +1,25 @@
 import Feather from "@expo/vector-icons/Feather";
-import { Linking, ScrollView, Text, View } from "react-native";
+import { Linking, Platform, ScrollView, Text, View } from "react-native";
 import BackHeader from "../components/BackHeader";
+import SourceNote from "../components/SourceNote";
+import { WARRINGTON_BINS_URL } from "../utils/dataSources";
 import { globalStyles } from "./styles/globalStyles";
 import { theme } from "./styles/theme";
 
-const FAQS: { question: string; answer: string }[] = [
+const FAQS: {
+  question: string;
+  answer: string;
+  link?: { label: string; url: string };
+}[] = [
+  {
+    question: "Is this an official Warrington Borough Council app?",
+    answer:
+      "No. This is an unofficial app built by a local resident. It isn't affiliated with, endorsed by, or connected to Warrington Borough Council, the UK Government, or any other public body. It only reads information those bodies already publish - it can't change anything they hold, and it isn't a way to contact them. For anything official, go to the council directly.",
+    link: {
+      label: "Warrington Borough Council:",
+      url: "https://www.warrington.gov.uk",
+    },
+  },
   {
     question: "How do I look up my bin collection day?",
     answer:
@@ -34,13 +49,26 @@ const FAQS: { question: string; answer: string }[] = [
     question: "Why is my address not showing up in the bin lookup?",
     answer:
       "The address list comes directly from Warrington Borough Council's database. If your address is missing, it may not yet be registered with the council. Try searching for nearby addresses.",
+    link: {
+      label: "Bin collections at the council:",
+      url: WARRINGTON_BINS_URL,
+    },
   },
 ];
+
+/** Where to turn notifications back on - the two platforms bury it differently. */
+const NOTIFICATION_SETTINGS_PATH = Platform.select({
+  ios: "Make sure you've allowed notifications for the app in your iPhone's Settings. Go to Settings → Notifications → Stockton Heath and turn 'Allow Notifications' on.",
+  android:
+    "Make sure you've allowed notifications for the app in your phone's Settings. Go to Settings → Apps → Stockton Heath → Notifications and turn them on.",
+  default:
+    "Make sure you've allowed notifications for the app in your device's Settings.",
+});
 
 const TROUBLESHOOTING: { issue: string; fix: string }[] = [
   {
     issue: "I'm not receiving notifications",
-    fix: "Make sure you've allowed notifications for the app in your iPhone's Settings. Go to Settings → Notifications → Stockton Heath and ensure 'Allow Notifications' is on. For bridge alerts, re-subscribe in the Bridge tab. For bin reminders, re-enable them on the Services tab after looking up your address.",
+    fix: `${NOTIFICATION_SETTINGS_PATH} For bridge alerts, re-subscribe in the Bridge tab. For bin reminders, re-enable them on the Services tab after looking up your address.`,
   },
   {
     issue: "The weather isn't loading",
@@ -55,10 +83,12 @@ const TROUBLESHOOTING: { issue: string; fix: string }[] = [
 function FAQItem({
   question,
   answer,
+  link,
   isLast,
 }: {
   question: string;
   answer: string;
+  link?: { label: string; url: string };
   isLast: boolean;
 }) {
   return (
@@ -72,6 +102,11 @@ function FAQItem({
         >
           {answer}
         </Text>
+        {link && (
+          <View style={{ marginTop: 6 }}>
+            <SourceNote label={link.label} url={link.url} />
+          </View>
+        )}
       </View>
       {!isLast && <View style={globalStyles.divider} />}
     </View>
@@ -226,6 +261,7 @@ export default function Help() {
                 key={item.question}
                 question={item.question}
                 answer={item.answer}
+                link={item.link}
                 isLast={i === FAQS.length - 1}
               />
             ))}

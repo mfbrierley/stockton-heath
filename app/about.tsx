@@ -1,38 +1,16 @@
 import Feather from "@expo/vector-icons/Feather";
 import Constants from "expo-constants";
-import { Linking, ScrollView, Text, View } from "react-native";
+import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 import BackHeader from "../components/BackHeader";
+import { DATA_SOURCES, displayUrl } from "../utils/dataSources";
 import { globalStyles } from "./styles/globalStyles";
 import { theme } from "./styles/theme";
 
-const DATA_SOURCES: {
-  icon: React.ReactNode;
-  name: string;
-  detail: string;
-}[] = [
-  {
-    icon: <Feather name="cloud" size={16} color={theme.colors.green700} />,
-    name: "OpenWeather",
-    detail: "One Call API 3.0 - weather data",
-  },
-  {
-    icon: <Feather name="droplet" size={16} color={theme.colors.green700} />,
-    name: "Gov.uk Fuel Finder",
-    detail: "UK Government API - local fuel prices",
-  },
-  {
-    icon: <Feather name="twitter" size={16} color={theme.colors.green700} />,
-    name: "twitterapi.io / @trafficwarr",
-    detail: "Bridge closure alerts via Twitter",
-  },
-  {
-    icon: <Feather name="map-pin" size={16} color={theme.colors.green700} />,
-    name: "Warrington Borough Council",
-    detail: "Bin collection lookup API",
-  },
-];
-
 const version = Constants.expoConfig?.version ?? "-";
+
+function openUrl(url: string) {
+  void Linking.openURL(url).catch(() => {});
+}
 
 export default function About() {
   return (
@@ -61,13 +39,38 @@ export default function About() {
             out by email at{" "}
             <Text
               style={[globalStyles.bodyBold, globalStyles.bodyLink]}
-              onPress={() =>
-                void Linking.openURL("mailto:stocktonheathapp@gmail.com").catch(
-                  () => {},
-                )
-              }
+              onPress={() => openUrl("mailto:stocktonheathapp@gmail.com")}
             >
               stocktonheathapp@gmail.com
+            </Text>
+            .
+          </Text>
+        </View>
+
+        {/* Not an official council app - say so plainly, before anything else */}
+        <View style={styles.disclaimerCard}>
+          <View style={styles.disclaimerHeader}>
+            <Feather name="info" size={16} color={theme.colors.green800} />
+            <Text style={[globalStyles.body, globalStyles.bodyBold]}>
+              An unofficial community app
+            </Text>
+          </View>
+          <Text style={[globalStyles.bodySmall, styles.disclaimerBody]}>
+            This app is not affiliated with, endorsed by, or connected to
+            Warrington Borough Council, the UK Government, or any other public
+            body. It is an independent app built by someone who lives here.
+          </Text>
+          <Text style={[globalStyles.bodySmall, styles.disclaimerBody]}>
+            It only reads publicly available information and shows it to you -
+            it cannot change anything the council holds, and it is not a way to
+            contact them. For anything official, or to report a missed
+            collection, go to the council directly at{" "}
+            <Text
+              style={styles.disclaimerLink}
+              accessibilityRole="link"
+              onPress={() => openUrl("https://www.warrington.gov.uk")}
+            >
+              warrington.gov.uk
             </Text>
             .
           </Text>
@@ -89,51 +92,65 @@ export default function About() {
                 globalStyles.cardListHeaderText,
               ]}
             >
-              Data Sources
+              Where the information comes from
             </Text>
           </View>
           <View style={{ paddingHorizontal: 24, paddingVertical: 12, gap: 0 }}>
-            {DATA_SOURCES.map(({ icon, name, detail }, i, arr) => (
-              <View key={name}>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 14,
-                    paddingVertical: 12,
-                  }}
-                >
+            {DATA_SOURCES.map(
+              ({ icon, name, detail, url, government }, i, arr) => (
+                <View key={name}>
                   <View
                     style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 8,
-                      backgroundColor: theme.colors.green100,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
+                      flexDirection: "row",
+                      alignItems: "flex-start",
+                      gap: 14,
+                      paddingVertical: 12,
                     }}
                   >
-                    {icon}
+                    <View style={styles.sourceIcon}>
+                      <Feather
+                        name={icon as never}
+                        size={16}
+                        color={theme.colors.green700}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.sourceNameRow}>
+                        <Text
+                          style={[globalStyles.body, globalStyles.bodyBold]}
+                        >
+                          {name}
+                        </Text>
+                        {government && (
+                          <View style={styles.govBadge}>
+                            <Text style={styles.govBadgeText}>
+                              GOVERNMENT SOURCE
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          globalStyles.bodySmall,
+                          globalStyles.bodyMuted,
+                          { marginTop: 1 },
+                        ]}
+                      >
+                        {detail}
+                      </Text>
+                      <Text
+                        style={styles.sourceLink}
+                        accessibilityRole="link"
+                        onPress={() => openUrl(url)}
+                      >
+                        {displayUrl(url)}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[globalStyles.body, globalStyles.bodyBold]}>
-                      {name}
-                    </Text>
-                    <Text
-                      style={[
-                        globalStyles.bodySmall,
-                        globalStyles.bodyMuted,
-                        { marginTop: 1 },
-                      ]}
-                    >
-                      {detail}
-                    </Text>
-                  </View>
+                  {i < arr.length - 1 && <View style={globalStyles.divider} />}
                 </View>
-                {i < arr.length - 1 && <View style={globalStyles.divider} />}
-              </View>
-            ))}
+              ),
+            )}
           </View>
         </View>
 
@@ -153,3 +170,62 @@ export default function About() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  disclaimerCard: {
+    backgroundColor: theme.colors.green100,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: theme.colors.green700,
+    padding: 20,
+    gap: 8,
+  },
+  disclaimerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  disclaimerBody: {
+    color: theme.colors.neutral1000,
+  },
+  disclaimerLink: {
+    fontFamily: theme.fonts.bodyBold,
+    color: theme.colors.green800,
+    textDecorationLine: "underline",
+  },
+  sourceIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: theme.colors.green100,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  sourceNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  govBadge: {
+    backgroundColor: theme.colors.green100,
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  govBadgeText: {
+    fontFamily: theme.fonts.bodyBold,
+    fontSize: 9,
+    color: theme.colors.green800,
+    letterSpacing: 0.6,
+  },
+  sourceLink: {
+    fontFamily: theme.fonts.bodyBold,
+    fontSize: 12,
+    lineHeight: 20,
+    marginTop: 4,
+    color: theme.colors.green800,
+    textDecorationLine: "underline",
+  },
+});
