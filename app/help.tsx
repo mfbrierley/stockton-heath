@@ -1,5 +1,5 @@
 import Feather from "@expo/vector-icons/Feather";
-import { Linking, ScrollView, Text, View } from "react-native";
+import { Linking, Platform, ScrollView, Text, View } from "react-native";
 import BackHeader from "../components/BackHeader";
 import SourceNote from "../components/SourceNote";
 import { WARRINGTON_BINS_URL } from "../utils/dataSources";
@@ -56,10 +56,19 @@ const FAQS: {
   },
 ];
 
+/** Where to turn notifications back on - the two platforms bury it differently. */
+const NOTIFICATION_SETTINGS_PATH = Platform.select({
+  ios: "Make sure you've allowed notifications for the app in your iPhone's Settings. Go to Settings → Notifications → Stockton Heath and turn 'Allow Notifications' on.",
+  android:
+    "Make sure you've allowed notifications for the app in your phone's Settings. Go to Settings → Apps → Stockton Heath → Notifications and turn them on.",
+  default:
+    "Make sure you've allowed notifications for the app in your device's Settings.",
+});
+
 const TROUBLESHOOTING: { issue: string; fix: string }[] = [
   {
     issue: "I'm not receiving notifications",
-    fix: "Make sure you've allowed notifications for the app in your iPhone's Settings. Go to Settings → Notifications → Stockton Heath and ensure 'Allow Notifications' is on. For bridge alerts, re-subscribe in the Bridge tab. For bin reminders, re-enable them on the Services tab after looking up your address.",
+    fix: `${NOTIFICATION_SETTINGS_PATH} For bridge alerts, re-subscribe in the Bridge tab. For bin reminders, re-enable them on the Services tab after looking up your address.`,
   },
   {
     issue: "The weather isn't loading",

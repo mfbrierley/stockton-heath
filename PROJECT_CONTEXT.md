@@ -48,8 +48,10 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
 
 #### Other Screens
 
-- **About** (`/about`) - app version, credits, and the list of data sources the app depends on
-- **Help** (`/help`) - FAQs covering bin lookup, bridge alerts and notifications
+- **About** (`/about`) - app version, credits, the disclaimer that this is an
+  unofficial app, and every data source with a working link to its publisher
+- **Help** (`/help`) - FAQs covering bin lookup, bridge alerts and notifications,
+  opening with "Is this an official Warrington Borough Council app?"
 
 ### Design
 
@@ -204,7 +206,53 @@ Two constraints have blocked deploys before:
 
 ### Android
 
-`app.json` carries Android configuration (package name, adaptive icon, edge-to-edge), but there is no Android build or submit step in `eas.json` or the npm scripts. iOS is the only shipped platform.
+`app.json` carries Android configuration (package name, adaptive icon, edge-to-edge),
+but there is no Android build or submit step in `eas.json` or the npm scripts. iOS is
+the only platform shipped so far; the first Play Store submission was rejected and is
+being resubmitted.
+
+`eas.json` sets `appVersionSource: "remote"` with `autoIncrement` on the production
+profile, so EAS raises the Android `versionCode` itself. A resubmission needs a
+production build, not a hand-edited `version` in `app.json`.
+
+#### Rejected by Google Play, September 2026 - Misleading Claims
+
+Google rejected the first Android submission under the **Misleading Claims** policy:
+*"Broken or Inaccessible Source Link"*. An app that shows government information has
+to name its sources and link to them, and a reviewer clicks those links.
+
+Two separate things were wrong.
+
+**The store listing carried two dead URLs.** `https://www.warrington.gov.uklaunch` -
+the word "launch" glued onto the host, most likely copied off a council page along
+with the label of its link - and `fuel-finder.service.gov.uk`, which is missing its
+`www` and does not resolve. Neither URL is in this repo. The listing text lives in
+Play Console and is the owner's to fix.
+
+**The app named its sources but linked none of them.** About listed "Gov.uk Fuel
+Finder" and "Warrington Borough Council" as plain text, and the only statement that
+the app is unofficial was in the store description, nowhere in the app. Google
+flagged the in-app experience as a second area.
+
+The app half is fixed:
+
+- `utils/dataSources.ts` holds every source and its URL. About, Help, the bin days
+  screen and the fuel prices screen all read from it, so a single screen cannot drift
+  onto a dead link on its own.
+- About opens with a disclaimer card - not affiliated, only reads what those bodies
+  already publish, not a way to contact them - above the source list.
+- Bin days and fuel prices repeat the attribution where the data is actually shown,
+  so it does not depend on anyone opening About.
+
+**Before changing anything that touches a source link:**
+
+- Check the URL returns 200 first. Every URL in `utils/dataSources.ts` was checked.
+- Link a page someone can read, never an API endpoint. The Fuel Finder API host
+  (`www.fuel-finder.service.gov.uk`) answers a browser with **403**, which reads as
+  broken all over again - link `https://www.gov.uk/guidance/access-fuel-price-data`
+  instead. The council's bin page is `https://www.warrington.gov.uk/bins`.
+- Nothing in the app may imply it is official, endorsed, or able to act on the
+  council's behalf.
 
 ### Environment Variables
 
