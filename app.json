@@ -44,6 +44,10 @@
           "backgroundColor": "#1B4332",
           "dark": {
             "backgroundColor": "#1B4332"
+          },
+          "android": {
+            "image": "./assets/images/sh-icon.png",
+            "imageWidth": 200
           }
         }
       ]
