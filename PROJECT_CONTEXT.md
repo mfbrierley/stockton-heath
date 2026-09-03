@@ -24,7 +24,7 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
   - Morrisons (Stockton Heath)
 - Fuel prices come from the backend, which polls the UK Government's **Fuel Finder API**
 - **Sponsor card** - a paid placement for a local business (currently Rowswood Timber). Hardcoded in `components/SponsorCard.tsx`
-- Summary cards linking through to bin collections and bridge alerts
+- Summary cards linking through to local discounts, bin collections and bridge alerts
 - Quick links to the **About** and **Help** screens
 
 #### Services Tab
@@ -37,6 +37,30 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
   - **Broomfields Leisure Centre** - opening hours, list of facilities (gym, pool, classes, football pitches, venue hire)
   - **Medical centres** - a list screen linking to Stockton Heath, Latchford and Stretton surgeries, each with opening hours and links to eConsult, appointments, prescriptions, test results
   - **Stockton Heath Post Office** - opening hours, full list of available services (banking, parcels, bills, passport check & send)
+
+#### Discounts Tab
+
+- The resident-facing half of Local Offers: a list of every listing that is
+  both approved and paid for, read from `GET /business-listings`
+- One card per business - photo (when there is one), business name, the
+  discount as a green pill, and the terms underneath. Drawn to match
+  `DiscountPreview` in the portal, which is what a business writes their
+  listing against under the heading "How residents will see it"
+- Searchable by business name or discount wording, and filterable by category
+  from a row of chips above the list. The chips are built from the categories
+  the listings actually use, not from a copy of the backend's list, so they
+  cannot drift out of step with it and no chip ever returns nothing
+- Pull-to-refresh
+- Refetches whenever the tab is focused rather than caching. A listing leaves
+  the app the moment its discount or photo is edited, and removing one deletes
+  the row, so a cached copy would advertise a discount that has been withdrawn
+- Links out to the portal at the bottom, for residents who run a business
+- **Hidden on the `production` EAS channel** by `utils/discountsVisible.ts`
+  while it is being finished. Dev builds and the internal `preview` channel
+  show it; App Store builds do not. `href: null` keeps the route registered, so
+  `stocktonheath://discounts` still reaches it inside a production build.
+  Going live is deleting that file and its two call sites, then
+  `npm run ui-update`
 
 #### Bridge Tab
 
@@ -419,6 +443,20 @@ The replacement for the hardcoded sponsor: local businesses pay **£20/month** b
 The portal is a small React app that does not exist yet. It will live in the **`stockton-heath-support`** repo, served at `https://stockton-heath-support.vercel.app/business` - not a separate repository, as originally planned.
 
 - **Authentication** is handled by **Clerk** - it owns sign-up, passwords and password resets, so no credential reaches this backend. The portal sends a Clerk session token as a bearer token and `requireBusinessAuth` verifies it. Sign-up is open: a signed-in caller with no listing is an expected state rather than an error, and creating one is the next thing they do. A listing is owned by the Clerk account that created it (`clerkUserId` is unique, so one account means one listing), and its contact address is read from that account rather than the request body.
+- **Every listing carries a category**, one of eight defined by
+  `LISTING_CATEGORIES` in `backend/src/index.ts` and mirrored in the portal's
+  `listingFields.ts`. Stored as the label rather than a code, because SQLite
+  has no enum type and the backend refuses anything off the list anyway. It is
+  required to create a listing, and changing it does **not** send the listing
+  back for review - it is cataloguing, not a claim a resident acts on. Rows
+  written before the column existed were backfilled to `Other`.
+- **The owner can re-file a listing** from the portal's Listings page, where
+  the category cell is a dropdown that saves on change
+  (`POST /business-listings/:id/category`). It **emails nobody**: being moved
+  to Home & Garden is not news a business can act on, and if they disagree
+  they can set it back from their own page. Its own route rather than a reuse
+  of `PATCH /me`, which sends `listingUpdated` unconditionally - that shortcut
+  is exactly what would send the email this must not send.
 - **Nothing a stranger signs up for is visible.** A listing reaches the app only once it is approved and paid, so an unwanted sign-up costs no more than a row in the pending queue.
 - **Billing** is Stripe Checkout in subscription mode. `customer.subscription.*` webhooks are the single source of truth for `active`, so cancelling from the portal and cancelling from Stripe's own Customer Portal behave identically. The cancel route sets `cancel_at_period_end` and deliberately does not touch `active` itself.
 - **Checkout opts out of Stripe Managed Payments** (`managed_payments: { enabled: false }`). That is Stripe's merchant-of-record product, enabled by default on the account: it adds 3.5% per transaction, requires a product tax code, and would make Stripe rather than the app's owner the party selling advertising. Without opting out, checkout fails outright. It is set in code rather than the dashboard so the decision travels with the repository. The parameter is newer than `stripe@22`'s types, so the params type is extended locally.
@@ -449,12 +487,12 @@ It leaves one listing row behind, prints the command to remove it, and prints th
 | --- | --- |
 | `BusinessListing` table | created on the live database |
 | Admin review routes | working |
-| Public route the app reads | working, returns `[]` |
+| Public route the app reads | working; returns the approved, paid listings |
 | Clerk sign-up, login, listing creation | working; sign-ups are **open**, not invitation-only |
 | Stripe checkout and webhook | configured and paid end to end in a **sandbox** (test mode) |
 | Cloudflare R2 image upload | **not configured** - the routes return `503` |
-| The business portal | **not built** |
-| The app's Local Offers screen | **not built** - nothing to show until a listing is approved and paid |
+| The business portal | built, in `mfbrierley/stockton-heath-support` |
+| The app's Discounts tab | built, and **hidden on the `production` channel** until it is signed off - see below |
 
 Stripe is in a sandbox with test keys. Going live means repeating the product, price and webhook setup in the live account and swapping all four `STRIPE_*` values.
 

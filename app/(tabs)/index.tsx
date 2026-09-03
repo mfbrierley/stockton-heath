@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, View } from "react-native";
 import BinReminderCard from "../../components/BinReminderCard";
 import BridgeAlertsCard from "../../components/BridgeAlertsCard";
+import DiscountsCard from "../../components/DiscountsCard";
 import { GreetingCard } from "../../components/GreetingCard";
 import { LocalFuelSection } from "../../components/LocalFuelSection";
 import QuickLinkCard from "../../components/QuickLinkCard";
@@ -14,6 +15,7 @@ import {
   WeatherSection,
 } from "../../components/WeatherSection";
 import { useUserName } from "../../hooks/useUserName";
+import { DISCOUNTS_VISIBLE } from "../../utils/discountsVisible";
 import { globalStyles } from "../styles/globalStyles";
 import { theme } from "../styles/theme";
 
@@ -147,6 +149,14 @@ export default function Index() {
         />
         <LocalFuelSection />
         <SponsorCard />
+        {/* Guarded on the same flag as the tab itself: with the tab hidden
+            the route is still reachable, and a card that pushed residents
+            into it would defeat the point of hiding it. */}
+        {DISCOUNTS_VISIBLE && (
+          <DiscountsCard
+            onPress={() => router.push("/(tabs)/discounts" as never)}
+          />
+        )}
         <BinReminderCard onPress={() => router.push("/(tabs)/services")} />
         <BridgeAlertsCard onPress={() => router.push("/(tabs)/bridge")} />
         <View style={globalStyles.divider} />

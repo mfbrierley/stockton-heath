@@ -108,6 +108,7 @@ try {
     token: jwt,
     body: {
       businessName: "Verification Test Business",
+      category: "Other",
       discountText: "10% off for residents",
       description: "A listing created by the verification script.",
     },
@@ -126,10 +127,18 @@ try {
   check(created.json?.contactEmail === TEST_EMAIL,
     "contact address is taken from the Clerk account, not the request body");
 
+  // A complete body on purpose: validation runs before the duplicate lookup,
+  // so anything missing here would be turned away as invalid and this would
+  // pass while proving nothing about second listings.
   check((await api("/business-listings/me", {
     method: "POST", token: jwt,
-    body: { businessName: "Second", discountText: "x", description: "y" },
+    body: { businessName: "Second", category: "Other", discountText: "x", description: "y" },
   })).status === 409, "a business cannot create a second listing");
+
+  check((await api("/business-listings/me", {
+    method: "POST", token: jwt,
+    body: { businessName: "No category", discountText: "x", description: "y" },
+  })).status === 400, "creation requires a category");
 
   // ── Review ──────────────────────────────────────────────────────────────────
   console.log("\nReview");
@@ -162,6 +171,8 @@ try {
 
   check((await api("/business-listings/me", { method: "PATCH", token: jwt, body: { discountText: "" } })).status === 400,
     "PATCH rejects an empty discount");
+  check((await api("/business-listings/me", { method: "PATCH", token: jwt, body: { category: "Not A Category" } })).status === 400,
+    "PATCH rejects a category that is not on the list");
   check((await api("/business-listings/me", { method: "PATCH", token: jwt, body: { imageUrl: "https://evil.example.com/x.png" } })).status === 400,
     "PATCH rejects an image URL from another host");
 
