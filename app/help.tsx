@@ -2,7 +2,7 @@ import Feather from "@expo/vector-icons/Feather";
 import { Linking, Platform, ScrollView, Text, View } from "react-native";
 import BackHeader from "../components/BackHeader";
 import SourceNote from "../components/SourceNote";
-import { WARRINGTON_BINS_URL } from "../utils/dataSources";
+import { TRAFFICWARR_URL, WARRINGTON_BINS_URL } from "../utils/dataSources";
 import { globalStyles } from "./styles/globalStyles";
 import { theme } from "./styles/theme";
 
@@ -43,7 +43,11 @@ const FAQS: {
   {
     question: "How current is the bridge alert?",
     answer:
-      "The app checks for new bridge closure announcements from the council every 10 minutes, between 6am and 10pm UK time. The timing is not completely accurate, as the council doesn't provide exact times for bridge closures. They only publish an estimated time, which is what the app uses to determine if the bridge is closed or open. People find it to be close enough to be useful.",
+      "Bridge alerts come from Traffic Warrington (@trafficwarr), a third-party account on X that the app monitors. The app checks it for new swing bridge posts every 10 minutes, between 6am and 10pm UK time. The timing is not exact: the posts give an estimated closing time, which is what the app uses to judge whether the bridge is closed or open. People find it close enough to be useful.",
+    link: {
+      label: "Bridge alerts are read from:",
+      url: TRAFFICWARR_URL,
+    },
   },
   {
     question: "Why is my address not showing up in the bin lookup?",

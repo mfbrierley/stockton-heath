@@ -124,7 +124,7 @@ export default function About() {
                         {government && (
                           <View style={styles.govBadge}>
                             <Text style={styles.govBadgeText}>
-                              GOVERNMENT SOURCE
+                              Government data
                             </Text>
                           </View>
                         )}
