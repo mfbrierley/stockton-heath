@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { ACTIVE_CLOSURE_KEY } from "../app/_layout";
 import { theme } from "../app/styles/theme";
-import { TRAFFICWARR_URL } from "../utils/dataSources";
+import { SWING_BRIDGES_URL } from "../utils/dataSources";
 import SourceNote from "./SourceNote";
 
 type BridgeAlert = {
@@ -77,15 +77,16 @@ const formatDate = (date: Date): string => {
 
 /**
  * The bridge data's credit, in the same place the bin and fuel screens carry
- * theirs. It names a third-party X account, and says so, because X shows
- * logged-out visitors a login prompt and a reviewer must not read that as a
- * dead government link.
+ * theirs. It names the whole chain - council feed, X, twitterapi.io - and links
+ * to warrington.gov.uk/swingbridges rather than to x.com/trafficwarr: the
+ * council's page names the handle itself, so a reviewer can verify the source
+ * there instead of meeting X's login prompt and reading it as a dead link.
  */
 function BridgeSourceNote() {
   return (
     <SourceNote
-      label="Closure alerts come from Traffic Warrington (@trafficwarr), a third-party account on X that the app monitors. Source:"
-      url={TRAFFICWARR_URL}
+      label="Closure alerts are Warrington Borough Council's automated feed, posted as @trafficwarr on X 25-30 minutes before a bridge opens. The app reads those posts through twitterapi.io, a third-party service. Source:"
+      url={SWING_BRIDGES_URL}
     />
   );
 }
@@ -177,7 +178,7 @@ export default function BridgeAlertSection() {
               ~{minsRemaining} min
             </Text>
             <Text style={[styles.status, { color: theme.colors.neutral300 }]}>
-              remaining
+              est. remaining
             </Text>
           </View>
         </View>

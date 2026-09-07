@@ -1,7 +1,16 @@
 import Feather from "@expo/vector-icons/Feather";
-import { Linking, Pressable, ScrollView, Text, View } from "react-native";
+import {
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import BackHeader from "../components/BackHeader";
+import SourceNote from "../components/SourceNote";
 import Button from "../components/Button";
+import { MANUAL_SOURCE_LABEL, BROOMFIELDS_URL } from "../utils/dataSources";
 import { globalStyles } from "./styles/globalStyles";
 import { theme } from "./styles/theme";
 
@@ -16,6 +25,8 @@ const FACILITIES: {
   icon: React.ComponentProps<typeof Feather>["name"];
   label: string;
   description: string;
+  /** Shown when LiveWire has posted a closure notice for this facility. */
+  notice?: string;
 }[] = [
   {
     icon: "activity",
@@ -31,6 +42,7 @@ const FACILITIES: {
     icon: "droplet",
     label: "Swimming Pool",
     description: "For fitness, lessons and family swims",
+    notice: "Closed until further notice",
   },
   {
     icon: "user",
@@ -132,7 +144,7 @@ export default function BroomfieldsLeisureCentre() {
             </Text>
           </View>
           <View style={{ paddingHorizontal: 24, paddingVertical: 8 }}>
-            {FACILITIES.map(({ icon, label, description }, i, arr) => (
+            {FACILITIES.map(({ icon, label, description, notice }, i, arr) => (
               <View key={label}>
                 <View
                   style={{
@@ -172,6 +184,20 @@ export default function BroomfieldsLeisureCentre() {
                     >
                       {description}
                     </Text>
+                    {notice ? (
+                      <View style={styles.noticeRow}>
+                        <Feather
+                          name="alert-circle"
+                          size={13}
+                          color={theme.colors.statusRed}
+                        />
+                        <Text
+                          style={[globalStyles.bodySmall, styles.noticeText]}
+                        >
+                          {notice}
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
                 </View>
                 {i < arr.length - 1 && <View style={globalStyles.divider} />}
@@ -238,14 +264,12 @@ export default function BroomfieldsLeisureCentre() {
           </View>
         </View>
 
+        <SourceNote label={MANUAL_SOURCE_LABEL} url={BROOMFIELDS_URL} />
+
         <Button
           variant="primary"
           width="full"
-          onPress={() =>
-            Linking.openURL(
-              "https://livewirewarrington.co.uk/leisure/leisure-centres/broomfields-leisure-centre/",
-            )
-          }
+          onPress={() => Linking.openURL(BROOMFIELDS_URL)}
         >
           Find out more at livewirewarrington.co.uk
         </Button>
@@ -253,3 +277,16 @@ export default function BroomfieldsLeisureCentre() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  noticeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 5,
+  },
+  noticeText: {
+    color: theme.colors.statusRed,
+    fontFamily: theme.fonts.bodyBold,
+  },
+});

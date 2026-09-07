@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Linking, ScrollView, Text, View } from "react-native";
 import BackHeader from "../components/BackHeader";
+import SourceNote from "../components/SourceNote";
 import Button from "../components/Button";
+import { MANUAL_SOURCE_LABEL, SANDY_LANE_CRC_URL } from "../utils/dataSources";
 import { globalStyles } from "./styles/globalStyles";
 import { theme } from "./styles/theme";
 
@@ -294,14 +296,12 @@ export default function RecyclingCentre() {
           </Text>
         </View>
 
+        <SourceNote label={MANUAL_SOURCE_LABEL} url={SANDY_LANE_CRC_URL} />
+
         <Button
           variant="primary"
           width="full"
-          onPress={() =>
-            Linking.openURL(
-              "https://www.warrington.gov.uk/stockton-heath-community-recycling-centre",
-            )
-          }
+          onPress={() => Linking.openURL(SANDY_LANE_CRC_URL)}
         >
           More info on warrington.gov.uk
         </Button>

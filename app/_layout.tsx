@@ -106,6 +106,10 @@ function RootLayoutInner() {
 
       if (!data?.tweetId) return;
 
+      // The council's posts give an opening time, never a duration, so when the
+      // alert carries no closureMinutes we fall back to 45 minutes. That number
+      // is the app's own estimate from observed closures, not a published
+      // figure - the UI that shows it says so.
       const closureMinutes =
         typeof data.closureMinutes === "number" ? data.closureMinutes : 45;
       const notificationSentAt =

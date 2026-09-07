@@ -2,6 +2,7 @@ import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { Text, View } from "react-native";
 import { globalStyles } from "../app/styles/globalStyles";
+import { WARRINGTON_BINS_URL } from "../utils/dataSources";
 import { theme } from "../app/styles/theme";
 import {
   formatHour,
@@ -9,6 +10,7 @@ import {
   useWoolstonRecyclingCentreHours,
 } from "../hooks/useRecyclingCentreHours";
 import Button from "./Button";
+import SourceNote from "./SourceNote";
 
 export default function RecyclingCentreSection() {
   const { todayHours, tomorrowHours, statusConfig, isPostClose } =
@@ -30,6 +32,10 @@ export default function RecyclingCentreSection() {
   return (
     <View style={{ gap: 16 }}>
       <Text style={[globalStyles.heading]}>Recycling Centres</Text>
+      <SourceNote
+        label="Opening hours are copied from Warrington Borough Council by hand and checked periodically; bank holiday dates are fetched from GOV.UK. Please confirm before you travel. Source:"
+        url={WARRINGTON_BINS_URL}
+      />
       <View
         style={[
           globalStyles.card,

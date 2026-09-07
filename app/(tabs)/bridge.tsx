@@ -156,8 +156,10 @@ export default function Bridge() {
             </Text>
           </View>
           <Text style={globalStyles.body}>
-            You&apos;ll receive a notification around 20 minutes before the
-            swing bridges close, so you can plan your journey.
+            The council posts each alert 25-30 minutes before a bridge is due to
+            open, and the app checks for new posts every 10 minutes. That
+            usually gives you somewhere around 15 to 25 minutes&apos; warning -
+            our own estimate, not a time the council publishes.
           </Text>
           <Button
             variant="neutral"

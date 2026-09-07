@@ -2,7 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import Feather from "@expo/vector-icons/Feather";
 import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 import BackHeader from "../components/BackHeader";
+import SourceNote from "../components/SourceNote";
 import Button from "../components/Button";
+import {
+  MANUAL_SOURCE_LABEL,
+  STOCKTON_HEATH_MC_URL,
+} from "../utils/dataSources";
 import { globalStyles } from "./styles/globalStyles";
 import { theme } from "./styles/theme";
 
@@ -289,12 +294,12 @@ export default function MedicalCentre() {
           </View>
         </View>
 
+        <SourceNote label={MANUAL_SOURCE_LABEL} url={STOCKTON_HEATH_MC_URL} />
+
         <Button
           variant="primary"
           width="full"
-          onPress={() =>
-            Linking.openURL("https://www.stocktonheathmedicalcentre.co.uk/")
-          }
+          onPress={() => Linking.openURL(STOCKTON_HEATH_MC_URL)}
         >
           Find out more at stocktonheathmedicalcentre.co.uk
         </Button>

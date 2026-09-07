@@ -2,7 +2,12 @@ import Feather from "@expo/vector-icons/Feather";
 import Constants from "expo-constants";
 import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 import BackHeader from "../components/BackHeader";
-import { DATA_SOURCES, displayUrl } from "../utils/dataSources";
+import {
+  DataSource,
+  LIVE_SOURCES,
+  MANUAL_SOURCES,
+  displayUrl,
+} from "../utils/dataSources";
 import { globalStyles } from "./styles/globalStyles";
 import { theme } from "./styles/theme";
 
@@ -10,6 +15,86 @@ const version = Constants.expoConfig?.version ?? "-";
 
 function openUrl(url: string) {
   void Linking.openURL(url).catch(() => {});
+}
+
+function SourceCard({
+  title,
+  blurb,
+  sources,
+}: {
+  title: string;
+  blurb: string;
+  sources: DataSource[];
+}) {
+  return (
+    <View
+      style={[globalStyles.card, globalStyles.cardWhite, globalStyles.cardList]}
+    >
+      <View style={globalStyles.cardListHeader}>
+        <Text
+          style={[
+            globalStyles.body,
+            globalStyles.bodyBold,
+            globalStyles.cardListHeaderText,
+          ]}
+        >
+          {title}
+        </Text>
+      </View>
+      <Text style={[globalStyles.bodySmall, styles.groupBlurb]}>{blurb}</Text>
+      <View style={{ paddingHorizontal: 24, paddingBottom: 12, gap: 0 }}>
+        {sources.map(({ icon, name, detail, url, government }, i, arr) => (
+          <View key={name}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "flex-start",
+                gap: 14,
+                paddingVertical: 12,
+              }}
+            >
+              <View style={styles.sourceIcon}>
+                <Feather
+                  name={icon as never}
+                  size={16}
+                  color={theme.colors.green700}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={styles.sourceNameRow}>
+                  <Text style={[globalStyles.body, globalStyles.bodyBold]}>
+                    {name}
+                  </Text>
+                  {government && (
+                    <View style={styles.govBadge}>
+                      <Text style={styles.govBadgeText}>Government data</Text>
+                    </View>
+                  )}
+                </View>
+                <Text
+                  style={[
+                    globalStyles.bodySmall,
+                    globalStyles.bodyMuted,
+                    { marginTop: 1 },
+                  ]}
+                >
+                  {detail}
+                </Text>
+                <Text
+                  style={styles.sourceLink}
+                  accessibilityRole="link"
+                  onPress={() => openUrl(url)}
+                >
+                  {displayUrl(url)}
+                </Text>
+              </View>
+            </View>
+            {i < arr.length - 1 && <View style={globalStyles.divider} />}
+          </View>
+        ))}
+      </View>
+    </View>
+  );
 }
 
 export default function About() {
@@ -76,83 +161,17 @@ export default function About() {
           </Text>
         </View>
 
-        {/* Data Sources */}
-        <View
-          style={[
-            globalStyles.card,
-            globalStyles.cardWhite,
-            globalStyles.cardList,
-          ]}
-        >
-          <View style={globalStyles.cardListHeader}>
-            <Text
-              style={[
-                globalStyles.body,
-                globalStyles.bodyBold,
-                globalStyles.cardListHeaderText,
-              ]}
-            >
-              Where the information comes from
-            </Text>
-          </View>
-          <View style={{ paddingHorizontal: 24, paddingVertical: 12, gap: 0 }}>
-            {DATA_SOURCES.map(
-              ({ icon, name, detail, url, government }, i, arr) => (
-                <View key={name}>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "flex-start",
-                      gap: 14,
-                      paddingVertical: 12,
-                    }}
-                  >
-                    <View style={styles.sourceIcon}>
-                      <Feather
-                        name={icon as never}
-                        size={16}
-                        color={theme.colors.green700}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={styles.sourceNameRow}>
-                        <Text
-                          style={[globalStyles.body, globalStyles.bodyBold]}
-                        >
-                          {name}
-                        </Text>
-                        {government && (
-                          <View style={styles.govBadge}>
-                            <Text style={styles.govBadgeText}>
-                              Government data
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text
-                        style={[
-                          globalStyles.bodySmall,
-                          globalStyles.bodyMuted,
-                          { marginTop: 1 },
-                        ]}
-                      >
-                        {detail}
-                      </Text>
-                      <Text
-                        style={styles.sourceLink}
-                        accessibilityRole="link"
-                        onPress={() => openUrl(url)}
-                      >
-                        {displayUrl(url)}
-                      </Text>
-                    </View>
-                  </View>
-                  {i < arr.length - 1 && <View style={globalStyles.divider} />}
-                </View>
-              ),
-            )}
-          </View>
-        </View>
+        {/* Data sources - split exactly the way the store listing splits them */}
+        <SourceCard
+          title="Updated automatically"
+          blurb="The app fetches these itself, so what you see is as current as the publisher's own feed."
+          sources={LIVE_SOURCES}
+        />
+        <SourceCard
+          title="Copied by hand, checked periodically"
+          blurb="Opening hours, item lists and contact details typed into the app from the pages below. They are checked periodically rather than fetched live, so they can fall behind - tap a link to confirm before you set off."
+          sources={MANUAL_SOURCES}
+        />
 
         {/* Version */}
         <Text
@@ -192,6 +211,11 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.bodyBold,
     color: theme.colors.green800,
     textDecorationLine: "underline",
+  },
+  groupBlurb: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    color: theme.colors.neutral700,
   },
   sourceIcon: {
     width: 32,
