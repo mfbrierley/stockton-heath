@@ -20,8 +20,19 @@ export type DataSource = {
 };
 
 export const WARRINGTON_BINS_URL = "https://www.warrington.gov.uk/bins";
+/**
+ * The Fuel Finder collection page on GOV.UK. Not the old guidance page
+ * (/guidance/access-fuel-price-data): GOV.UK withdrew it on 1 May 2026 and it
+ * now renders a "withdrawn" banner, which a Play reviewer reads as a dead source.
+ */
 export const FUEL_FINDER_URL =
-  "https://www.gov.uk/guidance/access-fuel-price-data";
+  "https://www.gov.uk/government/collections/fuel-finder";
+/**
+ * The X account the backend polls for swing bridge posts. It is a third-party
+ * feed and the app says so wherever it is credited, so a reviewer who meets X's
+ * login prompt reads it as a social account, not a broken government link.
+ */
+export const TRAFFICWARR_URL = "https://x.com/trafficwarr";
 
 export const DATA_SOURCES: DataSource[] = [
   {
@@ -39,9 +50,10 @@ export const DATA_SOURCES: DataSource[] = [
   },
   {
     icon: "twitter",
-    name: "@trafficwarr",
-    detail: "Swing bridge closure announcements",
-    url: "https://x.com/trafficwarr",
+    name: "Traffic Warrington (@trafficwarr)",
+    detail:
+      "Swing bridge closure posts on X - a third-party account the app monitors",
+    url: TRAFFICWARR_URL,
   },
   {
     icon: "map-pin",

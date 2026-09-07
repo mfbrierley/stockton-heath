@@ -241,18 +241,31 @@ The app half is fixed:
   onto a dead link on its own.
 - About opens with a disclaimer card - not affiliated, only reads what those bodies
   already publish, not a way to contact them - above the source list.
-- Bin days and fuel prices repeat the attribution where the data is actually shown,
-  so it does not depend on anyone opening About.
+- Bin days, fuel prices and the bridge card each repeat the attribution where the
+  data is actually shown, so it does not depend on anyone opening About.
 
 **Before changing anything that touches a source link:**
 
 - Check the URL returns 200 first. Every URL in `utils/dataSources.ts` was checked.
 - Link a page someone can read, never an API endpoint. The Fuel Finder API host
   (`www.fuel-finder.service.gov.uk`) answers a browser with **403**, which reads as
-  broken all over again - link `https://www.gov.uk/guidance/access-fuel-price-data`
-  instead. The council's bin page is `https://www.warrington.gov.uk/bins`.
+  broken all over again - link the Fuel Finder collection page,
+  `https://www.gov.uk/government/collections/fuel-finder`, instead. Not the old
+  guidance page `/guidance/access-fuel-price-data`: GOV.UK withdrew it on 1 May 2026
+  and it now renders a "withdrawn" banner, which a reviewer treats as a dead source.
+  The council's bin page is `https://www.warrington.gov.uk/bins`.
+- Credit the source the data actually comes from. Bridge alerts are read from the
+  Traffic Warrington account on X (`https://x.com/trafficwarr`), a third-party feed,
+  and About, Help and the Bridge tab all say so. Never attribute them to a council
+  page they do not come from - a wrong attribution is the same policy breach.
 - Nothing in the app may imply it is official, endorsed, or able to act on the
   council's behalf.
+
+The resubmission is version **1.0.3**: build 8 and the rejected build 5 both read
+1.0.2, which was ambiguous in correspondence with review. Still to do, not blocking:
+an in-app privacy policy link. Play's App content declarations are complete, but the
+app sends push tokens and a UPRN to the backend, and Play's User Data policy expects a
+link inside the app as well as on the listing.
 
 ### Environment Variables
 
