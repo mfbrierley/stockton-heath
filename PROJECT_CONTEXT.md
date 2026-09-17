@@ -202,18 +202,52 @@ Two constraints have blocked deploys before:
   eas build --platform ios --profile production && eas submit --platform ios --latest
   ```
 - `npm run ui-update` ships an over-the-air JS-only update to the production channel via `eas update`
-- Push notifications are delivered via the **Expo Push Notification service** (acts as an abstraction over APNs)
+- Push notifications are delivered via the **Expo Push Notification service**, which wraps APNs on iOS. EAS manages the APNs key, so iOS push needs nothing in the repo - unlike Android, see below
 
 ### Android
 
 `app.json` carries Android configuration (package name, adaptive icon, edge-to-edge),
-but there is no Android build or submit step in `eas.json` or the npm scripts. iOS is
-the only platform shipped so far; the first Play Store submission was rejected and is
-being resubmitted.
+but there is no Android build or submit step in `eas.json` or the npm scripts - the
+Android build is run by hand with `eas build --platform android --profile production`.
+The app is now live on Play after the first submission was rejected.
 
 `eas.json` sets `appVersionSource: "remote"` with `autoIncrement` on the production
 profile, so EAS raises the Android `versionCode` itself. A resubmission needs a
 production build, not a hand-edited `version` in `app.json`.
+
+#### Push notifications on Android need FCM - two separate pieces
+
+iOS push works with nothing in the repo because EAS handles the APNs key for you.
+**Android does not.** Expo's push service talks to Firebase Cloud Messaging, and FCM
+needs configuring on both sides:
+
+1. **`google-services.json` at the repo root**, pointed at by
+   `expo.android.googleServicesFile` in `app.json`. This is what lets the *app* register
+   with FCM and obtain a push token. Download it from the Firebase console
+   (Project settings → Your apps → Android app, package `com.mattbrierley1.stocktonheath`).
+   It holds only public identifiers, so commit it - do not gitignore it.
+2. **An FCM V1 service account key uploaded to EAS.** This is what lets the *backend's*
+   pushes to `exp.host` reach the device. Firebase console → Project settings →
+   Service accounts → Generate new private key, then `eas credentials` →
+   `Android` → `production` → `Google Service Account`. This key is a secret and must
+   never be committed.
+
+Piece 1 was missing until September 2026 and Android push was dead in every build up
+to and including 1.0.4 (versionCode 10). With no Firebase config the app has no
+`google_app_id` resource, `FirebaseApp` never initialises, and
+`Notifications.getExpoPushTokenAsync()` throws. `registerForPushNotifications` catches
+it and returns a null token, so both the Bridge tab and bin reminders failed at the
+"Enable notifications" button with a dialog and never reached the backend - no token was
+stored, so nothing was sent to that device when a bridge alert fired. The one Android
+user hit exactly this.
+
+**This cannot be fixed by `npm run ui-update`.** `googleServicesFile` is consumed at
+prebuild and compiled into the native app, so an over-the-air JS update will not carry
+it. It takes a new production build and a Play submission.
+
+`app.json` now names `./google-services.json`, so an Android build **will fail at
+prebuild** until that file is present. That is deliberate - a loud failure beats
+shipping a third build whose notification button cannot work.
 
 #### Rejected by Google Play, September 2026 - Misleading Claims
 
@@ -469,7 +503,7 @@ Stripe is in a sandbox with test keys. Going live means repeating the product, p
 | State / data         | React hooks, AsyncStorage for local caching                                         |
 | Backend              | Node.js 22, Express 5, TypeScript                                                   |
 | Database             | Turso (libSQL/SQLite) via Prisma 7                                                  |
-| Push notifications   | Expo Push Notification service (APNs under the hood)                                |
+| Push notifications   | Expo Push Notification service (APNs on iOS, FCM on Android)                        |
 | Containerisation     | Docker                                                                              |
 | Hosting              | DigitalOcean Droplet                                                                |
 | Build / distribution | EAS Build, EAS Submit, EAS Update, App Store                                        |

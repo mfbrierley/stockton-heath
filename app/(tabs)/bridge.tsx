@@ -23,7 +23,13 @@ import { theme } from "../styles/theme";
 
 const BRIDGE_NOTIFICATIONS_KEY = "bridgeNotificationsEnabled";
 
-type SubscribeOutcome = "success" | "permission-denied" | "error";
+type SubscribeOutcome =
+  | "success"
+  | "permission-denied"
+  // The phone could not get a push token. Nothing the user does will fix it.
+  | "registration-failed"
+  // We got a token but couldn't hand it to the backend - worth retrying.
+  | "error";
 
 export default function Bridge() {
   const [notificationsEnabled, setNotificationsEnabled] = useState<
@@ -54,7 +60,7 @@ export default function Bridge() {
 
     const { granted, token } = await registerForPushNotifications();
     if (!granted) return "permission-denied";
-    if (!token) return "error";
+    if (!token) return "registration-failed";
 
     try {
       const response = await fetch(`${backendUrl}/bridge-subscriptions`, {
@@ -98,6 +104,11 @@ export default function Bridge() {
         setNotificationsEnabled(true);
       } else if (outcome === "permission-denied") {
         setPermissionDenied(true);
+      } else if (outcome === "registration-failed") {
+        Alert.alert(
+          "Couldn't enable notifications",
+          "This phone couldn't register for notifications. That's a fault at our end, not yours - please try again after the next app update.",
+        );
       } else {
         Alert.alert(
           "Couldn't enable notifications",

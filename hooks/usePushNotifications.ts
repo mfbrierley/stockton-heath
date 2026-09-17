@@ -28,8 +28,12 @@ export const registerForPushNotifications =
     // Permission was denied by the user - callers should surface a Settings prompt.
     if (finalStatus !== "granted") return { granted: false, token: null };
 
-    // From here permission IS granted; any failure is transient/config-related,
-    // so we report granted: true with a null token and let callers retry.
+    // From here permission IS granted, so `granted: true` with a null token means
+    // the build itself cannot register for push - not something the user did and
+    // not something retrying will fix. On Android that means FCM: without
+    // `android.googleServicesFile` in app.json the app has no Firebase config,
+    // FirebaseApp never initialises and getExpoPushTokenAsync throws, so the
+    // notification button can never succeed. See PROJECT_CONTEXT.md.
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId ??
       Constants.easConfig?.projectId;

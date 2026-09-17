@@ -60,6 +60,14 @@ export default function BinNotificationSection({ uprn }: Props) {
       "Something went wrong. Please check your connection and try again.",
     );
 
+  // The phone couldn't get a push token at all. Telling them to check their
+  // connection would send them chasing a fault that isn't on their side.
+  const showRegistrationError = () =>
+    Alert.alert(
+      "Couldn't enable reminders",
+      "This phone couldn't register for notifications. That's a fault at our end, not yours - please try again after the next app update.",
+    );
+
   const handleEnable = async () => {
     if (permissionDenied) {
       await Linking.openSettings();
@@ -77,7 +85,7 @@ export default function BinNotificationSection({ uprn }: Props) {
         return;
       }
       if (!token) {
-        showTransientError();
+        showRegistrationError();
         return;
       }
 
