@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "239990274094",
+    "project_id": "stockton-heath",
+    "storage_bucket": "stockton-heath.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:239990274094:android:687c36a121c405320387bf",
+        "android_client_info": {
+          "package_name": "com.mattbrierley1.stocktonheath"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC1lwUWaIpRahtxdxdr0v-Qc79Gaj0rlnY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
