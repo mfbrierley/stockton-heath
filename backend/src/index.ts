@@ -325,19 +325,12 @@ const pruneInvalidTokens = async (
   }
 };
 
-const sendPushNotifications = async (alert: BridgeAlert): Promise<void> => {
-  const tokens = await prisma.bridgeSubscription.findMany();
-  if (tokens.length === 0) {
-    console.log(
-      "No bridge subscriptions registered - skipping notification send.",
-    );
-    return;
-  }
-
+// One alert aimed at one device. Shared so a test send to a single token is
+// byte-for-byte what a real closure would deliver.
+const bridgeMessage = (alert: BridgeAlert, token: string): ExpoPushMessage => {
   const parsed = parseBridgeAlert(alert.tweetText);
-
-  const messages = tokens.map((t) => ({
-    to: t.token,
+  return {
+    to: token,
     sound: "default",
     title: "Stockton Heath Bridge Alert",
     body: parsed.body,
@@ -347,7 +340,19 @@ const sendPushNotifications = async (alert: BridgeAlert): Promise<void> => {
       closureMinutes: parsed.closureMinutes,
       sentAt: Date.now(),
     },
-  }));
+  };
+};
+
+const sendPushNotifications = async (alert: BridgeAlert): Promise<void> => {
+  const tokens = await prisma.bridgeSubscription.findMany();
+  if (tokens.length === 0) {
+    console.log(
+      "No bridge subscriptions registered - skipping notification send.",
+    );
+    return;
+  }
+
+  const messages = tokens.map((t) => bridgeMessage(alert, t.token));
 
   const { invalidTokens, sent } = await sendExpoPush(messages);
   await pruneInvalidTokens("bridge", invalidTokens);
@@ -516,6 +521,20 @@ app.post(
   "/bridge-alerts/test-notification",
   requireAdmin,
   async (req: Request, res: Response) => {
+    // A target token is required. This route used to fan out to every bridge
+    // subscriber, which meant one call put a fake closure alert on every
+    // user's phone - a mistake with no undo. Testing only ever needs one
+    // device, and a real closure already reaches everyone on its own.
+    // `?? {}` because express 5 leaves req.body undefined on a bodyless POST,
+    // and destructuring that throws a 500 over what is really a 400.
+    const { token } = (req.body ?? {}) as { token?: unknown };
+    if (!token || typeof token !== "string") {
+      return res.status(400).json({
+        error:
+          "A target token is required. Pass {\"token\": \"ExponentPushToken[...]\"} - this route sends to that one device only.",
+      });
+    }
+
     const fakeAlert: BridgeAlert = {
       tweetId: `test-${Date.now()}`,
       tweetText:
@@ -524,8 +543,12 @@ app.post(
       detectedAt: new Date().toISOString(),
     };
     try {
-      await sendPushNotifications(fakeAlert);
-      return res.json({ ok: true, alert: fakeAlert });
+      // Deliberately not pruning on DeviceNotRegistered: a test must not
+      // delete a real subscription as a side effect.
+      const { sent, failed } = await sendExpoPush([
+        bridgeMessage(fakeAlert, token),
+      ]);
+      return res.json({ ok: sent === 1, sent, failed, alert: fakeAlert });
     } catch (error) {
       console.error("Test notification error:", error);
       return res

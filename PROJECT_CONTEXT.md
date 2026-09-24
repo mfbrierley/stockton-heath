@@ -83,7 +83,7 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | `GET /bridge-alerts`                 | All stored bridge alerts, newest first                  |
 | `GET /bridge-alerts/latest`          | Most recent bridge alert only                           |
 | `GET /bridge-alerts/check/:userName` 🔒 | Manually trigger a poll from a given Twitter username |
-| `POST /bridge-alerts/test-notification` 🔒 | Sends a fake bridge alert push to every subscriber |
+| `POST /bridge-alerts/test-notification` 🔒 | Sends a fake bridge alert push to **one** device. Requires `{"token": "ExponentPushToken[...]"}` in the body; 400 without it. It used to fan out to every subscriber, which put a fake closure alert on every user's phone with no undo |
 | `POST /bridge-subscriptions`         | Register an Expo push token for bridge alerts           |
 | `DELETE /bridge-subscriptions`       | Unregister a token from bridge alerts                   |
 | `POST /bin-subscriptions`            | Register a token + UPRN for bin reminders               |
