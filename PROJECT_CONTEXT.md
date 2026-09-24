@@ -123,8 +123,8 @@ All other routes are public and unauthenticated, which is intended - they are re
 Uses **Turso** (a hosted libSQL/SQLite service) via **Prisma** ORM. Five tables:
 
 - `BridgeAlert` - each detected bridge closure tweet (tweetId, tweetText, postedAt, detectedAt)
-- `BridgeSubscription` - Expo push tokens subscribed to bridge alerts
-- `BinSubscription` - Expo push tokens subscribed to bin reminders, each paired with a UPRN
+- `BridgeSubscription` - Expo push tokens subscribed to bridge alerts, each with the `platform` it came from
+- `BinSubscription` - Expo push tokens subscribed to bin reminders, each paired with a UPRN and a `platform`
 - `AppMeta` - simple key/value store; currently holds `lastBinNotificationDate` for reminder de-duplication
 - `WelcomedUser` - one row per business account already sent a welcome email. Clerk owns sign-up and never tells this backend about it, so the first authenticated request an account makes stands in for the event, and this table is the only thing that can tell that request from every one after it
 - `BusinessListing` - a paid Local Offers listing. `approved` (manual editorial review) and `active` (Stripe subscription in good standing) are independent; a listing reaches the app only when both are true. `cancelAtPeriodEnd` and `currentPeriodEnd` mirror Stripe so the portal can show a pending cancellation: `active` stays true through one, because the business has paid to the end of the period, and without these two a cancelled subscription is indistinguishable from a healthy one after a page reload
@@ -149,10 +149,10 @@ a whole file is a no-op rather than an error that stops it partway through. That
 the point - a bare `CREATE TABLE` that fails aborts the file, so a migration that also seeds
 data would create nothing and seed nothing, but *look* like it had only failed the first step.
 
-The exception is `ALTER TABLE ... ADD COLUMN`, in `20260825000000_add_subscription_period_fields`
-and `20260826000000_add_listing_removed_at`. SQLite has no `IF NOT EXISTS` for it, so re-running
-those two fails with `duplicate column name`. That error is harmless and means the column is
-already there.
+The exception is `ALTER TABLE ... ADD COLUMN`, in `20260825000000_add_subscription_period_fields`,
+`20260826000000_add_listing_removed_at` and `20260924000000_add_subscription_platform`. SQLite has
+no `IF NOT EXISTS` for it, so re-running those three fails with `duplicate column name`. That
+error is harmless and means the column is already there.
 
 Nothing applies migrations automatically - the Dockerfile only runs `prisma generate && tsc`. (`backend/dbsetup.js` does call `prisma migrate deploy`, but it is a leftover from an abandoned Fly.io setup, is never copied into the image, and is never executed. It is misleading and worth deleting.)
 
@@ -167,6 +167,26 @@ All scheduled with `setInterval` in `backend/src/index.ts` - there is no cron or
 - **Bin reminders** (checked every minute, fires at 18:00 UK time): groups bin subscriptions by UPRN, queries the council API for each, and pushes "Put out your \<bins\> tonight" to anyone with a collection tomorrow. De-duplicated per day via `AppMeta` so a redeploy can't double-send.
 
 Invalid Expo push tokens returned by the push service are pruned from the relevant subscription table automatically.
+
+### How many people use it
+
+**Installs** are only known to the stores, one per platform - nothing in the app or backend counts them:
+
+- **iOS:** App Store Connect → the app → Analytics. It counts downloads (first-time and re-downloads), not phones that still have the app.
+- **Android:** Play Console → the app → Statistics. "Installed audience" is phones that have it now; "User acquisitions" is total installs.
+
+**Active notifications** are the rows in the two subscription tables - one per device, since a token is unique. Run in the Turso dashboard's SQL editor or `turso db shell stockton-heath`:
+
+```sql
+SELECT 'bridge' AS alerts, COALESCE(platform, 'unknown') AS platform, COUNT(*) AS devices
+  FROM BridgeSubscription GROUP BY 2
+UNION ALL
+SELECT 'bins', COALESCE(platform, 'unknown'), COUNT(*)
+  FROM BinSubscription GROUP BY 2
+ORDER BY 1, 2;
+```
+
+Subscriptions made before the `platform` column was added (September 2026) show as `unknown` until that device next opens the Bridge tab or the bin section of the Services tab, which re-send the subscription and fill it in. From 1.0.5 the app sends `platform` itself; for older builds the backend works it out from the user agent React Native sends (`CFNetwork`/`Darwin` on iOS, `okhttp` on Android), so this needs no app release to start working. The count errs slightly high: a phone that uninstalled the app stays in the table until a push to it fails, and one that turned notifications off in the phone's own settings stays in it indefinitely.
 
 ---
 

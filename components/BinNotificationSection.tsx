@@ -2,7 +2,7 @@ import Feather from "@expo/vector-icons/Feather";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import { useEffect, useState } from "react";
-import { Alert, Linking, StyleSheet, Text, View } from "react-native";
+import { Alert, Linking, Platform, StyleSheet, Text, View } from "react-native";
 import { globalStyles } from "../app/styles/globalStyles";
 import { theme } from "../app/styles/theme";
 import { registerForPushNotifications } from "../hooks/usePushNotifications";
@@ -47,7 +47,11 @@ export default function BinNotificationSection({ uprn }: Props) {
       await fetch(`${backendUrl}/bin-subscriptions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, uprn: currentUprn }),
+        body: JSON.stringify({
+          token,
+          uprn: currentUprn,
+          platform: Platform.OS,
+        }),
       });
     } catch (error) {
       console.error("Failed to refresh bin subscription:", error);
@@ -92,7 +96,7 @@ export default function BinNotificationSection({ uprn }: Props) {
       const response = await fetch(`${backendUrl}/bin-subscriptions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, uprn }),
+        body: JSON.stringify({ token, uprn, platform: Platform.OS }),
       });
       if (!response.ok) {
         showTransientError();

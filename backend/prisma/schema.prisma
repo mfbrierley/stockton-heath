@@ -20,15 +20,20 @@ model BridgeAlert {
   detectedAt String
 }
 
+// `platform` is "ios" or "android", null until the device next re-sends its
+// subscription. It exists only so the subscriber counts can be split by
+// platform; nothing reads it when sending.
 model BridgeSubscription {
-  id    Int    @id @default(autoincrement())
-  token String @unique
+  id       Int     @id @default(autoincrement())
+  token    String  @unique
+  platform String?
 }
 
 model BinSubscription {
-  id    Int    @id @default(autoincrement())
-  token String @unique
-  uprn  String
+  id       Int     @id @default(autoincrement())
+  token    String  @unique
+  uprn     String
+  platform String?
 }
 
 model AppMeta {

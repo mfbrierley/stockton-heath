@@ -618,16 +618,33 @@ app.get("/bridge-alerts/latest", async (req: Request, res: Response) => {
   }
 });
 
+// Which platform a subscription came from, for the subscriber counts only.
+// Newer builds say so in the body. Older ones don't, but React Native's own
+// networking gives them away: iOS sends the system's CFNetwork/Darwin user
+// agent and Android sends OkHttp's, and neither is overridden in this app.
+// Returns null rather than guessing, and callers leave a stored value alone
+// when this is null.
+const subscriptionPlatform = (req: Request): "ios" | "android" | null => {
+  const { platform } = (req.body ?? {}) as { platform?: unknown };
+  if (platform === "ios" || platform === "android") return platform;
+
+  const userAgent = req.get("user-agent") ?? "";
+  if (/CFNetwork|Darwin/i.test(userAgent)) return "ios";
+  if (/okhttp/i.test(userAgent)) return "android";
+  return null;
+};
+
 app.post("/bridge-subscriptions", async (req: Request, res: Response) => {
   try {
     const { token } = req.body as { token: string };
     if (!token || typeof token !== "string") {
       return res.status(400).json({ error: "Invalid token" });
     }
+    const platform = subscriptionPlatform(req);
     await prisma.bridgeSubscription.upsert({
       where: { token },
-      update: {},
-      create: { token },
+      update: platform ? { platform } : {},
+      create: { token, platform },
     });
     return res.json({ ok: true });
   } catch (error) {
@@ -661,10 +678,11 @@ app.post("/bin-subscriptions", async (req: Request, res: Response) => {
     ) {
       return res.status(400).json({ error: "Invalid token or uprn" });
     }
+    const platform = subscriptionPlatform(req);
     await prisma.binSubscription.upsert({
       where: { token },
-      update: { uprn },
-      create: { token, uprn },
+      update: platform ? { uprn, platform } : { uprn },
+      create: { token, uprn, platform },
     });
     return res.json({ ok: true });
   } catch (error) {

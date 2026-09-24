@@ -7,6 +7,7 @@ import {
   AppState,
   Image,
   Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -66,7 +67,7 @@ export default function Bridge() {
       const response = await fetch(`${backendUrl}/bridge-subscriptions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token, platform: Platform.OS }),
       });
       return response.ok ? "success" : "error";
     } catch (error) {
