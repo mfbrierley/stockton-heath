@@ -36,6 +36,14 @@ const LOCAL_STATION_NODE_IDS = new Set([
   "0ee49af1acdf5301f588d07afc3d9c274bfbffd56a3cb25cf830dfd336b6d7ae", // Morrisons
 ]);
 
+/**
+ * Friendly local names for the three stations, keyed by Fuel Finder node_id.
+ * These are the app's OWN labels, not the operator's registered names - locals
+ * say "Morrisons", not the trading name on the licence. The API's own
+ * trading_name is passed through untouched alongside them so the client can
+ * show what Fuel Finder actually publishes, and the fuel screen tells the
+ * reader the names are our shorthand. Prices are never altered.
+ */
 const STATION_DISPLAY_INFO: Record<
   string,
   { display_name: string; location: string }

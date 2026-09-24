@@ -2,7 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import Feather from "@expo/vector-icons/Feather";
 import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 import BackHeader from "../components/BackHeader";
+import SourceNote from "../components/SourceNote";
 import Button from "../components/Button";
+import { MANUAL_SOURCE_LABEL, LATCHFORD_MC_URL } from "../utils/dataSources";
 import { globalStyles } from "./styles/globalStyles";
 import { theme } from "./styles/theme";
 
@@ -289,12 +291,12 @@ export default function LatchfordMedicalCentre() {
           </View>
         </View>
 
+        <SourceNote label={MANUAL_SOURCE_LABEL} url={LATCHFORD_MC_URL} />
+
         <Button
           variant="primary"
           width="full"
-          onPress={() =>
-            Linking.openURL("https://www.latchfordmedicalcentre.co.uk/")
-          }
+          onPress={() => Linking.openURL(LATCHFORD_MC_URL)}
         >
           Find out more at latchfordmedicalcentre.co.uk
         </Button>

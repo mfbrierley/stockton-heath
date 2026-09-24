@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { ACTIVE_CLOSURE_KEY } from "../app/_layout";
 import { theme } from "../app/styles/theme";
+import { SWING_BRIDGES_URL } from "../utils/dataSources";
+import SourceNote from "./SourceNote";
 
 type BridgeAlert = {
   id: number;
@@ -73,6 +75,22 @@ const formatDate = (date: Date): string => {
   });
 };
 
+/**
+ * The bridge data's credit, in the same place the bin and fuel screens carry
+ * theirs. It names the whole chain - council feed, X, twitterapi.io - and links
+ * to warrington.gov.uk/swingbridges rather than to x.com/trafficwarr: the
+ * council's page names the handle itself, so a reviewer can verify the source
+ * there instead of meeting X's login prompt and reading it as a dead link.
+ */
+function BridgeSourceNote() {
+  return (
+    <SourceNote
+      label="Closure alerts are Warrington Borough Council's automated feed, posted as @trafficwarr on X 25-30 minutes before a bridge opens. The app reads those posts through twitterapi.io, a third-party service. Source:"
+      url={SWING_BRIDGES_URL}
+    />
+  );
+}
+
 export default function BridgeAlertSection() {
   const [latestAlert, setLatestAlert] = useState<BridgeAlert | null>(null);
   const [loading, setLoading] = useState(true);
@@ -138,30 +156,33 @@ export default function BridgeAlertSection() {
       : "direction unknown";
 
     return (
-      <View style={[styles.card, styles.cardActive]}>
-        <View style={[styles.iconContainer, styles.iconContainerActive]}>
-          <MaterialCommunityIcons
-            name="bridge"
-            size={24}
-            color={theme.colors.white}
-          />
+      <View style={styles.section}>
+        <View style={[styles.card, styles.cardActive]}>
+          <View style={[styles.iconContainer, styles.iconContainerActive]}>
+            <MaterialCommunityIcons
+              name="bridge"
+              size={24}
+              color={theme.colors.white}
+            />
+          </View>
+          <View style={styles.details}>
+            <Text style={[styles.title, { color: theme.colors.white }]}>
+              Closure in progress
+            </Text>
+            <Text style={[styles.subtitle, { color: theme.colors.neutral300 }]}>
+              {directionText}
+            </Text>
+          </View>
+          <View style={styles.timeContainer}>
+            <Text style={[styles.time, { color: theme.colors.white }]}>
+              ~{minsRemaining} min
+            </Text>
+            <Text style={[styles.status, { color: theme.colors.neutral300 }]}>
+              est. remaining
+            </Text>
+          </View>
         </View>
-        <View style={styles.details}>
-          <Text style={[styles.title, { color: theme.colors.white }]}>
-            Closure in progress
-          </Text>
-          <Text style={[styles.subtitle, { color: theme.colors.neutral300 }]}>
-            {directionText}
-          </Text>
-        </View>
-        <View style={styles.timeContainer}>
-          <Text style={[styles.time, { color: theme.colors.white }]}>
-            ~{minsRemaining} min
-          </Text>
-          <Text style={[styles.status, { color: theme.colors.neutral300 }]}>
-            remaining
-          </Text>
-        </View>
+        <BridgeSourceNote />
       </View>
     );
   }
@@ -181,26 +202,33 @@ export default function BridgeAlertSection() {
   const alertTime = parseTwitterDate(latestAlert.postedAt);
 
   return (
-    <View style={styles.card}>
-      <View style={styles.iconContainer}>
-        <MaterialCommunityIcons
-          name="history"
-          size={24}
-          color={theme.colors.white}
-        />
+    <View style={styles.section}>
+      <View style={styles.card}>
+        <View style={styles.iconContainer}>
+          <MaterialCommunityIcons
+            name="history"
+            size={24}
+            color={theme.colors.white}
+          />
+        </View>
+        <View style={styles.details}>
+          <Text style={styles.title}>Last Bridge Closure</Text>
+        </View>
+        <View style={styles.timeContainer}>
+          <Text style={styles.time}>{formatDate(alertTime)}</Text>
+          <Text style={styles.status}>{formatTime(alertTime)}</Text>
+        </View>
       </View>
-      <View style={styles.details}>
-        <Text style={styles.title}>Last Bridge Closure</Text>
-      </View>
-      <View style={styles.timeContainer}>
-        <Text style={styles.time}>{formatDate(alertTime)}</Text>
-        <Text style={styles.status}>{formatTime(alertTime)}</Text>
-      </View>
+      <BridgeSourceNote />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  section: {
+    gap: 8,
+    width: "100%",
+  },
   card: {
     flexDirection: "row",
     alignItems: "center",

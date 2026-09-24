@@ -2,14 +2,16 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Feather from "@expo/vector-icons/Feather";
 import { Linking, ScrollView, Text, View } from "react-native";
 import BackHeader from "../components/BackHeader";
+import SourceNote from "../components/SourceNote";
 import Button from "../components/Button";
+import { MANUAL_SOURCE_LABEL, POST_OFFICE_URL } from "../utils/dataSources";
 import { globalStyles } from "./styles/globalStyles";
 import { theme } from "./styles/theme";
 
 const OPENING_HOURS = [
   { label: "Monday", hours: "7:30am – 5:30pm" },
   { label: "Tuesday", hours: "7:30am – 5:30pm" },
-  { label: "Wednesday", hours: "7:30am – 5:30pm" },
+  { label: "Wednesday", hours: "7:30am – 12:00pm" },
   { label: "Thursday", hours: "7:30am – 5:30pm" },
   { label: "Friday", hours: "7:30am – 5:30pm" },
   { label: "Saturday", hours: "7:30am – 2:00pm" },
@@ -172,15 +174,6 @@ export default function PostOffice() {
             >
               Services
             </Text>
-            <Text
-              style={[
-                globalStyles.body,
-                globalStyles.bodyBold,
-                { fontSize: 15 },
-              ]}
-            >
-              Services
-            </Text>
           </View>
           <View style={{ paddingHorizontal: 24, paddingVertical: 8 }}>
             {SERVICES.map(({ icon, category, items }, i, arr) => (
@@ -230,14 +223,12 @@ export default function PostOffice() {
           </View>
         </View>
 
+        <SourceNote label={MANUAL_SOURCE_LABEL} url={POST_OFFICE_URL} />
+
         <Button
           variant="primary"
           width="full"
-          onPress={() =>
-            Linking.openURL(
-              "https://www.postoffice.co.uk/branch-finder/3194345/stockton-heath",
-            )
-          }
+          onPress={() => Linking.openURL(POST_OFFICE_URL)}
         >
           Find out more at postoffice.co.uk
         </Button>
