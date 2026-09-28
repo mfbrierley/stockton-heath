@@ -19,6 +19,7 @@ import {
   subscriptionStarted,
 } from "./email";
 import { subscriptionPeriod } from "./subscription";
+import { getCachedNhsDentists, syncNhsDentists } from "./nhsDentists";
 import { PrismaClient } from "./generated/prisma/client";
 
 setDefaultResultOrder("ipv4first");
@@ -692,6 +693,14 @@ app.get("/fuel-prices", (req: Request, res: Response) => {
     return res.status(503).json({ error: "Fuel prices not yet available" });
   }
   return res.json(cachedFuelPrices);
+});
+
+app.get("/nhs-dentists", (req: Request, res: Response) => {
+  const dentists = getCachedNhsDentists();
+  if (!dentists) {
+    return res.status(503).json({ error: "NHS dentists not yet available" });
+  }
+  return res.json(dentists);
 });
 
 // ── Local Offers ──────────────────────────────────────────────────────────────
@@ -2273,6 +2282,16 @@ setInterval(
     void syncFuelPrices();
   },
   30 * 60 * 1000,
+);
+
+// Daily: practices change their status rarely, and nhs.uk's terms ask for
+// data copied from it to be refreshed every 24 hours.
+void syncNhsDentists();
+setInterval(
+  () => {
+    void syncNhsDentists();
+  },
+  24 * 60 * 60 * 1000,
 );
 
 void checkBinNotifications();

@@ -61,6 +61,25 @@ export const SWING_BRIDGES_URL = "https://www.warrington.gov.uk/swingbridges";
 /** The account itself, for the rare place that needs to point at the feed. */
 export const TRAFFICWARR_URL = "https://x.com/trafficwarr";
 
+/**
+ * nhs.uk's find-a-dentist search, which the backend reads once a day for the
+ * NHS Dentists screen. Its content is reusable under the Open Government
+ * Licence, which asks that it is credited as information from the NHS website
+ * and shown without NHS logos or branding.
+ */
+export const NHS_FIND_A_DENTIST_URL =
+  "https://www.nhs.uk/service-search/find-a-dentist";
+
+/** The same search already run for Stockton Heath - the list the app shows, on nhs.uk. */
+export const NHS_FIND_A_DENTIST_RESULTS_URL =
+  "https://www.nhs.uk/service-search/find-a-dentist/results?location=Stockton%20Heath&latitude=53.3705&longitude=-2.5811";
+
+export const NHS_FIND_A_DENTIST_HELP_URL =
+  "https://www.nhs.uk/nhs-services/dentists/how-to-find-an-nhs-dentist/";
+
+export const NHS_URGENT_DENTAL_URL =
+  "https://www.nhs.uk/nhs-services/dentists/how-to-find-an-nhs-dentist-in-an-emergency/";
+
 // ── Hand-copied sources ───────────────────────────────────────────────────────
 
 export const SANDY_LANE_CRC_URL =
@@ -125,6 +144,15 @@ export const DATA_SOURCES: DataSource[] = [
     detail:
       "The council's automated alert feed, posted as @trafficwarr on X 25-30 minutes before a bridge opens. The app reads those posts through twitterapi.io, a third-party service.",
     url: SWING_BRIDGES_URL,
+    government: true,
+    group: "live",
+  },
+  {
+    icon: "smile",
+    name: "NHS website - Find a dentist",
+    detail:
+      "Which nearby dental practices are taking on new NHS patients, checked daily. Licensed under the Open Government Licence v3.0.",
+    url: NHS_FIND_A_DENTIST_URL,
     government: true,
     group: "live",
   },

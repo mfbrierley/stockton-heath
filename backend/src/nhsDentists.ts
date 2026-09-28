@@ -1,0 +1,365 @@
+// NHS dental practices near Stockton Heath and whether each is taking on new
+// NHS patients, read once a day from the nhs.uk find-a-dentist pages.
+//
+// Read from the website rather than the NHS Service Search API because a
+// production API key is not self-serve - it is requested from the national
+// service desk, reviewed by hand, and has been reported to take months. The
+// website carries the same acceptance status and more besides: the "Last
+// confirmed" date a practice gives when it re-confirms its status is shown on
+// nhs.uk but not exposed by the API at all.
+//
+// A plain fetch and an HTML parser are enough. The pages are rendered on the
+// server, so a headless browser would only add a copy of Chromium to a droplet
+// that already struggles for memory at build time.
+//
+// Two kinds of page are read:
+//
+// 1. The results page, for the list: every practice near Stockton Heath and a
+//    first guess at its status. The parser leans on element ids nhs.uk puts on
+//    every result, where N is the result's position on the page:
+//
+//      item_id_N                  ODS code, e.g. V006893
+//      orgname_N / address_N      name and address
+//      phone_N_link               phone number
+//      profile_anchor_N           the practice's page
+//      distance_N                 miles from the searched point
+//      status_indicator_N_tag_K   "Routine check-ups", "Urgent dental care"...
+//      result_item_N_li_K         each group it is accepting ("adults 18 or over")
+//      not_accepting_patients_N   present when it is not listed as accepting
+//      out_of_date_message_N      present when it has not confirmed either way
+//      result_item_N_specialist   present when it only takes specialist referrals
+//
+// 2. Each practice's appointments page, for the final word. The results page
+//    cannot tell "does not accept new NHS patients" from "has not confirmed
+//    whether it does" - it shows the same not_accepting_patients_N block for
+//    both (Cotswold Dental Care, September 2026) - where the practice's own
+//    page says which, in the section between the routine-care-header and
+//    urgent-care-header headings, along with its "Last confirmed" date in
+//    dentist-accepting-patients-last-updated. Where a practice page can't be
+//    read, the result page's status stands.
+//
+// If nhs.uk changes the results markup the page stops parsing, and a page this
+// code does not fully understand is exactly when it could tell someone a
+// practice is taking patients when it is not. So any result it cannot read
+// fails the whole sync: the last good list is kept and served with its
+// original fetchedAt, which the app shows, rather than a partial or guessed
+// one. `npx tsx scripts/check-nhs-dentists.ts` shows what the parser makes of
+// the live pages and is the first thing to run when the log says a sync failed.
+//
+// nhs.uk content is reusable under the Open Government Licence v3.0. The terms
+// ask that it is refreshed every 24 hours (and at least every 7 days, or shown
+// with an "as at" date), credited as information from the NHS website, and
+// shown without NHS logos or branding. The app does all three.
+
+import * as cheerio from "cheerio";
+
+export type DentistStatus =
+  | "accepting"
+  | "not_accepting"
+  | "not_confirmed"
+  | "referral_only";
+
+type Accepting = { adults: boolean; children: boolean; freeCare: boolean };
+
+export type NhsDentist = {
+  odsCode: string;
+  name: string;
+  address: string;
+  /** As nhs.uk shows it, e.g. "01925 655037" */
+  phone: string | null;
+  distanceMiles: number;
+  status: DentistStatus;
+  /** Which groups of new NHS patients it is taking on. All false unless `status` is "accepting". */
+  accepting: Accepting;
+  /** Offers urgent NHS dental care */
+  urgentCare: boolean;
+  /** ISO date (YYYY-MM-DD) the practice last confirmed its status, if nhs.uk shows one */
+  lastConfirmed: string | null;
+  /** The practice's page on nhs.uk: the appointments page where it has one */
+  nhsUrl: string;
+};
+
+/** What a practice's own appointments page says. */
+export type PracticePage = Pick<
+  NhsDentist,
+  "status" | "accepting" | "lastConfirmed"
+>;
+
+// The same point the weather is fetched for. nhs.uk reports distances from it.
+const LATITUDE = 53.3705;
+const LONGITUDE = -2.5811;
+
+export const NHS_DENTISTS_RESULTS_URL = `https://www.nhs.uk/service-search/find-a-dentist/results?location=Stockton%20Heath&latitude=${LATITUDE}&longitude=${LONGITUDE}`;
+
+export const MAX_MILES = 8;
+
+// nhs.uk returns the nearest 50 practices on one page, with no further pages.
+// At 8 miles that is currently everything, but only just.
+const RESULTS_PAGE_SIZE = 50;
+
+// nhs.uk's robots.txt asks for five seconds between requests.
+export const CRAWL_DELAY_MS = 5_000;
+
+const REQUEST_TIMEOUT_MS = 30_000;
+
+const USER_AGENT =
+  "StocktonHeathApp/1.0 (community app; +https://stockton-heath-support.vercel.app)";
+
+// The results page and the practice pages word the same groups differently.
+const GROUPS: Record<string, keyof Accepting> = {
+  "children aged 17 or under": "children",
+  "adults 18 or over": "adults",
+  "adults aged 18 or over": "adults",
+  "adults entitled to free dental care": "freeCare",
+  "adults entitled to free routine dental care": "freeCare",
+};
+
+const MONTHS = [
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+];
+
+const clean = (text: string): string => text.replace(/\s+/g, " ").trim();
+
+const noneAccepted = (): Accepting => ({
+  adults: false,
+  children: false,
+  freeCare: false,
+});
+
+/**
+ * Every practice on a find-a-dentist results page, in the order nhs.uk lists
+ * them (nearest first). Throws if any result cannot be fully read.
+ */
+export function parseResults(html: string): NhsDentist[] {
+  const $ = cheerio.load(html);
+  const dentists: NhsDentist[] = [];
+
+  $('[id^="item_id_"]').each((_, element) => {
+    const n = $(element).attr("id")!.slice("item_id_".length);
+    const odsCode = clean($(element).text());
+    const name = clean($(`#orgname_${n}`).text());
+    const address = clean($(`#address_${n}`).text());
+    const distanceMiles = Number.parseFloat($(`#distance_${n}`).text());
+    const profileUrl = $(`#profile_anchor_${n}`).attr("href") ?? "";
+    const phone = clean($(`#phone_${n}_link`).text()) || null;
+
+    if (!/^[A-Z0-9]+$/.test(odsCode) || !name || !address) {
+      throw new Error(`result ${n} is missing its code, name or address`);
+    }
+    if (!Number.isFinite(distanceMiles)) {
+      throw new Error(`result ${n} (${name}) has no distance`);
+    }
+    // The app opens this link, so it must go to nhs.uk and nowhere else.
+    if (!profileUrl.startsWith("https://www.nhs.uk/services/dentist/")) {
+      throw new Error(`result ${n} (${name}) has an unexpected link: ${profileUrl}`);
+    }
+
+    const accepting = noneAccepted();
+    const groups = $(`[id^="result_item_${n}_li_"]`);
+    groups.each((_, li) => {
+      const text = clean($(li).text()).toLowerCase();
+      const group = GROUPS[text];
+      if (!group) throw new Error(`result ${n} (${name}) accepts an unknown group: "${text}"`);
+      accepting[group] = true;
+    });
+
+    let status: DentistStatus;
+    if (groups.length > 0) status = "accepting";
+    else if ($(`#not_accepting_patients_${n}`).length) status = "not_accepting";
+    else if ($(`#out_of_date_message_${n}`).length) status = "not_confirmed";
+    else if ($(`#result_item_${n}_specialist`).length) status = "referral_only";
+    else throw new Error(`result ${n} (${name}) has no status this code recognises`);
+
+    const tags = $(`[id^="status_indicator_${n}_tag_"]`)
+      .map((_, tag) => clean($(tag).text()).toLowerCase())
+      .get();
+
+    dentists.push({
+      odsCode,
+      name,
+      address,
+      phone,
+      distanceMiles,
+      status,
+      accepting,
+      urgentCare: tags.includes("urgent dental care"),
+      lastConfirmed: null,
+      // Specialist-only practices have no appointments page (it is a 404).
+      nhsUrl:
+        status === "referral_only"
+          ? profileUrl
+          : `${profileUrl.replace(/\/+$/, "")}/appointments`,
+    });
+  });
+
+  if (dentists.length === 0) {
+    throw new Error("no results found on the page");
+  }
+
+  return dentists;
+}
+
+/** "Last confirmed: 7 September 2026" as 2026-09-07. */
+const parseDate = (text: string): string | null => {
+  const match = /(\d{1,2}) ([a-z]+) (\d{4})/i.exec(text);
+  if (!match) return null;
+
+  const month = MONTHS.indexOf(match[2].toLowerCase());
+  if (month === -1) return null;
+
+  return `${match[3]}-${String(month + 1).padStart(2, "0")}-${match[1].padStart(2, "0")}`;
+};
+
+/**
+ * The routine-care status a practice's appointments page gives, or null if
+ * the page says something this code does not recognise.
+ */
+export function parsePracticePage(html: string): PracticePage | null {
+  const $ = cheerio.load(html);
+  const section = $("#routine-care-header").nextUntil("#urgent-care-header");
+  const text = clean(section.text()).toLowerCase();
+  const lastConfirmed = parseDate(
+    clean($("#dentist-accepting-patients-last-updated").text()),
+  );
+
+  if (text.includes("has not confirmed")) {
+    return { status: "not_confirmed", accepting: noneAccepted(), lastConfirmed };
+  }
+  if (text.includes("does not currently accept new nhs patients")) {
+    return { status: "not_accepting", accepting: noneAccepted(), lastConfirmed };
+  }
+  // Several groups are listed after "if they are:"; a single group is written
+  // into the sentence instead - "currently only accepts new NHS patients for
+  // routine dental care if they are children aged 17 or under." - above an
+  // empty list.
+  const intro = clean(section.filter("p").first().text()).toLowerCase();
+  const accepts =
+    /currently (?:only )?accepts new nhs patients for routine dental care if they are:?(.*)$/.exec(
+      intro,
+    );
+  if (accepts) {
+    const groups = section
+      .find("li")
+      .toArray()
+      .map((li) => clean($(li).text()).toLowerCase());
+    const inline = accepts[1].replace(/\.$/, "").trim();
+    if (inline) groups.push(inline);
+    if (groups.length === 0) return null;
+
+    const accepting = noneAccepted();
+    for (const text of groups) {
+      const group = GROUPS[text];
+      if (!group) return null;
+      accepting[group] = true;
+    }
+    return { status: "accepting", accepting, lastConfirmed };
+  }
+  return null;
+}
+
+async function fetchPage(url: string): Promise<string> {
+  const res = await fetch(url, {
+    headers: { "User-Agent": USER_AGENT, Accept: "text/html" },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (!res.ok) throw new Error(`${res.status} from ${url}`);
+  return res.text();
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+let cached: { data: NhsDentist[]; fetchedAt: number } | null = null;
+let syncing = false;
+
+export const getCachedNhsDentists = () => cached;
+
+/**
+ * Refresh the list. Never throws: a failure is logged and the last good list
+ * is kept.
+ *
+ * Reading every practice page takes a few minutes, five seconds apart, so the
+ * new list is built on the side and published in one go when it is finished;
+ * until then the app keeps getting the previous one. The exception is the
+ * first sync after a restart, when there is no previous list: the results
+ * page is served straight away rather than a 503 for those minutes.
+ */
+export async function syncNhsDentists(): Promise<void> {
+  // A slow sweep must never overlap the next one.
+  if (syncing) return;
+  syncing = true;
+
+  try {
+    const fetchedAt = Date.now();
+    let listed: NhsDentist[];
+    try {
+      listed = parseResults(await fetchPage(NHS_DENTISTS_RESULTS_URL));
+    } catch (error) {
+      console.error(
+        `[${new Date().toISOString()}] NHS dentists sync failed - retaining last cached data:`,
+        error instanceof Error ? error.message : error,
+      );
+      return;
+    }
+
+    const furthest = listed[listed.length - 1].distanceMiles;
+    if (listed.length >= RESULTS_PAGE_SIZE && furthest < MAX_MILES) {
+      console.warn(
+        `NHS dentists: nhs.uk's ${RESULTS_PAGE_SIZE}-result page now ends at ${furthest} miles, short of ${MAX_MILES}. Practices beyond that are missing from the list.`,
+      );
+    }
+    listed = listed.filter((d) => d.distanceMiles <= MAX_MILES);
+
+    if (!cached) cached = { data: listed, fetchedAt };
+
+    const data: NhsDentist[] = [];
+    let read = 0;
+    let changed = 0;
+    for (const dentist of listed) {
+      if (dentist.status === "referral_only") {
+        data.push(dentist);
+        continue;
+      }
+
+      await sleep(CRAWL_DELAY_MS);
+      try {
+        const page = parsePracticePage(await fetchPage(dentist.nhsUrl));
+        if (!page) {
+          console.warn(
+            `NHS dentists: did not recognise the appointments page for ${dentist.name} - using the results page's status.`,
+          );
+          data.push(dentist);
+          continue;
+        }
+        read++;
+        if (page.status !== dentist.status) changed++;
+        data.push({ ...dentist, ...page });
+      } catch (error) {
+        console.warn(
+          `NHS dentists: could not read the appointments page for ${dentist.name}:`,
+          error instanceof Error ? error.message : error,
+        );
+        data.push(dentist);
+      }
+    }
+
+    cached = { data, fetchedAt };
+    console.log(
+      `[${new Date().toISOString()}] NHS dentists synced. ${data.length} practice(s), ${data.filter((d) => d.accepting.adults).length} accepting adults. Read ${read} practice page(s); ${changed} status(es) corrected from the results page.`,
+    );
+  } catch (error) {
+    console.error("NHS dentists sync error:", error);
+  } finally {
+    syncing = false;
+  }
+}
