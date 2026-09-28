@@ -84,6 +84,7 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | `GET /bridge-alerts/latest`          | Most recent bridge alert only                           |
 | `GET /bridge-alerts/check/:userName` 🔒 | Manually trigger a poll from a given Twitter username |
 | `POST /bridge-alerts/test-notification` 🔒 | Sends a fake bridge alert push to **one** device. Requires `{"token": "ExponentPushToken[...]"}` in the body; 400 without it. It used to fan out to every subscriber, which put a fake closure alert on every user's phone with no undo |
+| `POST /notifications/broadcast` 🔒   | An ad hoc push to every subscribed device (bridge, bin or both, each device once). Never sends on the first call - see [Sending a broadcast](#sending-a-broadcast) |
 | `POST /bridge-subscriptions`         | Register an Expo push token for bridge alerts           |
 | `DELETE /bridge-subscriptions`       | Unregister a token from bridge alerts                   |
 | `POST /bin-subscriptions`            | Register a token + UPRN for bin reminders               |
@@ -117,6 +118,33 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 🔒 marks an admin-only route. These require an `x-admin-token` header matching the `ADMIN_TOKEN` environment variable, enforced by the `requireAdmin` middleware in `src/index.ts`. The comparison is timing-safe, and the check **fails closed** - if `ADMIN_TOKEN` is unset the routes return `503` rather than falling open. They are gated because they either spend money (a metered twitterapi.io call) or reach every subscribed device (push).
 
 All other routes are public and unauthenticated, which is intended - they are read-only or accept only an Expo push token. There is no rate limiting, and `cors` is a dependency but is not wired up (it isn't needed while the only client is the native app).
+
+#### Sending a broadcast
+
+`POST /notifications/broadcast` reaches every device subscribed to bridge alerts or bin
+reminders. That is as close to "every user" as the backend gets: the app only asks for a push
+token when someone turns one of those on, so a user who never did cannot be reached. There is
+no undo, so the route works in steps:
+
+```bash
+H=(-H "x-admin-token: $ADMIN_TOKEN" -H "Content-Type: application/json")
+URL=https://stocktonheath.duckdns.org/notifications/broadcast
+
+# 1. Check it on your own phone. Sends to that one device only.
+curl -X POST $URL "${H[@]}" -d '{"title":"Stockton Heath","body":"...","token":"ExponentPushToken[...]"}'
+
+# 2. Dry run: returns the recipient count and sends nothing.
+curl -X POST $URL "${H[@]}" -d '{"title":"Stockton Heath","body":"..."}'
+
+# 3. Send, passing back the count from step 2.
+curl -X POST $URL "${H[@]}" -d '{"title":"Stockton Heath","body":"...","confirm":123}'
+```
+
+`title` defaults to "Stockton Heath". If the count has changed since the dry run, step 3 is a
+`409` that sends nothing and gives the new count. Dead tokens are pruned from both tables, as
+for every other send. Repeating step 3 sends the message a second time, because nothing
+remembers a broadcast. The payload has no `tweetId`, so tapping the notification opens the app
+without setting the bridge closure banner.
 
 ### Database
 

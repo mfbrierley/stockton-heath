@@ -318,16 +318,17 @@ const pruneInvalidTokens = async (
 ): Promise<void> => {
   if (tokens.length === 0) return;
   try {
-    if (kind === "bridge") {
-      await prisma.bridgeSubscription.deleteMany({
-        where: { token: { in: tokens } },
-      });
-    } else {
-      await prisma.binSubscription.deleteMany({
-        where: { token: { in: tokens } },
-      });
-    }
-    console.log(`Pruned ${tokens.length} unregistered ${kind} token(s).`);
+    // Logs rows actually deleted, not tokens passed in: a broadcast prunes
+    // both tables with one list, and most dead tokens are in only one of them.
+    const { count } =
+      kind === "bridge"
+        ? await prisma.bridgeSubscription.deleteMany({
+            where: { token: { in: tokens } },
+          })
+        : await prisma.binSubscription.deleteMany({
+            where: { token: { in: tokens } },
+          });
+    console.log(`Pruned ${count} unregistered ${kind} token(s).`);
   } catch (error) {
     console.error(`Failed to prune ${kind} tokens:`, error);
   }
@@ -562,6 +563,117 @@ app.post(
       return res
         .status(500)
         .json({ error: "Failed to send test notification" });
+    }
+  },
+);
+
+// Every device that has opted in to anything, each once. That is as close to
+// "every user" as the backend can get: the app only asks for a push token when
+// someone turns on bridge alerts or bin reminders.
+const broadcastTokens = async (): Promise<string[]> => {
+  const [bridge, bin] = await Promise.all([
+    prisma.bridgeSubscription.findMany({ select: { token: true } }),
+    prisma.binSubscription.findMany({ select: { token: true } }),
+  ]);
+  return [...new Set([...bridge, ...bin].map((s) => s.token))];
+};
+
+// An ad hoc message to every subscribed device. It lands on every phone and
+// cannot be taken back, so a call never sends by default:
+//   - no `confirm`: reports how many devices would receive it, sends nothing
+//   - `confirm` equal to that count: sends to all of them
+//   - `confirm` that no longer matches (someone subscribed in between): 409
+//   - `token`: sends the same message to that one device only, to check it on
+//     a real phone first
+// No `tweetId` in the payload, so tapping it opens the app without touching
+// the bridge closure banner.
+app.post(
+  "/notifications/broadcast",
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    // `?? {}` for the same reason as the test route: express 5 leaves req.body
+    // undefined on a bodyless POST.
+    const {
+      title = "Stockton Heath",
+      body,
+      confirm,
+      token,
+    } = (req.body ?? {}) as {
+      title?: unknown;
+      body?: unknown;
+      confirm?: unknown;
+      token?: unknown;
+    };
+
+    if (typeof title !== "string" || !title.trim()) {
+      return res
+        .status(400)
+        .json({ error: "`title` must be a non-empty string if given" });
+    }
+    if (typeof body !== "string" || !body.trim()) {
+      return res
+        .status(400)
+        .json({ error: "`body` is required and must be a non-empty string" });
+    }
+    if (confirm !== undefined && !Number.isInteger(confirm)) {
+      return res.status(400).json({
+        error: "`confirm` must be the recipient count from a call without it",
+      });
+    }
+    if (token !== undefined && (typeof token !== "string" || !token)) {
+      return res
+        .status(400)
+        .json({ error: "`token` must be an Expo push token if given" });
+    }
+
+    const message = { sound: "default", title: title.trim(), body: body.trim() };
+
+    try {
+      if (typeof token === "string") {
+        // Deliberately not pruning on DeviceNotRegistered: a test must not
+        // delete a real subscription as a side effect.
+        const { sent, failed } = await sendExpoPush([{ to: token, ...message }]);
+        return res.json({ ok: sent === 1, sent, failed, message });
+      }
+
+      const tokens = await broadcastTokens();
+
+      if (confirm === undefined) {
+        return res.json({
+          dryRun: true,
+          recipients: tokens.length,
+          message,
+          next: `Nothing sent. To send, repeat this call with "confirm": ${tokens.length}`,
+        });
+      }
+
+      if (confirm !== tokens.length) {
+        return res.status(409).json({
+          error: `Nothing sent: confirm was ${confirm} but there are now ${tokens.length} recipients. Check the count and repeat with "confirm": ${tokens.length}`,
+          recipients: tokens.length,
+        });
+      }
+
+      const { invalidTokens, sent, failed } = await sendExpoPush(
+        tokens.map((to) => ({ to, ...message })),
+      );
+      // A dead device can be subscribed to either, or both.
+      await pruneInvalidTokens("bridge", invalidTokens);
+      await pruneInvalidTokens("bin", invalidTokens);
+
+      console.log(
+        `Broadcast "${message.title}": ${sent}/${tokens.length} delivered successfully.`,
+      );
+      return res.json({
+        recipients: tokens.length,
+        sent,
+        failed,
+        pruned: invalidTokens.length,
+        message,
+      });
+    } catch (error) {
+      console.error("Broadcast error:", error);
+      return res.status(500).json({ error: "Failed to send broadcast" });
     }
   },
 );

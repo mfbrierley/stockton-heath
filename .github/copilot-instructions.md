@@ -133,6 +133,7 @@ Admin routes are gated by `requireAdmin` (`x-admin-token`); business routes by
 | GET | `/bridge-alerts` , `/bridge-alerts/latest` | public |
 | GET | `/bridge-alerts/check/:userName` | admin |
 | POST | `/bridge-alerts/test-notification` | admin |
+| POST | `/notifications/broadcast` | admin - dry run unless `confirm` matches the recipient count |
 | GET | `/test-key` | admin |
 | POST / DELETE | `/bridge-subscriptions` , `/bin-subscriptions` | public |
 | GET | `/fuel-prices` | public |
