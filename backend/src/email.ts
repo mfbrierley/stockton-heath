@@ -473,3 +473,60 @@ export const subscriptionStarted = (listing: ListingSummary, approved: boolean):
       (approved ? "" : `Review it here:\n${PORTAL()}/admin\n`),
   );
 };
+
+// ── NHS dentists ──────────────────────────────────────────────────────────────
+
+// The owner's only warning that the NHS Dentists screen has stopped
+// updating. nhs.uk is read daily and retried hourly, so these are sent on a
+// change of state - stopped, partly broken, working again - never once per
+// failed attempt.
+
+const ukTime = (ms: number): string =>
+  new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Europe/London",
+  }).format(new Date(ms));
+
+const CHECK_SCRIPT = "  cd backend\n  npx tsx scripts/check-nhs-dentists.ts";
+
+export const nhsDentistsStale = (
+  lastRefreshed: number | null,
+  lastError: string | null,
+): void => {
+  notifyOwner(
+    "NHS dentists list has stopped updating",
+    `The NHS Dentists screen has not been refreshed from nhs.uk for more than two days. ` +
+      (lastRefreshed
+        ? `It was last refreshed on ${ukTime(lastRefreshed)}, and the app is still showing that list with its date.\n\n`
+        : `It has never been refreshed since the server started, so the screen has nothing to show.\n\n`) +
+      `The last error was: ${lastError ?? "(none recorded)"}\n\n` +
+      `This usually means nhs.uk has changed its find-a-dentist page, or has started ` +
+      `turning the server away. To see what the parser makes of the page now:\n\n` +
+      `${CHECK_SCRIPT}\n\n` +
+      `The backend keeps retrying every hour, and you'll get another email when it recovers.\n`,
+  );
+};
+
+export const nhsDentistsDegraded = (attempted: number, problems: string[]): void => {
+  notifyOwner(
+    "NHS dentists: some practice pages couldn't be read",
+    `Today's read of nhs.uk finished, but ${problems.length} of the ${attempted} practice ` +
+      `pages could not be used. For those practices the app is showing the status from ` +
+      `the search results page instead - or yesterday's, if nothing there has changed - ` +
+      `and may not have a "Last confirmed" date.\n\n` +
+      `${problems.map((problem) => `- ${problem}`).join("\n")}\n\n` +
+      `Pages that were "not recognised" mean nhs.uk has changed their wording. To see ` +
+      `what the parser makes of every practice page (takes about four minutes):\n\n` +
+      `${CHECK_SCRIPT} --pages\n\n` +
+      `You'll get another email when every page reads normally again.\n`,
+  );
+};
+
+export const nhsDentistsRecovered = (refreshed: number): void => {
+  notifyOwner(
+    "NHS dentists list is updating again",
+    `The NHS Dentists screen was refreshed from nhs.uk normally on ${ukTime(refreshed)}, ` +
+      `and its practice pages read normally. Nothing more to do.\n`,
+  );
+};

@@ -24,6 +24,10 @@ import { NhsDentist, NhsDentistsResponse } from "./types/nhsDentists";
 
 type Filter = "all" | "adults" | "children";
 
+// The backend reads nhs.uk daily and retries hourly, so a list this old means
+// it has been failing for days.
+const STALE_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
+
 const FILTERS: {
   key: Filter;
   label: string;
@@ -176,6 +180,29 @@ export default function NhsDentists() {
           </Text>
         ) : (
           <>
+            {response && Date.now() - response.fetchedAt > STALE_AFTER_MS && (
+              <View style={styles.caveat}>
+                <Ionicons
+                  name="warning"
+                  size={16}
+                  color={theme.colors.statusAmber}
+                  style={{ marginTop: 2 }}
+                />
+                <Text
+                  style={[
+                    globalStyles.body,
+                    globalStyles.bodyBold,
+                    { flex: 1, fontSize: 13, lineHeight: 20 },
+                  ]}
+                >
+                  This list has not been updated from the NHS website since{" "}
+                  {formatChecked(response.fetchedAt)}, so it is more likely to
+                  be out of date. Check with the practice, or search the NHS
+                  website below.
+                </Text>
+              </View>
+            )}
+
             <View style={styles.filters} accessibilityRole="tablist">
               {FILTERS.map(({ key, label, matches }) => {
                 const selected = key === filter;

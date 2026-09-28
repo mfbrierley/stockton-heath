@@ -52,6 +52,12 @@
 // shown without NHS logos or branding. The app does all three.
 
 import * as cheerio from "cheerio";
+import {
+  nhsDentistsDegraded,
+  nhsDentistsRecovered,
+  nhsDentistsStale,
+} from "./email";
+import type { PrismaClient } from "./generated/prisma/client";
 
 export type DentistStatus =
   | "accepting"
@@ -60,6 +66,8 @@ export type DentistStatus =
   | "referral_only";
 
 type Accepting = { adults: boolean; children: boolean; freeCare: boolean };
+
+type Group = keyof Accepting;
 
 export type NhsDentist = {
   odsCode: string;
@@ -77,6 +85,11 @@ export type NhsDentist = {
   lastConfirmed: string | null;
   /** The practice's page on nhs.uk: the appointments page where it has one */
   nhsUrl: string;
+  /**
+   * The last time a daily read saw it start taking a group it was not taking
+   * the day before, and which groups. Null until that has happened.
+   */
+  opened: { at: string; groups: Group[] } | null;
 };
 
 /** What a practice's own appointments page says. */
@@ -195,6 +208,7 @@ export function parseResults(html: string): NhsDentist[] {
       accepting,
       urgentCare: tags.includes("urgent dental care"),
       lastConfirmed: null,
+      opened: null,
       // Specialist-only practices have no appointments page (it is a 404).
       nhsUrl:
         status === "referral_only"
@@ -279,10 +293,123 @@ async function fetchPage(url: string): Promise<string> {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-let cached: { data: NhsDentist[]; fetchedAt: number } | null = null;
+const message = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+// ── Keeping the list ──────────────────────────────────────────────────────────
+//
+// The list is saved to AppMeta after every sync and loaded at boot, so a
+// deploy or restart serves the last good list straight away instead of a 503,
+// and does not read nhs.uk again unless a day has passed. The previous list is
+// also what each sync is compared with, to spot practices that have started
+// taking patients; those changes are logged to NhsDentistChange as a history.
+
+type Snapshot = { data: NhsDentist[]; fetchedAt: number };
+
+// "stale": no successful read of the results page for STALE_AFTER_MS.
+// "degraded": the last read worked, but too many practice pages could not be
+// used - usually nhs.uk rewording them.
+type Health = "ok" | "stale" | "degraded";
+
+const SYNC_EVERY_MS = 24 * 60 * 60 * 1000;
+
+// Checked hourly, so a failed read is retried within the hour rather than the
+// next day. The half hour of slack stops the daily read drifting an hour
+// later each day.
+const CHECK_EVERY_MS = 60 * 60 * 1000;
+const DUE_AFTER_MS = SYNC_EVERY_MS - 30 * 60 * 1000;
+
+// Two days of hourly retries failing is not nhs.uk having a bad moment.
+const STALE_AFTER_MS = 48 * 60 * 60 * 1000;
+
+// The odd practice page timing out is normal; a fifth of them failing is not.
+// Any page that loads but is not recognised counts, however few.
+const MAX_FAILED_SHARE = 0.2;
+
+const SNAPSHOT_KEY = "nhsDentists";
+const HEALTH_KEY = "nhsDentistsHealth";
+
+const GROUPS_IN_ORDER: Group[] = ["adults", "children", "freeCare"];
+const groupsOf = (accepting: Accepting): Group[] =>
+  GROUPS_IN_ORDER.filter((group) => accepting[group]);
+
+let db: PrismaClient | null = null;
+let cached: Snapshot | null = null;
 let syncing = false;
+let health: Health = "ok";
+// Why the last read of the results page failed, for the "stale" email.
+let lastError: string | null = null;
+// The practice pages the last sync could not use, when there were enough to
+// count as degraded; null when it read them normally. Undefined until a sync
+// finishes after boot - until then nothing is known about them, and a saved
+// "degraded" must stand rather than be taken for a recovery.
+let pageReport: { attempted: number; problems: string[] } | null | undefined;
 
 export const getCachedNhsDentists = () => cached;
+
+const saveMeta = async (key: string, value: string): Promise<void> => {
+  if (!db) return;
+  try {
+    await db.appMeta.upsert({
+      where: { key },
+      update: { value },
+      create: { key, value },
+    });
+  } catch (error) {
+    console.warn(`NHS dentists: could not save ${key}:`, message(error));
+  }
+};
+
+async function load(): Promise<void> {
+  if (!db) return;
+  try {
+    const rows = await db.appMeta.findMany({
+      where: { key: { in: [SNAPSHOT_KEY, HEALTH_KEY] } },
+    });
+    for (const row of rows) {
+      if (row.key === SNAPSHOT_KEY) {
+        const snapshot = JSON.parse(row.value) as Snapshot;
+        if (Array.isArray(snapshot.data) && typeof snapshot.fetchedAt === "number") {
+          cached = {
+            fetchedAt: snapshot.fetchedAt,
+            data: snapshot.data.map((d) => ({ ...d, opened: d.opened ?? null })),
+          };
+        }
+      } else if (["ok", "stale", "degraded"].includes(row.value)) {
+        health = row.value as Health;
+      }
+    }
+    if (cached) {
+      console.log(
+        `NHS dentists: loaded the saved list from ${new Date(cached.fetchedAt).toISOString()} (${cached.data.length} practices).`,
+      );
+    }
+  } catch (error) {
+    console.warn("NHS dentists: could not load the saved list - starting empty:", message(error));
+  }
+}
+
+/**
+ * A practice page that could not be read leaves only the results page's
+ * status, which cannot tell "not accepting" from "not confirmed" and has no
+ * date. When the results page shows the same groups as yesterday, nothing it
+ * can see has changed, so yesterday's fuller reading is kept rather than
+ * thrown away over one failed request.
+ */
+const fallBack = (
+  listed: NhsDentist,
+  earlier: NhsDentist | undefined,
+): NhsDentist =>
+  earlier &&
+  earlier.status !== "referral_only" &&
+  groupsOf(earlier.accepting).join() === groupsOf(listed.accepting).join()
+    ? {
+        ...listed,
+        status: earlier.status,
+        accepting: earlier.accepting,
+        lastConfirmed: earlier.lastConfirmed,
+      }
+    : listed;
 
 /**
  * Refresh the list. Never throws: a failure is logged and the last good list
@@ -290,9 +417,9 @@ export const getCachedNhsDentists = () => cached;
  *
  * Reading every practice page takes a few minutes, five seconds apart, so the
  * new list is built on the side and published in one go when it is finished;
- * until then the app keeps getting the previous one. The exception is the
- * first sync after a restart, when there is no previous list: the results
- * page is served straight away rather than a 503 for those minutes.
+ * until then the app keeps getting the previous one. The exception is a first
+ * sync with no saved list at all, when the results page is served straight
+ * away rather than a 503 for those minutes.
  */
 export async function syncNhsDentists(): Promise<void> {
   // A slow sweep must never overlap the next one.
@@ -305,12 +432,13 @@ export async function syncNhsDentists(): Promise<void> {
     try {
       listed = parseResults(await fetchPage(NHS_DENTISTS_RESULTS_URL));
     } catch (error) {
+      lastError = message(error);
       console.error(
-        `[${new Date().toISOString()}] NHS dentists sync failed - retaining last cached data:`,
-        error instanceof Error ? error.message : error,
+        `[${new Date().toISOString()}] NHS dentists sync failed - retaining last cached data: ${lastError}`,
       );
       return;
     }
+    lastError = null;
 
     const furthest = listed[listed.length - 1].distanceMiles;
     if (listed.length >= RESULTS_PAGE_SIZE && furthest < MAX_MILES) {
@@ -320,46 +448,148 @@ export async function syncNhsDentists(): Promise<void> {
     }
     listed = listed.filter((d) => d.distanceMiles <= MAX_MILES);
 
+    const before = new Map((cached?.data ?? []).map((d) => [d.odsCode, d]));
     if (!cached) cached = { data: listed, fetchedAt };
 
-    const data: NhsDentist[] = [];
-    let read = 0;
-    let changed = 0;
+    const read: NhsDentist[] = [];
+    const problems: string[] = [];
+    let attempted = 0;
+    let failed = 0;
+    let unrecognised = 0;
     for (const dentist of listed) {
       if (dentist.status === "referral_only") {
-        data.push(dentist);
+        read.push(dentist);
         continue;
       }
 
+      attempted++;
       await sleep(CRAWL_DELAY_MS);
+      let page: PracticePage | null = null;
       try {
-        const page = parsePracticePage(await fetchPage(dentist.nhsUrl));
+        page = parsePracticePage(await fetchPage(dentist.nhsUrl));
         if (!page) {
-          console.warn(
-            `NHS dentists: did not recognise the appointments page for ${dentist.name} - using the results page's status.`,
-          );
-          data.push(dentist);
-          continue;
+          unrecognised++;
+          problems.push(`${dentist.name}: page not recognised - ${dentist.nhsUrl}`);
         }
-        read++;
-        if (page.status !== dentist.status) changed++;
-        data.push({ ...dentist, ...page });
+      } catch (error) {
+        failed++;
+        problems.push(`${dentist.name}: ${message(error)}`);
+      }
+      read.push(
+        page ? { ...dentist, ...page } : fallBack(dentist, before.get(dentist.odsCode)),
+      );
+    }
+
+    // Compare with the previous list. A practice with nothing to compare
+    // with - the very first sync, or one new to the area - has no history.
+    const detectedAt = new Date(fetchedAt).toISOString();
+    const changes: {
+      odsCode: string;
+      name: string;
+      detectedAt: string;
+      fromStatus: string;
+      toStatus: string;
+      fromGroups: string;
+      toGroups: string;
+    }[] = [];
+    const data = read.map((d) => {
+      const earlier = before.get(d.odsCode);
+      if (!earlier) return d;
+
+      const fromGroups = groupsOf(earlier.accepting).join(",");
+      const toGroups = groupsOf(d.accepting).join(",");
+      if (earlier.status !== d.status || fromGroups !== toGroups) {
+        changes.push({
+          odsCode: d.odsCode,
+          name: d.name,
+          detectedAt,
+          fromStatus: earlier.status,
+          toStatus: d.status,
+          fromGroups,
+          toGroups,
+        });
+      }
+
+      const gained = groupsOf(d.accepting).filter((g) => !earlier.accepting[g]);
+      return {
+        ...d,
+        opened: gained.length ? { at: detectedAt, groups: gained } : earlier.opened ?? null,
+      };
+    });
+
+    cached = { data, fetchedAt };
+    pageReport =
+      unrecognised > 0 || (attempted > 0 && failed / attempted > MAX_FAILED_SHARE)
+        ? { attempted, problems }
+        : null;
+
+    await saveMeta(SNAPSHOT_KEY, JSON.stringify(cached));
+    if (changes.length && db) {
+      try {
+        await db.nhsDentistChange.createMany({ data: changes });
       } catch (error) {
         console.warn(
-          `NHS dentists: could not read the appointments page for ${dentist.name}:`,
-          error instanceof Error ? error.message : error,
+          `NHS dentists: could not record ${changes.length} change(s) - has the NhsDentistChange migration been applied?`,
+          message(error),
         );
-        data.push(dentist);
       }
     }
 
-    cached = { data, fetchedAt };
     console.log(
-      `[${new Date().toISOString()}] NHS dentists synced. ${data.length} practice(s), ${data.filter((d) => d.accepting.adults).length} accepting adults. Read ${read} practice page(s); ${changed} status(es) corrected from the results page.`,
+      `[${new Date().toISOString()}] NHS dentists synced. ${data.length} practice(s), ${data.filter((d) => d.accepting.adults).length} accepting adults, ${changes.length} change(s) since the last sync. Read ${attempted - failed - unrecognised} of ${attempted} practice page(s)${problems.length ? `; could not use: ${problems.join("; ")}` : ""}.`,
     );
   } catch (error) {
     console.error("NHS dentists sync error:", error);
   } finally {
     syncing = false;
   }
+}
+
+/** Emails the owner when the list stops updating, and again when it recovers. */
+async function checkHealth(): Promise<void> {
+  const age = cached ? Date.now() - cached.fetchedAt : Infinity;
+  const next: Health =
+    age > STALE_AFTER_MS
+      ? "stale"
+      : pageReport === undefined
+        ? health === "degraded"
+          ? "degraded"
+          : "ok"
+        : pageReport
+          ? "degraded"
+          : "ok";
+  if (next === health) return;
+
+  // Saved so a restart does not send the same email again.
+  health = next;
+  await saveMeta(HEALTH_KEY, next);
+
+  if (next === "stale") nhsDentistsStale(cached?.fetchedAt ?? null, lastError);
+  else if (next === "degraded" && pageReport)
+    nhsDentistsDegraded(pageReport.attempted, pageReport.problems);
+  else if (next === "ok" && cached) nhsDentistsRecovered(cached.fetchedAt);
+}
+
+async function tick(): Promise<void> {
+  try {
+    if (!cached || Date.now() - cached.fetchedAt > DUE_AFTER_MS) {
+      await syncNhsDentists();
+    }
+    await checkHealth();
+  } catch (error) {
+    console.error("NHS dentists check error:", error);
+  }
+}
+
+/**
+ * Load the saved list, then read nhs.uk whenever it is a day old - checked
+ * hourly, so a failed read is retried within the hour.
+ */
+export function startNhsDentists(prisma: PrismaClient): void {
+  db = prisma;
+  void (async () => {
+    await load();
+    await tick();
+    setInterval(() => void tick(), CHECK_EVERY_MS);
+  })();
 }

@@ -123,12 +123,13 @@ All other routes are public and unauthenticated, which is intended - they are re
 
 ### Database
 
-Uses **Turso** (a hosted libSQL/SQLite service) via **Prisma** ORM. Five tables:
+Uses **Turso** (a hosted libSQL/SQLite service) via **Prisma** ORM. Its tables:
 
 - `BridgeAlert` - each detected bridge closure tweet (tweetId, tweetText, postedAt, detectedAt)
 - `BridgeSubscription` - Expo push tokens subscribed to bridge alerts
 - `BinSubscription` - Expo push tokens subscribed to bin reminders, each paired with a UPRN
-- `AppMeta` - simple key/value store; currently holds `lastBinNotificationDate` for reminder de-duplication
+- `AppMeta` - simple key/value store; holds `lastBinNotificationDate` for reminder de-duplication, and `nhsDentists` (the last good NHS dentists list, as JSON) and `nhsDentistsHealth` (`ok`, `stale` or `degraded`) - see [NHS dentists](#nhs-dentists)
+- `NhsDentistChange` - one row each time a nearby dental practice's new-patient status changes between two daily reads of nhs.uk. A history only; nothing reads it yet. Created by `20260929000000_add_nhs_dentist_changes`
 - `WelcomedUser` - one row per business account already sent a welcome email. Clerk owns sign-up and never tells this backend about it, so the first authenticated request an account makes stands in for the event, and this table is the only thing that can tell that request from every one after it
 - `BusinessListing` - a paid Local Offers listing. `approved` (manual editorial review) and `active` (Stripe subscription in good standing) are independent; a listing reaches the app only when both are true. `cancelAtPeriodEnd` and `currentPeriodEnd` mirror Stripe so the portal can show a pending cancellation: `active` stays true through one, because the business has paid to the end of the period, and without these two a cancelled subscription is indistinguishable from a healthy one after a page reload
 
@@ -167,7 +168,7 @@ All scheduled with `setInterval` in `backend/src/index.ts` - there is no cron or
 
 - **Bridge polling** (every 10 minutes, 6am-10pm UK time): checks twitterapi.io for new tweets from `@trafficwarr` containing "Swingbridge Alert". If a new one is found, it saves it to the database and pushes to all bridge subscribers via the Expo Push Notification service.
 - **Fuel price polling** (every 30 minutes): fetches fresh prices from the Gov.uk Fuel Finder API using OAuth client credentials. Results are cached in memory.
-- **NHS dentists** (at boot, then every 24 hours): reads the nhs.uk find-a-dentist results page, then each practice's appointments page five seconds apart - about four minutes in all. Cached in memory. See [NHS dentists](#nhs-dentists).
+- **NHS dentists** (checked hourly, runs once the saved list is a day old): reads the nhs.uk find-a-dentist results page, then each practice's appointments page five seconds apart - about four minutes in all. Saved to `AppMeta`, so a restart serves the saved list without reading nhs.uk again. A failed read is retried the next hour. See [NHS dentists](#nhs-dentists).
 - **Bin reminders** (checked every minute, fires at 18:00 UK time): groups bin subscriptions by UPRN, queries the council API for each, and pushes "Put out your \<bins\> tonight" to anyone with a collection tomorrow. De-duplicated per day via `AppMeta` so a redeploy can't double-send.
 
 Invalid Expo push tokens returned by the push service are pruned from the relevant subscription table automatically.
@@ -195,13 +196,36 @@ Two kinds of page are read, once a day:
    appointments page is a 404.
 
 The new list is published in one go when the practice pages are done, so the app never
-sees half of one sync and half of the next. After a restart there is no list at all, so
-the results page alone is served for those first few minutes.
+sees half of one sync and half of the next. It is also saved to `AppMeta` and loaded at
+boot, so a deploy serves the saved list straight away and does not read nhs.uk again until
+it is a day old. Only with no saved list at all - the very first boot - is the results page
+alone served for those first few minutes.
+
+**Comparing with yesterday.** Each sync is compared with the saved list. A practice that
+starts taking a group it wasn't taking gets `opened: { at, groups }`, which the app shows as
+"Newly taking adults 18 or over - spotted 26 Sep" for 14 days. Every change of status or
+groups is also logged to `NhsDentistChange`, a history for later use (alerts, say). The
+first sync has nothing to compare with, so records nothing.
 
 **When nhs.uk changes its markup.** A results page with any practice the parser can't
 fully read fails the whole sync, and the last good list is kept with its original
 `fetchedAt` - which the app shows - rather than a guess. A practice page it can't read
-falls back to the results page's status for that practice. Either way the log says so.
+falls back to the results page's status for that practice, or to yesterday's reading when
+the results page shows the same groups as yesterday, so one failed request doesn't lose a
+practice's "not confirmed" status or its date.
+
+**You are emailed** (at `OWNER_EMAIL`, through the existing Gmail setup) when the list's
+health changes, never once per failed attempt:
+
+| Email | When |
+|---|---|
+| `nhsDentistsStale` | No successful read of the results page for 48 hours - two days of hourly retries |
+| `nhsDentistsDegraded` | A read finished, but a practice page loaded and wasn't recognised, or more than a fifth of them failed to load. Lists each one |
+| `nhsDentistsRecovered` | Back to normal after either of the above |
+
+The state is saved in `AppMeta`, so a restart doesn't send the same email twice. The app
+adds its own warning above the list once it is more than 3 days old.
+
 Run this first:
 
 ```bash

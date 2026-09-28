@@ -19,7 +19,7 @@ import {
   subscriptionStarted,
 } from "./email";
 import { subscriptionPeriod } from "./subscription";
-import { getCachedNhsDentists, syncNhsDentists } from "./nhsDentists";
+import { getCachedNhsDentists, startNhsDentists } from "./nhsDentists";
 import { PrismaClient } from "./generated/prisma/client";
 
 setDefaultResultOrder("ipv4first");
@@ -2285,14 +2285,9 @@ setInterval(
 );
 
 // Daily: practices change their status rarely, and nhs.uk's terms ask for
-// data copied from it to be refreshed every 24 hours.
-void syncNhsDentists();
-setInterval(
-  () => {
-    void syncNhsDentists();
-  },
-  24 * 60 * 60 * 1000,
-);
+// data copied from it to be refreshed every 24 hours. Loads the saved list
+// first, so a redeploy neither 503s nor reads nhs.uk again early.
+startNhsDentists(prisma);
 
 void checkBinNotifications();
 setInterval(() => {

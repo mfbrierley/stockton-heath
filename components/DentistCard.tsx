@@ -42,9 +42,14 @@ const GROUPS: { key: keyof NhsDentist["accepting"]; label: string }[] = [
   { key: "freeCare", label: "adults entitled to free dental care" },
 ];
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 // Practices must re-confirm their status with the NHS every quarter, so a date
 // older than that means this one has missed at least one.
 const STALE_AFTER_DAYS = 90;
+
+// How long a practice that has started taking a group counts as new.
+const NEW_FOR_DAYS = 14;
 
 const describe = (dentist: NhsDentist): string => {
   switch (dentist.status) {
@@ -72,7 +77,7 @@ const parseDay = (iso: string) => {
 
 function LastConfirmed({ date }: { date: string }) {
   const day = parseDay(date);
-  const ageDays = (Date.now() - day.getTime()) / (24 * 60 * 60 * 1000);
+  const ageDays = (Date.now() - day.getTime()) / DAY_MS;
   const stale = ageDays > STALE_AFTER_DAYS;
   const formatted = day.toLocaleDateString("en-GB", {
     day: "numeric",
@@ -92,6 +97,57 @@ function LastConfirmed({ date }: { date: string }) {
       Last confirmed by the practice: {formatted}
       {stale ? " - may be out of date" : ""}
     </Text>
+  );
+}
+
+const formatDay = (date: Date) =>
+  date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+
+const listOf = (items: string[]) =>
+  items.length === 1
+    ? items[0]
+    : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+
+/**
+ * "Newly taking adults 18 or over - spotted 26 Sep", or "Newly taking these
+ * patients" when every group it takes is new. The backend checks once
+ * a day, so the date is when it was noticed, not necessarily when it happened.
+ */
+function Opened({ dentist }: { dentist: NhsDentist }) {
+  const opened = dentist.opened;
+  if (!opened) return null;
+
+  const at = new Date(opened.at);
+  if (Date.now() - at.getTime() > NEW_FOR_DAYS * DAY_MS) return null;
+
+  // Only the groups it is still taking - a list can open and close again.
+  const taking = GROUPS.filter(({ key }) => dentist.accepting[key]);
+  const labels = taking
+    .filter(({ key }) => opened.groups.includes(key))
+    .map(({ label }) => label);
+  if (labels.length === 0) return null;
+
+  // When every group listed above is new, naming them all again says nothing.
+  const which = labels.length === taking.length ? "these patients" : listOf(labels);
+
+  return (
+    <View style={[styles.groupRow, { alignItems: "flex-start" }]}>
+      <Ionicons
+        name="sparkles"
+        size={14}
+        color={theme.colors.statusGreen}
+        style={{ marginTop: 4 }}
+      />
+      <Text
+        style={[
+          globalStyles.bodySmall,
+          globalStyles.bodyBold,
+          { color: theme.colors.statusGreen, flex: 1 },
+        ]}
+      >
+        Newly taking {which} - spotted {formatDay(at)}
+      </Text>
+    </View>
   );
 }
 
@@ -138,6 +194,8 @@ export default function DentistCard({ dentist }: { dentist: NhsDentist }) {
             </View>
           ))}
         </View>
+
+        <Opened dentist={dentist} />
 
         {dentist.lastConfirmed && <LastConfirmed date={dentist.lastConfirmed} />}
       </View>

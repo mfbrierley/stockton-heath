@@ -19,6 +19,11 @@ export interface NhsDentist {
   lastConfirmed: string | null;
   /** The practice's page on nhs.uk */
   nhsUrl: string;
+  /**
+   * When the backend's daily check first saw it take on a group it was not
+   * taking the day before, and which groups
+   */
+  opened?: { at: string; groups: (keyof NhsDentist["accepting"])[] } | null;
 }
 
 export interface NhsDentistsResponse {
