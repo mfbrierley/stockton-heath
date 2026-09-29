@@ -36,7 +36,7 @@ const STATUS: Record<
 };
 
 // nhs.uk's own wording for each group, so the app says no more than it does.
-const GROUPS: { key: keyof NhsDentist["accepting"]; label: string }[] = [
+export const GROUPS: { key: keyof NhsDentist["accepting"]; label: string }[] = [
   { key: "adults", label: "adults 18 or over" },
   { key: "children", label: "children aged 17 or under" },
   { key: "freeCare", label: "adults entitled to free dental care" },
@@ -65,9 +65,6 @@ const describe = (dentist: NhsDentist): string => {
       return "Only takes new NHS patients for specialist care, when referred by a dentist.";
   }
 };
-
-const formatMiles = (miles: number) =>
-  `${miles} ${miles === 1 ? "mile" : "miles"}`;
 
 /** YYYY-MM-DD as a local date, so the day cannot shift with the time zone. */
 const parseDay = (iso: string) => {
@@ -151,8 +148,22 @@ function Opened({ dentist }: { dentist: NhsDentist }) {
   );
 }
 
+/** The coloured pill saying whether a practice is taking new NHS patients. */
+export function StatusBadge({ status }: { status: DentistStatus }) {
+  const { label, color, bg, icon } = STATUS[status];
+  return (
+    <View style={{ alignSelf: "flex-start" }}>
+      <View style={[globalStyles.statusBadge, { backgroundColor: bg }]}>
+        <Ionicons name={icon as any} size={14} color={color} />
+        <Text style={[globalStyles.body, globalStyles.statusBadgeText, { color }]}>
+          {label}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 export default function DentistCard({ dentist }: { dentist: NhsDentist }) {
-  const { label, color, bg, icon } = STATUS[dentist.status];
   const groups = GROUPS.filter(({ key }) => dentist.accepting[key]);
 
   return (
@@ -160,27 +171,13 @@ export default function DentistCard({ dentist }: { dentist: NhsDentist }) {
       style={[globalStyles.card, globalStyles.cardWhite, globalStyles.cardList]}
     >
       <View style={styles.body}>
-        <View style={styles.titleRow}>
-          <Text style={[globalStyles.cardTitle, { flex: 1 }]}>
-            {dentist.name}
-          </Text>
-          <Text
-            style={[globalStyles.bodySmall, globalStyles.bodyMuted, styles.distance]}
-          >
-            {formatMiles(dentist.distanceMiles)}
-          </Text>
-        </View>
+        <Text style={globalStyles.cardTitle}>{dentist.name}</Text>
         <Text style={[globalStyles.bodySmall, globalStyles.bodyMuted]}>
           {dentist.address}
         </Text>
 
-        <View style={{ alignSelf: "flex-start", marginTop: 4 }}>
-          <View style={[globalStyles.statusBadge, { backgroundColor: bg }]}>
-            <Ionicons name={icon as any} size={14} color={color} />
-            <Text style={[globalStyles.body, globalStyles.statusBadgeText, { color }]}>
-              {label}
-            </Text>
-          </View>
+        <View style={{ marginTop: 4 }}>
+          <StatusBadge status={dentist.status} />
         </View>
 
         <View style={{ gap: 2 }}>
@@ -244,15 +241,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 20,
     gap: 8,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-  distance: {
-    marginTop: 2,
-    flexShrink: 0,
   },
   groupRow: {
     flexDirection: "row",

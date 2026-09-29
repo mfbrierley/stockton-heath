@@ -1,4 +1,5 @@
 import Feather from "@expo/vector-icons/Feather";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import Constants from "expo-constants";
 import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 import BackHeader from "../components/BackHeader";
@@ -43,7 +44,7 @@ function SourceCard({
       </View>
       <Text style={[globalStyles.bodySmall, styles.groupBlurb]}>{blurb}</Text>
       <View style={{ paddingHorizontal: 24, paddingBottom: 12, gap: 0 }}>
-        {sources.map(({ icon, name, detail, url, government }, i, arr) => (
+        {sources.map(({ icon, iconSet, name, detail, url, government }, i, arr) => (
           <View key={name}>
             <View
               style={{
@@ -54,11 +55,19 @@ function SourceCard({
               }}
             >
               <View style={styles.sourceIcon}>
-                <Feather
-                  name={icon as never}
-                  size={16}
-                  color={theme.colors.green700}
-                />
+                {iconSet === "material-community" ? (
+                  <MaterialCommunityIcons
+                    name={icon as never}
+                    size={16}
+                    color={theme.colors.green700}
+                  />
+                ) : (
+                  <Feather
+                    name={icon as never}
+                    size={16}
+                    color={theme.colors.green700}
+                  />
+                )}
               </View>
               <View style={{ flex: 1 }}>
                 <View style={styles.sourceNameRow}>

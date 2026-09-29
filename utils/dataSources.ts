@@ -23,8 +23,10 @@
 export type SourceGroup = "live" | "manual";
 
 export type DataSource = {
-  /** Feather icon name used on the About screen */
+  /** Icon name used on the About screen, from Feather unless `iconSet` says otherwise */
   icon: string;
+  /** For the rare icon Feather lacks, such as a tooth */
+  iconSet?: "material-community";
   name: string;
   detail: string;
   url: string;
@@ -74,11 +76,22 @@ export const NHS_FIND_A_DENTIST_URL =
 export const NHS_FIND_A_DENTIST_RESULTS_URL =
   "https://www.nhs.uk/service-search/find-a-dentist/results?location=Stockton%20Heath&latitude=53.3705&longitude=-2.5811";
 
+/**
+ * Places each dental practice on the NHS Dentists map by its postcode. The
+ * data is the ONS Postcode Directory, under the Open Government Licence, which
+ * asks for the three credits in its About entry below.
+ */
+export const POSTCODES_IO_URL = "https://postcodes.io";
+
+/**
+ * The map under the NHS Dentists pins: OpenStreetMap data, served as tiles by
+ * OpenFreeMap. Links to OpenStreetMap's copyright page, which is the credit
+ * the data's licence asks for.
+ */
+export const OPENSTREETMAP_URL = "https://www.openstreetmap.org/copyright";
+
 export const NHS_FIND_A_DENTIST_HELP_URL =
   "https://www.nhs.uk/nhs-services/dentists/how-to-find-an-nhs-dentist/";
-
-export const NHS_URGENT_DENTAL_URL =
-  "https://www.nhs.uk/nhs-services/dentists/how-to-find-an-nhs-dentist-in-an-emergency/";
 
 // ── Hand-copied sources ───────────────────────────────────────────────────────
 
@@ -148,12 +161,29 @@ export const DATA_SOURCES: DataSource[] = [
     group: "live",
   },
   {
-    icon: "smile",
+    icon: "tooth-outline",
+    iconSet: "material-community",
     name: "NHS website - Find a dentist",
     detail:
       "Which nearby dental practices are taking on new NHS patients, checked daily. Licensed under the Open Government Licence v3.0.",
     url: NHS_FIND_A_DENTIST_URL,
     government: true,
+    group: "live",
+  },
+  {
+    icon: "map-pin",
+    name: "postcodes.io",
+    detail:
+      "Where each dental practice's postcode is, to place it on the NHS Dentists map. Source: Office for National Statistics, licensed under the Open Government Licence v3.0. Contains OS data © Crown copyright and database right. Contains Royal Mail data © Royal Mail copyright and database right.",
+    url: POSTCODES_IO_URL,
+    group: "live",
+  },
+  {
+    icon: "map",
+    name: "OpenStreetMap",
+    detail:
+      "The map on the NHS Dentists screen. Map data © OpenStreetMap contributors, available under the Open Database Licence, with map tiles from OpenFreeMap.",
+    url: OPENSTREETMAP_URL,
     group: "live",
   },
 

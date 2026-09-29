@@ -2,7 +2,7 @@
   "expo": {
     "name": "Stockton Heath",
     "slug": "stockton-heath",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/images/sh-icon.png",
     "scheme": "stocktonheath",
@@ -51,7 +51,8 @@
             "imageWidth": 200
           }
         }
-      ]
+      ],
+      "@maplibre/maplibre-react-native"
     ],
     "experiments": {
       "typedRoutes": true,

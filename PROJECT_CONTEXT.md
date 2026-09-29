@@ -17,6 +17,7 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
 #### Home Tab
 
 - Personalised greeting card - the user is asked for their first name on first launch (`WelcomeNamePrompt`), stored locally and editable from the About screen via `/change-name`
+- **NHS dentists announcement** (`NhsDentistsAnnouncement`) - a temporary launch notice between the greeting and the weather: "New: see which NHS dentists near Stockton Heath are taking on new patients", tapping through to `/nhs-dentists`. It can be closed (remembered in AsyncStorage) and stops showing on its own after `ANNOUNCEMENT_EXPIRY`, 1 December 2026 - delete it once that has passed
 - Displays current **weather** for Stockton Heath (lat/lon hardcoded) using the **OpenWeather One Call API**
 - Shows live **local fuel prices** for three nearby petrol stations:
   - ASDA (Wilderspool Causeway)
@@ -37,7 +38,7 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
   - **Broomfields Leisure Centre** - opening hours, list of facilities (gym, pool, classes, football pitches, venue hire)
   - **Medical centres** - a list screen linking to Stockton Heath, Latchford and Stretton surgeries, each with opening hours and links to eConsult, appointments, prescriptions, test results
   - **Stockton Heath Post Office** - opening hours, full list of available services (banking, parcels, bills, passport check & send)
-  - **NHS Dentists** (`/nhs-dentists`) - every NHS dental practice within 8 miles, nearest first, with whether it is taking on new NHS patients (adults, children, adults entitled to free care), when the practice last confirmed that, and links to call it or open its nhs.uk page. Filter chips for All / Adults / Children. Read daily from nhs.uk by the backend - see [NHS dentists](#nhs-dentists)
+  - **NHS Dentists** (`/nhs-dentists`) - every NHS dental practice within 5 miles, nearest first, with whether it is taking on new NHS patients (adults, children, adults entitled to free care), when the practice last confirmed that, and links to call it or open its nhs.uk page. A List / Map toggle switches to a map with a pin per practice, coloured by status; tapping a pin shows the practice with Call and NHS website buttons - see [NHS dentists](#nhs-dentists). Read daily from nhs.uk by the backend
 
 #### Bridge Tab
 
@@ -92,7 +93,7 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | `POST /bin-subscriptions`            | Register a token + UPRN for bin reminders               |
 | `DELETE /bin-subscriptions`          | Unregister a token from bin reminders                   |
 | `GET /fuel-prices`                   | Cached fuel prices for local stations                   |
-| `GET /nhs-dentists`                  | Cached NHS dental practices within 8 miles and whether each is taking on new NHS patients. `503` until the first read of nhs.uk after a restart |
+| `GET /nhs-dentists`                  | Cached NHS dental practices within 5 miles and whether each is taking on new NHS patients. `503` until the first read of nhs.uk after a restart |
 | `GET /business-listings`             | Live Local Offers listings (`approved && active` only)  |
 | `GET /business-listings/pending` 🔒  | Listings awaiting manual approval                       |
 | `GET /business-listings/admin` 🔒    | Every listing, unapproved first, for the approvals and Listings screens. Each carries a `stripeUrl` straight to the subscription (or the customer) in the Stripe dashboard |
@@ -213,7 +214,8 @@ rendered on the server, and Chromium would not fit on the droplet.
 Two kinds of page are read, once a day:
 
 1. **The results page** for Stockton Heath (the lat/lon the weather uses). It lists the
-   nearest 50 practices, which currently reach exactly 8 miles, and gives the list, the
+   nearest 50 practices, which currently reach about 8 miles - comfortably past the 5-mile
+   cut-off (`MAX_MILES`) - and gives the list, the
    phone numbers, the distances and a first guess at each status. Every field is read
    from an element id nhs.uk puts on each result (`item_id_N`, `orgname_N`,
    `not_accepting_patients_N`...) - the full list is at the top of the module.
@@ -262,7 +264,7 @@ npx tsx scripts/check-nhs-dentists.ts           # what the parser makes of the l
 npx tsx scripts/check-nhs-dentists.ts --pages   # and of every practice page (about 4 minutes)
 ```
 
-The log also warns if the 50-result page stops reaching 8 miles, which would mean
+The log also warns if the 50-result page stops reaching 5 miles, which would mean
 practices at the edge are silently missing.
 
 **Licence.** nhs.uk content is reusable, commercially too, under the Open Government
@@ -270,6 +272,32 @@ Licence v3.0, on three conditions the screen meets: it is credited as informatio
 the NHS website with the licence named, it is refreshed daily (at least every 7 days is
 required, or an "as at" date shown - the screen shows when it was last checked), and no
 NHS logo or branding is used. Keep all three if the screen is redesigned.
+
+**The map.** nhs.uk gives no coordinates, so the backend places each practice by its
+postcode, looked up on [postcodes.io](https://postcodes.io) - free, no key, one request
+for the whole list, and positions are carried over between syncs so only a new practice
+is ever looked up. A list saved before positions existed gets them at boot. A failed
+lookup leaves a practice off the map but in the list, and the map says how many are
+missing. postcodes.io serves the ONS Postcode Directory under the OGL, which asks for
+the ONS, OS and Royal Mail credits in its About entry; the map screen names the source
+and says pins are approximate.
+
+The map is **MapLibre** (`@maplibre/maplibre-react-native`, `components/DentistMap.tsx`),
+open source and the same on iOS and Android, drawing **OpenStreetMap** data served by
+**OpenFreeMap** (`tiles.openfreemap.org/styles/liberty`): free, no API key, no account, no
+billing. The pins are one circle layer coloured by status, not a view per pin. MapLibre
+shows the "© OpenStreetMap" credit from the style itself - keep `attribution` on - and
+OpenStreetMap is listed on About.
+
+- **OpenFreeMap has no uptime promise** - it runs on donations. If it is down the map is
+  blank and the list still works. Moving to another provider (MapTiler, Stadia, or tiles
+  hosted on R2) is a change to `MAP_STYLE` alone.
+- **It is native code**, so it only reaches phones through a store build, never
+  `npm run ui-update`. That is why this change took the app to **1.0.6**: updates only
+  reach builds with the same version, so 1.0.5 builds without the map library can't be
+  sent JavaScript that needs it. The library's Expo plugin is in `app.json`.
+- `DentistMap.web.tsx` is a stand-in so `expo start --web` still runs; the app is not
+  published on the web.
 
 ---
 
@@ -626,8 +654,9 @@ Stripe is in a sandbox with test keys. Going live means repeating the product, p
 | Business auth        | Clerk (`@clerk/backend`)                                                            |
 | Payments             | Stripe (Checkout, Customer Portal, subscription webhooks)                           |
 | Image storage        | Cloudflare R2 (signed uploads via the S3-compatible API)                             |
-| External APIs        | OpenWeather One Call, twitterapi.io, Gov.uk Fuel Finder, Warrington Borough Council |
+| External APIs        | OpenWeather One Call, twitterapi.io, Gov.uk Fuel Finder, Warrington Borough Council, postcodes.io |
 | Scraped pages        | nhs.uk find-a-dentist (parsed with `cheerio`)                                        |
+| Maps                 | MapLibre React Native with OpenStreetMap tiles from OpenFreeMap (no API key)        |
 
 ---
 
