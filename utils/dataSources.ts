@@ -77,9 +77,6 @@ export const NHS_FIND_A_DENTIST_RESULTS_URL =
 export const NHS_FIND_A_DENTIST_HELP_URL =
   "https://www.nhs.uk/nhs-services/dentists/how-to-find-an-nhs-dentist/";
 
-export const NHS_URGENT_DENTAL_URL =
-  "https://www.nhs.uk/nhs-services/dentists/how-to-find-an-nhs-dentist-in-an-emergency/";
-
 // ── Hand-copied sources ───────────────────────────────────────────────────────
 
 export const SANDY_LANE_CRC_URL =
