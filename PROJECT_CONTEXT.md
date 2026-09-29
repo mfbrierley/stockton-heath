@@ -17,6 +17,7 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
 #### Home Tab
 
 - Personalised greeting card - the user is asked for their first name on first launch (`WelcomeNamePrompt`), stored locally and editable from the About screen via `/change-name`
+- **NHS dentists card** (`NhsDentistsCard`) - highlights the NHS Dentists screen, between the greeting and the weather, with a button through to `/nhs-dentists`
 - Displays current **weather** for Stockton Heath (lat/lon hardcoded) using the **OpenWeather One Call API**
 - Shows live **local fuel prices** for three nearby petrol stations:
   - ASDA (Wilderspool Causeway)
