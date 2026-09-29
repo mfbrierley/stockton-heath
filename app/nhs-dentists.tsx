@@ -133,7 +133,7 @@ export default function NhsDentists() {
               { marginTop: 6 },
             ]}
           >
-            NHS dental practices within 8 miles of Stockton Heath, and whether
+            NHS dental practices within 5 miles of Stockton Heath, and whether
             they are taking on new NHS patients
           </Text>
         </View>
@@ -143,9 +143,9 @@ export default function NhsDentists() {
             name="information-circle"
             size={16}
             color={theme.colors.statusAmber}
-            style={{ marginTop: 2 }}
+            style={{ marginTop: 3 }}
           />
-          <Text style={[globalStyles.body, { flex: 1, fontSize: 13, lineHeight: 20 }]}>
+          <Text style={[globalStyles.body, styles.caveatText]}>
             Practices tell the NHS this themselves and it can be out of date,
             so phone before you go. If they are full, ask about a waiting list.
             {"\n\n"}
@@ -186,13 +186,13 @@ export default function NhsDentists() {
                   name="warning"
                   size={16}
                   color={theme.colors.statusAmber}
-                  style={{ marginTop: 2 }}
+                  style={{ marginTop: 3 }}
                 />
                 <Text
                   style={[
                     globalStyles.body,
                     globalStyles.bodyBold,
-                    { flex: 1, fontSize: 13, lineHeight: 20 },
+                    styles.caveatText,
                   ]}
                 >
                   This list has not been updated from the NHS website since{" "}
@@ -270,6 +270,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 20,
     paddingVertical: 16,
+  },
+  caveatText: {
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 22,
   },
   link: {
     fontFamily: theme.fonts.bodyBold,

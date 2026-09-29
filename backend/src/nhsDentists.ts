@@ -104,10 +104,10 @@ const LONGITUDE = -2.5811;
 
 export const NHS_DENTISTS_RESULTS_URL = `https://www.nhs.uk/service-search/find-a-dentist/results?location=Stockton%20Heath&latitude=${LATITUDE}&longitude=${LONGITUDE}`;
 
-export const MAX_MILES = 8;
+export const MAX_MILES = 5;
 
 // nhs.uk returns the nearest 50 practices on one page, with no further pages.
-// At 8 miles that is currently everything, but only just.
+// They currently reach about 8 miles, comfortably past MAX_MILES.
 const RESULTS_PAGE_SIZE = 50;
 
 // nhs.uk's robots.txt asks for five seconds between requests.
@@ -372,7 +372,11 @@ async function load(): Promise<void> {
         if (Array.isArray(snapshot.data) && typeof snapshot.fetchedAt === "number") {
           cached = {
             fetchedAt: snapshot.fetchedAt,
-            data: snapshot.data.map((d) => ({ ...d, opened: d.opened ?? null })),
+            // Filtered again in case MAX_MILES has shrunk since it was saved;
+            // otherwise the old radius would be served until the next read.
+            data: snapshot.data
+              .filter((d) => d.distanceMiles <= MAX_MILES)
+              .map((d) => ({ ...d, opened: d.opened ?? null })),
           };
         }
       } else if (["ok", "stale", "degraded"].includes(row.value)) {

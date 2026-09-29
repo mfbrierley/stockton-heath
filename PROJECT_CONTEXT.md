@@ -37,7 +37,7 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
   - **Broomfields Leisure Centre** - opening hours, list of facilities (gym, pool, classes, football pitches, venue hire)
   - **Medical centres** - a list screen linking to Stockton Heath, Latchford and Stretton surgeries, each with opening hours and links to eConsult, appointments, prescriptions, test results
   - **Stockton Heath Post Office** - opening hours, full list of available services (banking, parcels, bills, passport check & send)
-  - **NHS Dentists** (`/nhs-dentists`) - every NHS dental practice within 8 miles, nearest first, with whether it is taking on new NHS patients (adults, children, adults entitled to free care), when the practice last confirmed that, and links to call it or open its nhs.uk page. Filter chips for All / Adults / Children. Read daily from nhs.uk by the backend - see [NHS dentists](#nhs-dentists)
+  - **NHS Dentists** (`/nhs-dentists`) - every NHS dental practice within 5 miles, nearest first, with whether it is taking on new NHS patients (adults, children, adults entitled to free care), when the practice last confirmed that, and links to call it or open its nhs.uk page. Filter chips for All / Adults / Children. Read daily from nhs.uk by the backend - see [NHS dentists](#nhs-dentists)
 
 #### Bridge Tab
 
@@ -92,7 +92,7 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | `POST /bin-subscriptions`            | Register a token + UPRN for bin reminders               |
 | `DELETE /bin-subscriptions`          | Unregister a token from bin reminders                   |
 | `GET /fuel-prices`                   | Cached fuel prices for local stations                   |
-| `GET /nhs-dentists`                  | Cached NHS dental practices within 8 miles and whether each is taking on new NHS patients. `503` until the first read of nhs.uk after a restart |
+| `GET /nhs-dentists`                  | Cached NHS dental practices within 5 miles and whether each is taking on new NHS patients. `503` until the first read of nhs.uk after a restart |
 | `GET /business-listings`             | Live Local Offers listings (`approved && active` only)  |
 | `GET /business-listings/pending` 🔒  | Listings awaiting manual approval                       |
 | `GET /business-listings/admin` 🔒    | Every listing, unapproved first, for the approvals and Listings screens. Each carries a `stripeUrl` straight to the subscription (or the customer) in the Stripe dashboard |
@@ -213,7 +213,8 @@ rendered on the server, and Chromium would not fit on the droplet.
 Two kinds of page are read, once a day:
 
 1. **The results page** for Stockton Heath (the lat/lon the weather uses). It lists the
-   nearest 50 practices, which currently reach exactly 8 miles, and gives the list, the
+   nearest 50 practices, which currently reach about 8 miles - comfortably past the 5-mile
+   cut-off (`MAX_MILES`) - and gives the list, the
    phone numbers, the distances and a first guess at each status. Every field is read
    from an element id nhs.uk puts on each result (`item_id_N`, `orgname_N`,
    `not_accepting_patients_N`...) - the full list is at the top of the module.
@@ -262,7 +263,7 @@ npx tsx scripts/check-nhs-dentists.ts           # what the parser makes of the l
 npx tsx scripts/check-nhs-dentists.ts --pages   # and of every practice page (about 4 minutes)
 ```
 
-The log also warns if the 50-result page stops reaching 8 miles, which would mean
+The log also warns if the 50-result page stops reaching 5 miles, which would mean
 practices at the edge are silently missing.
 
 **Licence.** nhs.uk content is reusable, commercially too, under the Open Government

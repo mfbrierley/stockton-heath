@@ -66,9 +66,6 @@ const describe = (dentist: NhsDentist): string => {
   }
 };
 
-const formatMiles = (miles: number) =>
-  `${miles} ${miles === 1 ? "mile" : "miles"}`;
-
 /** YYYY-MM-DD as a local date, so the day cannot shift with the time zone. */
 const parseDay = (iso: string) => {
   const [year, month, day] = iso.split("-").map(Number);
@@ -160,16 +157,7 @@ export default function DentistCard({ dentist }: { dentist: NhsDentist }) {
       style={[globalStyles.card, globalStyles.cardWhite, globalStyles.cardList]}
     >
       <View style={styles.body}>
-        <View style={styles.titleRow}>
-          <Text style={[globalStyles.cardTitle, { flex: 1 }]}>
-            {dentist.name}
-          </Text>
-          <Text
-            style={[globalStyles.bodySmall, globalStyles.bodyMuted, styles.distance]}
-          >
-            {formatMiles(dentist.distanceMiles)}
-          </Text>
-        </View>
+        <Text style={globalStyles.cardTitle}>{dentist.name}</Text>
         <Text style={[globalStyles.bodySmall, globalStyles.bodyMuted]}>
           {dentist.address}
         </Text>
@@ -244,15 +232,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 20,
     gap: 8,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-  distance: {
-    marginTop: 2,
-    flexShrink: 0,
   },
   groupRow: {
     flexDirection: "row",
