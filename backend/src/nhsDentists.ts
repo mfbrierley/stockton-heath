@@ -90,6 +90,12 @@ export type NhsDentist = {
    * the day before, and which groups. Null until that has happened.
    */
   opened: { at: string; groups: Group[] } | null;
+  /**
+   * Where its postcode is, for the map - approximate, since a postcode covers
+   * a few houses. Null if the postcode could not be looked up.
+   */
+  latitude: number | null;
+  longitude: number | null;
 };
 
 /** What a practice's own appointments page says. */
@@ -209,6 +215,8 @@ export function parseResults(html: string): NhsDentist[] {
       urgentCare: tags.includes("urgent dental care"),
       lastConfirmed: null,
       opened: null,
+      latitude: null,
+      longitude: null,
       // Specialist-only practices have no appointments page (it is a 404).
       nhsUrl:
         status === "referral_only"
@@ -296,6 +304,84 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const message = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
+// ── Map positions ─────────────────────────────────────────────────────────────
+//
+// nhs.uk gives no coordinates, so each practice is placed on the map by its
+// postcode, looked up on postcodes.io: free, no key, and built on the ONS
+// Postcode Directory, which is under the Open Government Licence like the NHS
+// data. One request covers the whole list, and positions are carried over
+// between syncs, so in practice only a new practice is ever looked up.
+
+const POSTCODES_URL = "https://api.postcodes.io/postcodes";
+
+const postcodeOf = (address: string): string | null =>
+  /([A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2})$/i.exec(address.trim())?.[1].toUpperCase() ?? null;
+
+/**
+ * Fill in latitude and longitude, reusing the last known position of any
+ * practice at the same postcode. Never throws: a failed lookup leaves the
+ * practice off the map, and it stays in the list.
+ */
+async function locate(
+  dentists: NhsDentist[],
+  known: NhsDentist[],
+): Promise<NhsDentist[]> {
+  const positions = new Map<string, { latitude: number; longitude: number }>();
+  for (const d of known) {
+    const postcode = postcodeOf(d.address);
+    if (postcode && d.latitude !== null && d.longitude !== null) {
+      positions.set(postcode, { latitude: d.latitude, longitude: d.longitude });
+    }
+  }
+
+  const missing = [
+    ...new Set(
+      dentists
+        .map((d) => postcodeOf(d.address))
+        .filter((p): p is string => p !== null && !positions.has(p)),
+    ),
+  ];
+  if (missing.length) {
+    try {
+      const res = await fetch(POSTCODES_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "User-Agent": USER_AGENT },
+        body: JSON.stringify({ postcodes: missing }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      if (!res.ok) throw new Error(`${res.status} from postcodes.io`);
+      const json = (await res.json()) as {
+        result: {
+          query: string;
+          result: { latitude: number | null; longitude: number | null } | null;
+        }[];
+      };
+      for (const { query, result } of json.result) {
+        if (result?.latitude != null && result.longitude != null) {
+          positions.set(query.toUpperCase(), {
+            latitude: result.latitude,
+            longitude: result.longitude,
+          });
+        }
+      }
+    } catch (error) {
+      console.warn(
+        `NHS dentists: could not look up ${missing.length} postcode(s) for the map:`,
+        message(error),
+      );
+    }
+  }
+
+  return dentists.map((d) => {
+    const position = positions.get(postcodeOf(d.address) ?? "");
+    return {
+      ...d,
+      latitude: position?.latitude ?? null,
+      longitude: position?.longitude ?? null,
+    };
+  });
+}
+
 // ── Keeping the list ──────────────────────────────────────────────────────────
 //
 // The list is saved to AppMeta after every sync and loaded at boot, so a
@@ -376,7 +462,12 @@ async function load(): Promise<void> {
             // otherwise the old radius would be served until the next read.
             data: snapshot.data
               .filter((d) => d.distanceMiles <= MAX_MILES)
-              .map((d) => ({ ...d, opened: d.opened ?? null })),
+              .map((d) => ({
+                ...d,
+                opened: d.opened ?? null,
+                latitude: d.latitude ?? null,
+                longitude: d.longitude ?? null,
+              })),
           };
         }
       } else if (["ok", "stale", "degraded"].includes(row.value)) {
@@ -521,7 +612,7 @@ export async function syncNhsDentists(): Promise<void> {
       };
     });
 
-    cached = { data, fetchedAt };
+    cached = { data: await locate(data, [...before.values()]), fetchedAt };
     pageReport =
       unrecognised > 0 || (attempted > 0 && failed / attempted > MAX_FAILED_SHARE)
         ? { attempted, problems }
@@ -593,6 +684,15 @@ export function startNhsDentists(prisma: PrismaClient): void {
   db = prisma;
   void (async () => {
     await load();
+    // A list saved before positions existed, or when postcodes.io was down,
+    // gets them now rather than waiting for the next day's read.
+    if (cached?.data.some((d) => d.latitude === null)) {
+      const located = await locate(cached.data, cached.data);
+      if (cached) {
+        cached = { ...cached, data: located };
+        await saveMeta(SNAPSHOT_KEY, JSON.stringify(cached));
+      }
+    }
     await tick();
     setInterval(() => void tick(), CHECK_EVERY_MS);
   })();

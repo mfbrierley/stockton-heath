@@ -76,6 +76,13 @@ export const NHS_FIND_A_DENTIST_URL =
 export const NHS_FIND_A_DENTIST_RESULTS_URL =
   "https://www.nhs.uk/service-search/find-a-dentist/results?location=Stockton%20Heath&latitude=53.3705&longitude=-2.5811";
 
+/**
+ * Places each dental practice on the NHS Dentists map by its postcode. The
+ * data is the ONS Postcode Directory, under the Open Government Licence, which
+ * asks for the three credits in its About entry below.
+ */
+export const POSTCODES_IO_URL = "https://postcodes.io";
+
 export const NHS_FIND_A_DENTIST_HELP_URL =
   "https://www.nhs.uk/nhs-services/dentists/how-to-find-an-nhs-dentist/";
 
@@ -154,6 +161,14 @@ export const DATA_SOURCES: DataSource[] = [
       "Which nearby dental practices are taking on new NHS patients, checked daily. Licensed under the Open Government Licence v3.0.",
     url: NHS_FIND_A_DENTIST_URL,
     government: true,
+    group: "live",
+  },
+  {
+    icon: "map-pin",
+    name: "postcodes.io",
+    detail:
+      "Where each dental practice's postcode is, to place it on the NHS Dentists map. Source: Office for National Statistics, licensed under the Open Government Licence v3.0. Contains OS data © Crown copyright and database right. Contains Royal Mail data © Royal Mail copyright and database right.",
+    url: POSTCODES_IO_URL,
     group: "live",
   },
 

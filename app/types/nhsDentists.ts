@@ -24,6 +24,9 @@ export interface NhsDentist {
    * taking the day before, and which groups
    */
   opened?: { at: string; groups: (keyof NhsDentist["accepting"])[] } | null;
+  /** Where its postcode is, for the map. Approximate; null if unknown. */
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface NhsDentistsResponse {

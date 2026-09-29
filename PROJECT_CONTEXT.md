@@ -38,7 +38,7 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
   - **Broomfields Leisure Centre** - opening hours, list of facilities (gym, pool, classes, football pitches, venue hire)
   - **Medical centres** - a list screen linking to Stockton Heath, Latchford and Stretton surgeries, each with opening hours and links to eConsult, appointments, prescriptions, test results
   - **Stockton Heath Post Office** - opening hours, full list of available services (banking, parcels, bills, passport check & send)
-  - **NHS Dentists** (`/nhs-dentists`) - every NHS dental practice within 5 miles, nearest first, with whether it is taking on new NHS patients (adults, children, adults entitled to free care), when the practice last confirmed that, and links to call it or open its nhs.uk page. Filter chips for All / Adults / Children. Read daily from nhs.uk by the backend - see [NHS dentists](#nhs-dentists)
+  - **NHS Dentists** (`/nhs-dentists`) - every NHS dental practice within 5 miles, nearest first, with whether it is taking on new NHS patients (adults, children, adults entitled to free care), when the practice last confirmed that, and links to call it or open its nhs.uk page. A List / Map toggle switches to a map with a pin per practice, coloured by status; tapping a pin shows the practice with Call and NHS website buttons. The map is iPhone-only for now - see [NHS dentists](#nhs-dentists). Read daily from nhs.uk by the backend
 
 #### Bridge Tab
 
@@ -272,6 +272,30 @@ Licence v3.0, on three conditions the screen meets: it is credited as informatio
 the NHS website with the licence named, it is refreshed daily (at least every 7 days is
 required, or an "as at" date shown - the screen shows when it was last checked), and no
 NHS logo or branding is used. Keep all three if the screen is redesigned.
+
+**The map.** nhs.uk gives no coordinates, so the backend places each practice by its
+postcode, looked up on [postcodes.io](https://postcodes.io) - free, no key, one request
+for the whole list, and positions are carried over between syncs so only a new practice
+is ever looked up. A list saved before positions existed gets them at boot. A failed
+lookup leaves a practice off the map but in the list, and the map says how many are
+missing. postcodes.io serves the ONS Postcode Directory under the OGL, which asks for
+the ONS, OS and Royal Mail credits in its About entry; the map screen names the source
+and says pins are approximate.
+
+The map is `react-native-maps` (`components/DentistMap.tsx`), which is native code: it
+only reaches phones through a store build, never `npm run ui-update`. That is why this
+change took the app to **1.0.6** - updates only reach builds with the same version, so
+1.0.5 builds without the map library can't be sent JavaScript that needs it.
+
+- **iPhone** uses Apple Maps, which needs no key.
+- **Android** uses Google Maps, which crashes without an API key, so `MAP_AVAILABLE`
+  in `DentistMap.tsx` hides the toggle there and Android shows the list only. To turn it
+  on: enable **Maps SDK for Android** in the Firebase project's Google Cloud console,
+  create an API key restricted to the package and the Play app-signing SHA-1, add
+  `["react-native-maps", { "androidGoogleMapsApiKey": "..." }]` to `plugins` in
+  `app.json`, add `"android"` to `MAP_AVAILABLE`, and do a new Android build.
+- `DentistMap.web.tsx` is a stand-in so `expo start --web` still runs; the app is not
+  published on the web.
 
 ---
 
@@ -628,8 +652,9 @@ Stripe is in a sandbox with test keys. Going live means repeating the product, p
 | Business auth        | Clerk (`@clerk/backend`)                                                            |
 | Payments             | Stripe (Checkout, Customer Portal, subscription webhooks)                           |
 | Image storage        | Cloudflare R2 (signed uploads via the S3-compatible API)                             |
-| External APIs        | OpenWeather One Call, twitterapi.io, Gov.uk Fuel Finder, Warrington Borough Council |
+| External APIs        | OpenWeather One Call, twitterapi.io, Gov.uk Fuel Finder, Warrington Borough Council, postcodes.io |
 | Scraped pages        | nhs.uk find-a-dentist (parsed with `cheerio`)                                        |
+| Maps                 | `react-native-maps` - Apple Maps on iOS; Android needs a Google Maps key first       |
 
 ---
 
