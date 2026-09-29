@@ -12,7 +12,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.mattbrierley1.stocktonheath",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Stockton Heath doesn't use your location. iOS asks for this text because the map in the app could show where you are, but the app never turns that on."
       }
     },
     "android": {
@@ -23,7 +24,11 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.mattbrierley1.stocktonheath",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "blockedPermissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "output": "static",

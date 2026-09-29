@@ -296,6 +296,16 @@ OpenStreetMap is listed on About.
   `npm run ui-update`. That is why this change took the app to **1.0.6**: updates only
   reach builds with the same version, so 1.0.5 builds without the map library can't be
   sent JavaScript that needs it. The library's Expo plugin is in `app.json`.
+- **The app does not use location, and says so.** MapLibre ships an optional "show my
+  location" feature, and that code alone is enough for Apple's upload scan to demand a
+  location purpose string - build 36 drew ITMS-90683 without one, and App Review can
+  reject for it. So `app.json` carries `NSLocationWhenInUseUsageDescription`, saying the
+  app doesn't use location. iOS only shows that text in the permission pop-up, which the
+  app never triggers, so nobody sees it. MapLibre's Android manifest also adds
+  `ACCESS_COARSE_LOCATION` and `ACCESS_FINE_LOCATION`; `android.blockedPermissions`
+  strips them, so Play doesn't see an app asking for location it never uses. If "show my
+  location" is ever wanted: rewrite the string to describe the real use, remove the two
+  blocked permissions, and update Play's Data safety form.
 - `DentistMap.web.tsx` is a stand-in so `expo start --web` still runs; the app is not
   published on the web.
 
