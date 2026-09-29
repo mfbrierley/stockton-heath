@@ -7,7 +7,7 @@ import BinReminderCard from "../../components/BinReminderCard";
 import BridgeAlertsCard from "../../components/BridgeAlertsCard";
 import { GreetingCard } from "../../components/GreetingCard";
 import { LocalFuelSection } from "../../components/LocalFuelSection";
-import NhsDentistsCard from "../../components/NhsDentistsCard";
+import NhsDentistsAnnouncement from "../../components/NhsDentistsAnnouncement";
 import QuickLinkCard from "../../components/QuickLinkCard";
 import SponsorCard from "../../components/SponsorCard";
 import {
@@ -140,7 +140,9 @@ export default function Index() {
         )}
       >
         <GreetingCard data={data} windMph={windMph} firstName={firstName} />
-        <NhsDentistsCard onPress={() => router.push("/nhs-dentists")} />
+        <NhsDentistsAnnouncement
+          onPress={() => router.push("/nhs-dentists")}
+        />
         <WeatherSection
           data={data}
           loading={loading}

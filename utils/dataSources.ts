@@ -23,8 +23,10 @@
 export type SourceGroup = "live" | "manual";
 
 export type DataSource = {
-  /** Feather icon name used on the About screen */
+  /** Icon name used on the About screen, from Feather unless `iconSet` says otherwise */
   icon: string;
+  /** For the rare icon Feather lacks, such as a tooth */
+  iconSet?: "material-community";
   name: string;
   detail: string;
   url: string;
@@ -145,7 +147,8 @@ export const DATA_SOURCES: DataSource[] = [
     group: "live",
   },
   {
-    icon: "smile",
+    icon: "tooth-outline",
+    iconSet: "material-community",
     name: "NHS website - Find a dentist",
     detail:
       "Which nearby dental practices are taking on new NHS patients, checked daily. Licensed under the Open Government Licence v3.0.",

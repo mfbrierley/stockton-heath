@@ -1,4 +1,5 @@
 import Feather from "@expo/vector-icons/Feather";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { router } from "expo-router";
 import { Text, View } from "react-native";
 import { globalStyles } from "../app/styles/globalStyles";
@@ -27,7 +28,13 @@ export default function LocalPlacesSection() {
         onPress={() => router.push("/medical-centres")}
       />
       <QuickLinkCard
-        icon={<Feather name="smile" size={22} color={theme.colors.primary} />}
+        icon={
+          <MaterialCommunityIcons
+            name="tooth-outline"
+            size={22}
+            color={theme.colors.primary}
+          />
+        }
         title="NHS Dentists"
         onPress={() => router.push("/nhs-dentists")}
       />
