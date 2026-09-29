@@ -51,7 +51,8 @@
             "imageWidth": 200
           }
         }
-      ]
+      ],
+      "@maplibre/maplibre-react-native"
     ],
     "experiments": {
       "typedRoutes": true,

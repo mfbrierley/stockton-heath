@@ -171,7 +171,7 @@ export default function NhsDentists() {
           {top}
           {status ?? <DentistMap dentists={dentists} />}
           <SourceNote
-            label="Practice details from the NHS website and pin positions from ONS postcode data, both under the Open Government Licence v3.0. Pins are placed by postcode, so are approximate. This is an unofficial app, not the NHS. Source:"
+            label="Practice details from the NHS website and pin positions from ONS postcode data, both under the Open Government Licence v3.0. Pins are placed by postcode, so are approximate. Map © OpenStreetMap contributors. This is an unofficial app, not the NHS. Source:"
             url={NHS_FIND_A_DENTIST_URL}
           />
         </View>

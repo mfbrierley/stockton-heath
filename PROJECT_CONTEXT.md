@@ -38,7 +38,7 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
   - **Broomfields Leisure Centre** - opening hours, list of facilities (gym, pool, classes, football pitches, venue hire)
   - **Medical centres** - a list screen linking to Stockton Heath, Latchford and Stretton surgeries, each with opening hours and links to eConsult, appointments, prescriptions, test results
   - **Stockton Heath Post Office** - opening hours, full list of available services (banking, parcels, bills, passport check & send)
-  - **NHS Dentists** (`/nhs-dentists`) - every NHS dental practice within 5 miles, nearest first, with whether it is taking on new NHS patients (adults, children, adults entitled to free care), when the practice last confirmed that, and links to call it or open its nhs.uk page. A List / Map toggle switches to a map with a pin per practice, coloured by status; tapping a pin shows the practice with Call and NHS website buttons. The map is iPhone-only for now - see [NHS dentists](#nhs-dentists). Read daily from nhs.uk by the backend
+  - **NHS Dentists** (`/nhs-dentists`) - every NHS dental practice within 5 miles, nearest first, with whether it is taking on new NHS patients (adults, children, adults entitled to free care), when the practice last confirmed that, and links to call it or open its nhs.uk page. A List / Map toggle switches to a map with a pin per practice, coloured by status; tapping a pin shows the practice with Call and NHS website buttons - see [NHS dentists](#nhs-dentists). Read daily from nhs.uk by the backend
 
 #### Bridge Tab
 
@@ -282,18 +282,20 @@ missing. postcodes.io serves the ONS Postcode Directory under the OGL, which ask
 the ONS, OS and Royal Mail credits in its About entry; the map screen names the source
 and says pins are approximate.
 
-The map is `react-native-maps` (`components/DentistMap.tsx`), which is native code: it
-only reaches phones through a store build, never `npm run ui-update`. That is why this
-change took the app to **1.0.6** - updates only reach builds with the same version, so
-1.0.5 builds without the map library can't be sent JavaScript that needs it.
+The map is **MapLibre** (`@maplibre/maplibre-react-native`, `components/DentistMap.tsx`),
+open source and the same on iOS and Android, drawing **OpenStreetMap** data served by
+**OpenFreeMap** (`tiles.openfreemap.org/styles/liberty`): free, no API key, no account, no
+billing. The pins are one circle layer coloured by status, not a view per pin. MapLibre
+shows the "© OpenStreetMap" credit from the style itself - keep `attribution` on - and
+OpenStreetMap is listed on About.
 
-- **iPhone** uses Apple Maps, which needs no key.
-- **Android** uses Google Maps, which crashes without an API key, so `MAP_AVAILABLE`
-  in `DentistMap.tsx` hides the toggle there and Android shows the list only. To turn it
-  on: enable **Maps SDK for Android** in the Firebase project's Google Cloud console,
-  create an API key restricted to the package and the Play app-signing SHA-1, add
-  `["react-native-maps", { "androidGoogleMapsApiKey": "..." }]` to `plugins` in
-  `app.json`, add `"android"` to `MAP_AVAILABLE`, and do a new Android build.
+- **OpenFreeMap has no uptime promise** - it runs on donations. If it is down the map is
+  blank and the list still works. Moving to another provider (MapTiler, Stadia, or tiles
+  hosted on R2) is a change to `MAP_STYLE` alone.
+- **It is native code**, so it only reaches phones through a store build, never
+  `npm run ui-update`. That is why this change took the app to **1.0.6**: updates only
+  reach builds with the same version, so 1.0.5 builds without the map library can't be
+  sent JavaScript that needs it. The library's Expo plugin is in `app.json`.
 - `DentistMap.web.tsx` is a stand-in so `expo start --web` still runs; the app is not
   published on the web.
 
@@ -654,7 +656,7 @@ Stripe is in a sandbox with test keys. Going live means repeating the product, p
 | Image storage        | Cloudflare R2 (signed uploads via the S3-compatible API)                             |
 | External APIs        | OpenWeather One Call, twitterapi.io, Gov.uk Fuel Finder, Warrington Borough Council, postcodes.io |
 | Scraped pages        | nhs.uk find-a-dentist (parsed with `cheerio`)                                        |
-| Maps                 | `react-native-maps` - Apple Maps on iOS; Android needs a Google Maps key first       |
+| Maps                 | MapLibre React Native with OpenStreetMap tiles from OpenFreeMap (no API key)        |
 
 ---
 

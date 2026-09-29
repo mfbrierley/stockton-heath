@@ -1,14 +1,13 @@
 import Feather from "@expo/vector-icons/Feather";
 import { useMemo, useState } from "react";
 import {
-  Linking,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import MapView, { Marker } from "react-native-maps";
+  Camera,
+  GeoJSONSource,
+  Layer,
+  Map as MapLibreMap,
+  type LngLatBounds,
+} from "@maplibre/maplibre-react-native";
+import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { globalStyles } from "../app/styles/globalStyles";
 import { theme } from "../app/styles/theme";
 import { DentistStatus, NhsDentist } from "../app/types/nhsDentists";
@@ -16,12 +15,16 @@ import Button from "./Button";
 import { GROUPS, StatusBadge } from "./DentistCard";
 
 /**
- * Where the map can be shown. iOS uses Apple Maps, which needs no key.
- * Android uses Google Maps, which will not even open without an API key: add
- * one to the react-native-maps plugin in app.json (androidGoogleMapsApiKey),
- * rebuild, and add "android" here.
+ * The map is MapLibre, open source and the same on iOS and Android, drawing
+ * OpenStreetMap data served by OpenFreeMap: free, no API key, no account.
+ * MapLibre shows the "© OpenStreetMap" credit the data needs by itself, from
+ * the style. OpenFreeMap is run on donations with no uptime promise; if it is
+ * ever down the map is blank and the list still works, and another provider
+ * (MapTiler, Stadia, or self-hosted tiles) is a change to this one URL.
  */
-export const MAP_AVAILABLE = Platform.OS === "ios";
+const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+
+export const MAP_AVAILABLE = true;
 
 const PIN_COLOURS: Record<DentistStatus, string> = {
   accepting: theme.colors.statusGreen,
@@ -36,9 +39,9 @@ const KEY = [
   { label: "Not taking", colour: PIN_COLOURS.not_accepting },
 ];
 
-// Stockton Heath, where the list is measured from - the fallback centre when
-// no practice has a position yet.
-const CENTRE = { latitude: 53.3705, longitude: -2.5811 };
+// Roughly 5 miles around Stockton Heath - the fallback view when no practice
+// has a position yet. [west, south, east, north]
+const AREA: LngLatBounds = [-2.7, 53.3, -2.46, 53.44];
 
 type Located = NhsDentist & { latitude: number; longitude: number };
 
@@ -54,22 +57,34 @@ export default function DentistMap({ dentists }: { dentists: NhsDentist[] }) {
     [dentists],
   );
 
-  // Frame every pin, with a margin so none sits on the edge.
-  const region = useMemo(() => {
-    if (located.length === 0) {
-      return { ...CENTRE, latitudeDelta: 0.16, longitudeDelta: 0.25 };
-    }
+  // Frame every pin; the camera's padding keeps them off the edges.
+  const bounds = useMemo((): LngLatBounds => {
+    if (located.length === 0) return AREA;
     const lats = located.map((d) => d.latitude);
     const lons = located.map((d) => d.longitude);
-    const [minLat, maxLat] = [Math.min(...lats), Math.max(...lats)];
-    const [minLon, maxLon] = [Math.min(...lons), Math.max(...lons)];
-    return {
-      latitude: (minLat + maxLat) / 2,
-      longitude: (minLon + maxLon) / 2,
-      latitudeDelta: (maxLat - minLat) * 1.3 + 0.01,
-      longitudeDelta: (maxLon - minLon) * 1.3 + 0.01,
-    };
+    // A little extra so a lone pin doesn't zoom the map right in.
+    const margin = 0.005;
+    return [
+      Math.min(...lons) - margin,
+      Math.min(...lats) - margin,
+      Math.max(...lons) + margin,
+      Math.max(...lats) + margin,
+    ];
   }, [located]);
+
+  // One point per practice. Drawn as a single circle layer, coloured by
+  // status from the feature's properties, rather than one view per pin.
+  const points = useMemo(
+    (): GeoJSON.FeatureCollection => ({
+      type: "FeatureCollection",
+      features: located.map((d) => ({
+        type: "Feature",
+        properties: { odsCode: d.odsCode, status: d.status },
+        geometry: { type: "Point", coordinates: [d.longitude, d.latitude] },
+      })),
+    }),
+    [located],
+  );
 
   const dentist = located.find((d) => d.odsCode === selected) ?? null;
 
@@ -86,27 +101,60 @@ export default function DentistMap({ dentists }: { dentists: NhsDentist[] }) {
         ))}
       </View>
       <View style={styles.container}>
-        <MapView
+        <MapLibreMap
           style={StyleSheet.absoluteFill}
-          initialRegion={region}
-          showsPointsOfInterest={false}
-          toolbarEnabled={false}
-          onPress={(event) => {
-            // Tapping a pin also reports a press on the map; only a tap on
-            // the map itself should close the panel.
-            if (event.nativeEvent.action !== "marker-press") setSelected(null);
-          }}
+          mapStyle={MAP_STYLE}
+          // The "© OpenStreetMap" credit OpenFreeMap requires.
+          attribution
+          logo={false}
+          compass={false}
+          touchPitch={false}
+          // A tap that isn't on a pin closes the panel. Taps on pins stop
+          // here, in the source's onPress, so never reach this.
+          onPress={() => setSelected(null)}
         >
-          {located.map((d) => (
-            <Marker
-              key={d.odsCode}
-              coordinate={{ latitude: d.latitude, longitude: d.longitude }}
-              pinColor={PIN_COLOURS[d.status]}
-              onPress={() => setSelected(d.odsCode)}
-              accessibilityLabel={d.name}
+          <Camera
+            initialViewState={{
+              bounds,
+              padding: { top: 48, right: 40, bottom: 48, left: 40 },
+            }}
+          />
+          <GeoJSONSource
+            id="dentists"
+            data={points}
+            hitbox={{ top: 16, right: 16, bottom: 16, left: 16 }}
+            onPress={(event) => {
+              event.stopPropagation();
+              const odsCode =
+                event.nativeEvent.features[0]?.properties?.odsCode;
+              if (typeof odsCode === "string") setSelected(odsCode);
+            }}
+          >
+            <Layer
+              id="dentist-pins"
+              type="circle"
+              paint={{
+                "circle-color": [
+                  "match",
+                  ["get", "status"],
+                  "accepting",
+                  PIN_COLOURS.accepting,
+                  "not_confirmed",
+                  PIN_COLOURS.not_confirmed,
+                  PIN_COLOURS.not_accepting,
+                ],
+                "circle-radius": [
+                  "case",
+                  ["==", ["get", "odsCode"], selected ?? ""],
+                  12,
+                  8,
+                ],
+                "circle-stroke-color": theme.colors.white,
+                "circle-stroke-width": 2.5,
+              }}
             />
-          ))}
-        </MapView>
+          </GeoJSONSource>
+        </MapLibreMap>
 
         {located.length < dentists.length && (
           <View style={styles.notice}>
