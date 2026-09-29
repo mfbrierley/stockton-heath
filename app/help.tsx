@@ -2,7 +2,11 @@ import Feather from "@expo/vector-icons/Feather";
 import { Linking, Platform, ScrollView, Text, View } from "react-native";
 import BackHeader from "../components/BackHeader";
 import SourceNote from "../components/SourceNote";
-import { SWING_BRIDGES_URL, WARRINGTON_BINS_URL } from "../utils/dataSources";
+import {
+  NHS_FIND_A_DENTIST_HELP_URL,
+  SWING_BRIDGES_URL,
+  WARRINGTON_BINS_URL,
+} from "../utils/dataSources";
 import { globalStyles } from "./styles/globalStyles";
 import { theme } from "./styles/theme";
 
@@ -47,6 +51,16 @@ const FAQS: {
     link: {
       label: "The council's swing bridge page, which names the feed:",
       url: SWING_BRIDGES_URL,
+    },
+  },
+  {
+    question:
+      "A dentist in the app says it's taking NHS patients, but it told me it isn't. Why?",
+    answer:
+      "The NHS Dentists screen shows what each practice has told the NHS website, which the app checks once a day. Practices have to confirm it every three months, but it can change in between, and places often fill quickly. Always phone the practice first, and ask about a waiting list if they're full. If you need urgent dental care, call 111 - any NHS dentist can give urgent treatment, even if they're not taking new patients.",
+    link: {
+      label: "How to find an NHS dentist:",
+      url: NHS_FIND_A_DENTIST_HELP_URL,
     },
   },
   {

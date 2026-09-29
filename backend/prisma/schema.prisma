@@ -82,3 +82,24 @@ model BusinessListing {
   createdAt            String
   updatedAt            String
 }
+
+// One row each time a nearby NHS dental practice's new-patient status changes
+// between two daily reads of nhs.uk - which groups it takes (adults, children,
+// adults entitled to free care) or its status ("accepting", "not_accepting",
+// "not_confirmed", "referral_only"). Groups are comma-separated, "" for none.
+//
+// The first read records nothing, having nothing to compare with, so the
+// history starts from the second. The app does not read this table; the
+// latest list, with each practice's most recent opening, is kept in AppMeta.
+model NhsDentistChange {
+  id         Int    @id @default(autoincrement())
+  odsCode    String
+  name       String
+  detectedAt String
+  fromStatus String
+  toStatus   String
+  fromGroups String
+  toGroups   String
+
+  @@index([odsCode])
+}

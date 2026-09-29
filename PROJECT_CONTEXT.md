@@ -37,6 +37,7 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
   - **Broomfields Leisure Centre** - opening hours, list of facilities (gym, pool, classes, football pitches, venue hire)
   - **Medical centres** - a list screen linking to Stockton Heath, Latchford and Stretton surgeries, each with opening hours and links to eConsult, appointments, prescriptions, test results
   - **Stockton Heath Post Office** - opening hours, full list of available services (banking, parcels, bills, passport check & send)
+  - **NHS Dentists** (`/nhs-dentists`) - every NHS dental practice within 8 miles, nearest first, with whether it is taking on new NHS patients (adults, children, adults entitled to free care), when the practice last confirmed that, and links to call it or open its nhs.uk page. Filter chips for All / Adults / Children. Read daily from nhs.uk by the backend - see [NHS dentists](#nhs-dentists)
 
 #### Bridge Tab
 
@@ -69,6 +70,7 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 ### What it does
 
 - Serves as a proxy/cache for fuel price data (fetching from the Gov.uk Fuel Finder API every 30 minutes)
+- Reads which nearby NHS dentists are taking on new patients from nhs.uk once a day, and caches it
 - Polls Twitter (via twitterapi.io) for bridge closure tweets and stores them in a database
 - Stores Expo push notification tokens and fans out push notifications for bridge closures and bin collection reminders
 - Exposes a simple REST API consumed by the mobile app
@@ -90,6 +92,7 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | `POST /bin-subscriptions`            | Register a token + UPRN for bin reminders               |
 | `DELETE /bin-subscriptions`          | Unregister a token from bin reminders                   |
 | `GET /fuel-prices`                   | Cached fuel prices for local stations                   |
+| `GET /nhs-dentists`                  | Cached NHS dental practices within 8 miles and whether each is taking on new NHS patients. `503` until the first read of nhs.uk after a restart |
 | `GET /business-listings`             | Live Local Offers listings (`approved && active` only)  |
 | `GET /business-listings/pending` 🔒  | Listings awaiting manual approval                       |
 | `GET /business-listings/admin` 🔒    | Every listing, unapproved first, for the approvals and Listings screens. Each carries a `stripeUrl` straight to the subscription (or the customer) in the Stripe dashboard |
@@ -148,12 +151,13 @@ without setting the bridge closure banner.
 
 ### Database
 
-Uses **Turso** (a hosted libSQL/SQLite service) via **Prisma** ORM. Five tables:
+Uses **Turso** (a hosted libSQL/SQLite service) via **Prisma** ORM. Its tables:
 
 - `BridgeAlert` - each detected bridge closure tweet (tweetId, tweetText, postedAt, detectedAt)
 - `BridgeSubscription` - Expo push tokens subscribed to bridge alerts
 - `BinSubscription` - Expo push tokens subscribed to bin reminders, each paired with a UPRN
-- `AppMeta` - simple key/value store; currently holds `lastBinNotificationDate` for reminder de-duplication
+- `AppMeta` - simple key/value store; holds `lastBinNotificationDate` for reminder de-duplication, and `nhsDentists` (the last good NHS dentists list, as JSON) and `nhsDentistsHealth` (`ok`, `stale` or `degraded`) - see [NHS dentists](#nhs-dentists)
+- `NhsDentistChange` - one row each time a nearby dental practice's new-patient status changes between two daily reads of nhs.uk. A history only; nothing reads it yet. Created by `20260929000000_add_nhs_dentist_changes`
 - `WelcomedUser` - one row per business account already sent a welcome email. Clerk owns sign-up and never tells this backend about it, so the first authenticated request an account makes stands in for the event, and this table is the only thing that can tell that request from every one after it
 - `BusinessListing` - a paid Local Offers listing. `approved` (manual editorial review) and `active` (Stripe subscription in good standing) are independent; a listing reaches the app only when both are true. `cancelAtPeriodEnd` and `currentPeriodEnd` mirror Stripe so the portal can show a pending cancellation: `active` stays true through one, because the business has paid to the end of the period, and without these two a cancelled subscription is indistinguishable from a healthy one after a page reload
 
@@ -192,9 +196,80 @@ All scheduled with `setInterval` in `backend/src/index.ts` - there is no cron or
 
 - **Bridge polling** (every 10 minutes, 6am-10pm UK time): checks twitterapi.io for new tweets from `@trafficwarr` containing "Swingbridge Alert". If a new one is found, it saves it to the database and pushes to all bridge subscribers via the Expo Push Notification service.
 - **Fuel price polling** (every 30 minutes): fetches fresh prices from the Gov.uk Fuel Finder API using OAuth client credentials. Results are cached in memory.
+- **NHS dentists** (checked hourly, runs once the saved list is a day old): reads the nhs.uk find-a-dentist results page, then each practice's appointments page five seconds apart - about four minutes in all. Saved to `AppMeta`, so a restart serves the saved list without reading nhs.uk again. A failed read is retried the next hour. See [NHS dentists](#nhs-dentists).
 - **Bin reminders** (checked every minute, fires at 18:00 UK time): groups bin subscriptions by UPRN, queries the council API for each, and pushes "Put out your \<bins\> tonight" to anyone with a collection tomorrow. De-duplicated per day via `AppMeta` so a redeploy can't double-send.
 
 Invalid Expo push tokens returned by the push service are pruned from the relevant subscription table automatically.
+
+### NHS dentists
+
+`backend/src/nhsDentists.ts` reads nhs.uk rather than the NHS Service Search API because
+a production API key is not self-serve - it is requested from the national service desk
+and reviewed by hand, and developers have reported waiting months for one. The website
+also carries something the API does not: the date each practice last confirmed its
+status. It is a plain `fetch` and `cheerio`, not a headless browser; the pages are
+rendered on the server, and Chromium would not fit on the droplet.
+
+Two kinds of page are read, once a day:
+
+1. **The results page** for Stockton Heath (the lat/lon the weather uses). It lists the
+   nearest 50 practices, which currently reach exactly 8 miles, and gives the list, the
+   phone numbers, the distances and a first guess at each status. Every field is read
+   from an element id nhs.uk puts on each result (`item_id_N`, `orgname_N`,
+   `not_accepting_patients_N`...) - the full list is at the top of the module.
+2. **Each practice's appointments page**, five seconds apart as nhs.uk's `robots.txt`
+   asks. This is the final word on status, because the results page shows the same
+   block for "does not accept new NHS patients" and "has not confirmed whether it does".
+   It also has the "Last confirmed" date. Specialist-only practices are skipped - their
+   appointments page is a 404.
+
+The new list is published in one go when the practice pages are done, so the app never
+sees half of one sync and half of the next. It is also saved to `AppMeta` and loaded at
+boot, so a deploy serves the saved list straight away and does not read nhs.uk again until
+it is a day old. Only with no saved list at all - the very first boot - is the results page
+alone served for those first few minutes.
+
+**Comparing with yesterday.** Each sync is compared with the saved list. A practice that
+starts taking a group it wasn't taking gets `opened: { at, groups }`, which the app shows as
+"Newly taking adults 18 or over - spotted 26 Sep" for 14 days. Every change of status or
+groups is also logged to `NhsDentistChange`, a history for later use (alerts, say). The
+first sync has nothing to compare with, so records nothing.
+
+**When nhs.uk changes its markup.** A results page with any practice the parser can't
+fully read fails the whole sync, and the last good list is kept with its original
+`fetchedAt` - which the app shows - rather than a guess. A practice page it can't read
+falls back to the results page's status for that practice, or to yesterday's reading when
+the results page shows the same groups as yesterday, so one failed request doesn't lose a
+practice's "not confirmed" status or its date.
+
+**You are emailed** (at `OWNER_EMAIL`, through the existing Gmail setup) when the list's
+health changes, never once per failed attempt:
+
+| Email | When |
+|---|---|
+| `nhsDentistsStale` | No successful read of the results page for 48 hours - two days of hourly retries |
+| `nhsDentistsDegraded` | A read finished, but a practice page loaded and wasn't recognised, or more than a fifth of them failed to load. Lists each one |
+| `nhsDentistsRecovered` | Back to normal after either of the above |
+
+The state is saved in `AppMeta`, so a restart doesn't send the same email twice. The app
+adds its own warning above the list once it is more than 3 days old.
+
+Run this first:
+
+```bash
+cd backend
+npx tsx scripts/check-nhs-dentists.ts           # what the parser makes of the live results page
+npx tsx scripts/check-nhs-dentists.ts --pages   # and of every practice page (about 4 minutes)
+```
+
+The log also warns if the 50-result page stops reaching 8 miles, which would mean
+practices at the edge are silently missing.
+
+**Licence.** nhs.uk content is reusable, commercially too, under the Open Government
+Licence v3.0, on three conditions the screen meets: it is credited as information from
+the NHS website with the licence named, it is refreshed daily (at least every 7 days is
+required, or an "as at" date shown - the screen shows when it was last checked), and no
+NHS logo or branding is used. Keep all three if the screen is redesigned.
 
 ---
 
@@ -552,6 +627,7 @@ Stripe is in a sandbox with test keys. Going live means repeating the product, p
 | Payments             | Stripe (Checkout, Customer Portal, subscription webhooks)                           |
 | Image storage        | Cloudflare R2 (signed uploads via the S3-compatible API)                             |
 | External APIs        | OpenWeather One Call, twitterapi.io, Gov.uk Fuel Finder, Warrington Borough Council |
+| Scraped pages        | nhs.uk find-a-dentist (parsed with `cheerio`)                                        |
 
 ---
 

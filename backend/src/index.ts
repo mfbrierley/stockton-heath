@@ -19,6 +19,7 @@ import {
   subscriptionStarted,
 } from "./email";
 import { subscriptionPeriod } from "./subscription";
+import { getCachedNhsDentists, startNhsDentists } from "./nhsDentists";
 import { PrismaClient } from "./generated/prisma/client";
 
 setDefaultResultOrder("ipv4first");
@@ -804,6 +805,14 @@ app.get("/fuel-prices", (req: Request, res: Response) => {
     return res.status(503).json({ error: "Fuel prices not yet available" });
   }
   return res.json(cachedFuelPrices);
+});
+
+app.get("/nhs-dentists", (req: Request, res: Response) => {
+  const dentists = getCachedNhsDentists();
+  if (!dentists) {
+    return res.status(503).json({ error: "NHS dentists not yet available" });
+  }
+  return res.json(dentists);
 });
 
 // ── Local Offers ──────────────────────────────────────────────────────────────
@@ -2386,6 +2395,11 @@ setInterval(
   },
   30 * 60 * 1000,
 );
+
+// Daily: practices change their status rarely, and nhs.uk's terms ask for
+// data copied from it to be refreshed every 24 hours. Loads the saved list
+// first, so a redeploy neither 503s nor reads nhs.uk again early.
+startNhsDentists(prisma);
 
 void checkBinNotifications();
 setInterval(() => {

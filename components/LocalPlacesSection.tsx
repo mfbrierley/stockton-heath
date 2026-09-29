@@ -26,6 +26,11 @@ export default function LocalPlacesSection() {
         title="Medical Centres"
         onPress={() => router.push("/medical-centres")}
       />
+      <QuickLinkCard
+        icon={<Feather name="smile" size={22} color={theme.colors.primary} />}
+        title="NHS Dentists"
+        onPress={() => router.push("/nhs-dentists")}
+      />
     </View>
   );
 }
