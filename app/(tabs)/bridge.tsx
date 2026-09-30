@@ -166,12 +166,6 @@ export default function Bridge() {
               Alert notifications are active
             </Text>
           </View>
-          <Text style={globalStyles.body}>
-            The council posts each alert 25-30 minutes before a bridge is due to
-            open, and the app checks for new posts every 10 minutes. That
-            usually gives you somewhere around 15 to 25 minutes&apos; warning -
-            our own estimate, not a time the council publishes.
-          </Text>
           <Button
             variant="neutral"
             width="full"
