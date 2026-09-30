@@ -365,6 +365,16 @@ Two constraints have blocked deploys before:
 
 ### Releasing a new store version
 
+In Claude Code, `/release` (or asking Claude to release) runs this whole process from
+`.claude/skills/release/SKILL.md`:
+- it checks what has changed since the last store build
+- it agrees the version number and the App Store "What's New" text with you
+- it opens the version PR
+- it starts the workflow once you've merged it and said "go"
+- it follows the run and hands you the App Store steps
+
+The steps below are what it follows.
+
 `.eas/workflows/release.yml` builds both apps from one commit and sends each to its store.
 Run it on `main` from expo.dev → Workflows, or with `npx eas-cli workflow:run release.yml`.
 
