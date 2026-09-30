@@ -1,0 +1,44 @@
+name: Release to the stores
+
+# Run manually from expo.dev or with `npx eas-cli workflow:run release.yml`.
+# Builds the checked-out commit for iOS and Android and sends each build to its
+# store, using the production profiles in eas.json:
+# - Android goes to the production track and out to everyone once Google's
+#   review passes.
+# - iOS is uploaded to App Store Connect. Apple doesn't let this step submit it
+#   for review: create the version there, pick the build, Submit for Review.
+# Bump "version" in app.json first - neither store takes a second release of a
+# version that is already live.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build_ios:
+    name: Build iOS
+    type: build
+    params:
+      platform: ios
+      profile: production
+
+  build_android:
+    name: Build Android
+    type: build
+    params:
+      platform: android
+      profile: production
+
+  submit_ios:
+    name: Upload to App Store Connect
+    needs: [build_ios]
+    type: submit
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      profile: production
+
+  submit_android:
+    name: Publish on Google Play
+    needs: [build_android]
+    type: submit
+    params:
+      build_id: ${{ needs.build_android.outputs.build_id }}
+      profile: production
