@@ -219,7 +219,6 @@ export default function BridgeAlertSection() {
           <Text style={styles.status}>{formatTime(alertTime)}</Text>
         </View>
       </View>
-      <BridgeSourceNote />
     </View>
   );
 }
