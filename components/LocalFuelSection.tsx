@@ -150,8 +150,9 @@ export function LocalFuelSection() {
           <View style={styles.tableFooter}>
             <Text style={styles.tableFooterText}>UPDATED EVERY 30 MINS</Text>
             <SourceNote
-              label="Prices from the UK Government's fuel price open data scheme, shown exactly as published. Station names are our own local shorthand. Source:"
+              label="Prices from the UK Government's Fuel Finder scheme. Source:"
               url={FUEL_FINDER_URL}
+              androidOnly
             />
           </View>
         </View>

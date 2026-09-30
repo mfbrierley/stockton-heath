@@ -82,11 +82,12 @@ const formatDate = (date: Date): string => {
  * council's page names the handle itself, so a reviewer can verify the source
  * there instead of meeting X's login prompt and reading it as a dead link.
  */
-function BridgeSourceNote() {
+function BridgeSourceNote({ androidOnly = false }: { androidOnly?: boolean }) {
   return (
     <SourceNote
-      label="Closure alerts are Warrington Borough Council's automated feed, posted as @trafficwarr on X 25-30 minutes before a bridge opens. The app reads those posts through twitterapi.io, a third-party service. Source:"
+      label="Alerts from Warrington Borough Council's @trafficwarr feed on X, read via twitterapi.io. Source:"
       url={SWING_BRIDGES_URL}
+      androidOnly={androidOnly}
     />
   );
 }
@@ -219,6 +220,7 @@ export default function BridgeAlertSection() {
           <Text style={styles.status}>{formatTime(alertTime)}</Text>
         </View>
       </View>
+      <BridgeSourceNote androidOnly />
     </View>
   );
 }
