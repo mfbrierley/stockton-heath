@@ -153,9 +153,9 @@ turso db shell stockton-heath "SELECT token FROM BridgeSubscription ORDER BY id 
 
 `link` is optional: a screen in the app for the tap to open, such as `/nhs-dentists`. It must
 be an app route - letters, digits and hyphens between slashes, no web address or query - or
-the call is a `400`, and the app checks the same pattern before following it. Only app
-versions from the 1.0.6 over-the-air update on understand it; older ones, and any broadcast
-without a link, just open the app.
+the call is a `400`, and the app checks the same pattern before following it. Only 1.0.7
+and later understand it, plus 1.0.6 once its over-the-air update has been applied; older
+ones, and any broadcast without a link, just open the app.
 
 `title` defaults to "Stockton Heath". If the count has changed since the dry run, step 3 is a
 `409` that sends nothing and gives the new count. Dead tokens are pruned from both tables, as
@@ -363,12 +363,41 @@ Two constraints have blocked deploys before:
 - `.eas/workflows/ota-production.yml` does the same on Expo's servers (run it from expo.dev → Workflows). It reads the `EXPO_PUBLIC_*` values from the **production** EAS environment variables, since `eas update` does not read the build-profile env in `eas.json`. **Prefer `npm run ui-update` from a local checkout of `main`:** it publishes in about a minute, whereas we're on Expo's free plan and workflow jobs wait in the shared queue (~1 hour seen in September 2026)
 - Push notifications are delivered via the **Expo Push Notification service**, which wraps APNs on iOS. EAS manages the APNs key, so iOS push needs nothing in the repo - unlike Android, see below
 
+### Releasing a new store version
+
+`.eas/workflows/release.yml` builds both apps from one commit and sends each to its store.
+Run it on `main` from expo.dev → Workflows, or with `npx eas-cli workflow:run release.yml`.
+
+1. **Bump `version` in `app.json`** (1.0.7 → 1.0.8) and merge. Neither store takes a second
+   release of a version that is already live. Build numbers look after themselves
+   (`autoIncrement`, `appVersionSource: remote`).
+2. **Run the workflow.** On the free plan the builds wait in Expo's queue, so allow an hour
+   or two.
+3. **Android needs nothing more.** The `production` submit profile in `eas.json` publishes to
+   the production track with `releaseStatus: completed`, so it goes out to everyone once
+   Google's review passes. EAS signs in to Play with the **Play Store submissions** Google
+   service account key in EAS credentials (Android → Service Credentials) - a different
+   slot from the FCM key described under Android below.
+4. **iOS stops at App Store Connect.** Apple doesn't let EAS submit for review. Once the
+   build has processed (15-30 minutes), add a new iOS version with the same number, paste
+   the What's New text, pick the build and press Submit for Review. `ascAppId` in `eas.json`
+   is the app's Apple ID, which lets EAS upload without asking questions.
+
+Ship new features this way rather than with `ui-update`. A store update runs the new code
+the first time the app opens, while an over-the-air update is only downloaded when the app
+starts from closed and applied the start after that, which can take weeks for people who
+never close it.
+
+`runtimeVersion` uses the `appVersion` policy, so `npm run ui-update` only reaches phones on
+the `version` currently in `app.json`. Once a bump is merged, over-the-air fixes stop reaching
+the previous version - publish any it needs first.
+
 ### Android
 
-`app.json` carries Android configuration (package name, adaptive icon, edge-to-edge),
-but there is no Android build or submit step in `eas.json` or the npm scripts - the
-Android build is run by hand with `eas build --platform android --profile production`.
-The app is now live on Play after the first submission was rejected.
+`app.json` carries Android configuration (package name, adaptive icon, edge-to-edge).
+Android builds and store releases go through `release.yml` with iOS - see
+[Releasing a new store version](#releasing-a-new-store-version). The app is now live on
+Play after the first submission was rejected.
 
 `eas.json` sets `appVersionSource: "remote"` with `autoIncrement` on the production
 profile, so EAS raises the Android `versionCode` itself. A resubmission needs a
