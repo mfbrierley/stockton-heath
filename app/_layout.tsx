@@ -87,6 +87,23 @@ function RootLayoutInner() {
 
   const handledResponseIds = useRef<Set<string>>(new Set());
 
+  // Where a tapped notification wants to go. The push waits until the Stack
+  // below is rendered: when a tap launches the app, it arrives while fonts are
+  // still loading, and a push then goes to Expo Router's own navigator instead,
+  // which remounts this layout rather than opening the screen. Don't simplify
+  // this back to pushing from the handler.
+  const [pendingRoute, setPendingRoute] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pendingRoute || !fontsLoaded) return;
+    // A tick so the Stack, mounted in this same render, is registered first.
+    const timer = setTimeout(() => {
+      setPendingRoute(null);
+      router.push(pendingRoute as never);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [pendingRoute, fontsLoaded]);
+
   useEffect(() => {
     const handleNotificationResponse = (
       response: Notifications.NotificationResponse,
@@ -112,7 +129,7 @@ function RootLayoutInner() {
         typeof data?.link === "string" &&
         /^\/[a-z0-9-]+(?:\/[a-z0-9-]+)*$/.test(data.link)
       ) {
-        router.push(data.link as never);
+        setPendingRoute(data.link);
         return;
       }
 
@@ -139,7 +156,7 @@ function RootLayoutInner() {
         );
       }
 
-      router.push("/(tabs)/bridge");
+      setPendingRoute("/(tabs)/bridge");
     };
 
     // Warm taps: app already running in the foreground or background.
