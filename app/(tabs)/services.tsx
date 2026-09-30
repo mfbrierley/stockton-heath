@@ -140,8 +140,9 @@ export default function Services() {
           isAddressSet={!!userAddress}
         />
         <SourceNote
-          label="Collection days come from Warrington Borough Council. This is an unofficial app, not connected to the council. Source:"
+          label="Collection days from Warrington Borough Council. Unofficial app. Source:"
           url={WARRINGTON_BINS_URL}
+          androidOnly
         />
       </View>
       <View style={styles.sponsorBadgeSpacer}>

@@ -360,6 +360,7 @@ Two constraints have blocked deploys before:
   eas build --platform ios --profile production && eas submit --platform ios --latest
   ```
 - `npm run ui-update` ships an over-the-air JS-only update to the production channel via `eas update`
+- `.eas/workflows/ota-production.yml` does the same on Expo's servers (run it from expo.dev → Workflows). It reads the `EXPO_PUBLIC_*` values from the **production** EAS environment variables, since `eas update` does not read the build-profile env in `eas.json`. **Prefer `npm run ui-update` from a local checkout of `main`:** it publishes in about a minute, whereas we're on Expo's free plan and workflow jobs wait in the shared queue (~1 hour seen in September 2026)
 - Push notifications are delivered via the **Expo Push Notification service**, which wraps APNs on iOS. EAS manages the APNs key, so iOS push needs nothing in the repo - unlike Android, see below
 
 ### Android

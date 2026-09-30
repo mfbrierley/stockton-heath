@@ -1,20 +1,28 @@
 import { globalStyles } from "@/app/styles/globalStyles";
 import { theme } from "@/app/styles/theme";
 import { displayUrl } from "@/utils/dataSources";
-import { Linking, StyleSheet, Text } from "react-native";
+import { Linking, Platform, StyleSheet, Text } from "react-native";
 
 /**
  * A one-line "where this came from" note, shown under data the app has not
  * produced itself. The address is spelled out rather than hidden behind a word
  * so it can be read as well as tapped.
+ *
+ * `androidOnly` hides the note on iOS. Google Play's Misleading Claims policy
+ * wants the attribution where the data is shown; App Store review does not, and
+ * About still lists every source on both platforms.
  */
 export default function SourceNote({
   label,
   url,
+  androidOnly = false,
 }: {
   label: string;
   url: string;
+  androidOnly?: boolean;
 }) {
+  if (androidOnly && Platform.OS !== "android") return null;
+
   return (
     <Text style={[globalStyles.bodySmall, styles.text]}>
       {label}{" "}
