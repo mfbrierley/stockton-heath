@@ -579,6 +579,11 @@ const broadcastTokens = async (): Promise<string[]> => {
   return [...new Set([...bridge, ...bin].map((s) => s.token))];
 };
 
+// An in-app path a broadcast can open when tapped, e.g. "/nhs-dentists". App
+// routes only - no scheme, host or query - so a broadcast can never send
+// anyone out of the app. The app checks the same pattern before following it.
+const BROADCAST_LINK = /^\/[a-z0-9-]+(?:\/[a-z0-9-]+)*$/;
+
 // An ad hoc message to every subscribed device. It lands on every phone and
 // cannot be taken back, so a call never sends by default:
 //   - no `confirm`: reports how many devices would receive it, sends nothing
@@ -586,8 +591,10 @@ const broadcastTokens = async (): Promise<string[]> => {
 //   - `confirm` that no longer matches (someone subscribed in between): 409
 //   - `token`: sends the same message to that one device only, to check it on
 //     a real phone first
-// No `tweetId` in the payload, so tapping it opens the app without touching
-// the bridge closure banner.
+// No `tweetId` in the payload, so tapping it never touches the bridge closure
+// banner. With a `link`, tapping it opens that screen on app versions that
+// understand it (1.0.6 with the September 2026 update); older ones just open
+// the app.
 app.post(
   "/notifications/broadcast",
   requireAdmin,
@@ -599,11 +606,13 @@ app.post(
       body,
       confirm,
       token,
+      link,
     } = (req.body ?? {}) as {
       title?: unknown;
       body?: unknown;
       confirm?: unknown;
       token?: unknown;
+      link?: unknown;
     };
 
     if (typeof title !== "string" || !title.trim()) {
@@ -627,7 +636,23 @@ app.post(
         .json({ error: "`token` must be an Expo push token if given" });
     }
 
-    const message = { sound: "default", title: title.trim(), body: body.trim() };
+    if (
+      link !== undefined &&
+      (typeof link !== "string" || !BROADCAST_LINK.test(link))
+    ) {
+      return res.status(400).json({
+        error:
+          '`link` must be a screen in the app, such as "/nhs-dentists" - no web addresses',
+      });
+    }
+
+    // Built once, so the one-device test is exactly what everyone gets.
+    const message = {
+      sound: "default",
+      title: title.trim(),
+      body: body.trim(),
+      ...(typeof link === "string" ? { data: { link } } : {}),
+    };
 
     try {
       if (typeof token === "string") {

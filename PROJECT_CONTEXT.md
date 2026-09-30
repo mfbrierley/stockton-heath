@@ -87,7 +87,7 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | `GET /bridge-alerts/latest`          | Most recent bridge alert only                           |
 | `GET /bridge-alerts/check/:userName` 🔒 | Manually trigger a poll from a given Twitter username |
 | `POST /bridge-alerts/test-notification` 🔒 | Sends a fake bridge alert push to **one** device. Requires `{"token": "ExponentPushToken[...]"}` in the body; 400 without it. It used to fan out to every subscriber, which put a fake closure alert on every user's phone with no undo |
-| `POST /notifications/broadcast` 🔒   | An ad hoc push to every subscribed device (bridge, bin or both, each device once). Never sends on the first call - see [Sending a broadcast](#sending-a-broadcast) |
+| `POST /notifications/broadcast` 🔒   | An ad hoc push to every subscribed device (bridge, bin or both, each device once), optionally opening a screen when tapped. Never sends on the first call - see [Sending a broadcast](#sending-a-broadcast) |
 | `POST /bridge-subscriptions`         | Register an Expo push token for bridge alerts           |
 | `DELETE /bridge-subscriptions`       | Unregister a token from bridge alerts                   |
 | `POST /bin-subscriptions`            | Register a token + UPRN for bin reminders               |
@@ -135,20 +135,37 @@ H=(-H "x-admin-token: $ADMIN_TOKEN" -H "Content-Type: application/json")
 URL=https://stocktonheath.duckdns.org/notifications/broadcast
 
 # 1. Check it on your own phone. Sends to that one device only.
-curl -X POST $URL "${H[@]}" -d '{"title":"Stockton Heath","body":"...","token":"ExponentPushToken[...]"}'
+curl -X POST $URL "${H[@]}" -d '{"title":"Stockton Heath","body":"...","link":"/nhs-dentists","token":"ExponentPushToken[...]"}'
 
 # 2. Dry run: returns the recipient count and sends nothing.
-curl -X POST $URL "${H[@]}" -d '{"title":"Stockton Heath","body":"..."}'
+curl -X POST $URL "${H[@]}" -d '{"title":"Stockton Heath","body":"...","link":"/nhs-dentists"}'
 
 # 3. Send, passing back the count from step 2.
-curl -X POST $URL "${H[@]}" -d '{"title":"Stockton Heath","body":"...","confirm":123}'
+curl -X POST $URL "${H[@]}" -d '{"title":"Stockton Heath","body":"...","link":"/nhs-dentists","confirm":123}'
 ```
+
+To find your own token for step 1, turn bridge alerts off and on in the app - that makes
+your phone the newest row - then:
+
+```bash
+turso db shell stockton-heath "SELECT token FROM BridgeSubscription ORDER BY id DESC LIMIT 1;"
+```
+
+`link` is optional: a screen in the app for the tap to open, such as `/nhs-dentists`. It must
+be an app route - letters, digits and hyphens between slashes, no web address or query - or
+the call is a `400`, and the app checks the same pattern before following it. Only app
+versions from the 1.0.6 over-the-air update on understand it; older ones, and any broadcast
+without a link, just open the app.
 
 `title` defaults to "Stockton Heath". If the count has changed since the dry run, step 3 is a
 `409` that sends nothing and gives the new count. Dead tokens are pruned from both tables, as
 for every other send. Repeating step 3 sends the message a second time, because nothing
-remembers a broadcast. The payload has no `tweetId`, so tapping the notification opens the app
-without setting the bridge closure banner.
+remembers a broadcast. The payload has no `tweetId`, so tapping the notification never sets
+the bridge closure banner.
+
+Broadcasts reach people who signed up for bridge alerts and bin reminders, not for news, and
+Apple's guideline 4.5.4 says pushes shouldn't be used for promotion without an explicit
+opt-in. Keep them rare and informational - the NHS Dentists launch was a deliberate one-off.
 
 ### Database
 

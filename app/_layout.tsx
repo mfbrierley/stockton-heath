@@ -102,7 +102,19 @@ function RootLayoutInner() {
         firstBridge?: string | null;
         closureMinutes?: number | null;
         sentAt?: number;
+        link?: string;
       };
+
+      // A broadcast can name a screen to open, e.g. "/nhs-dentists". Checked
+      // against the same pattern the backend enforces, so a notification can
+      // only ever move within the app.
+      if (
+        typeof data?.link === "string" &&
+        /^\/[a-z0-9-]+(?:\/[a-z0-9-]+)*$/.test(data.link)
+      ) {
+        router.push(data.link as never);
+        return;
+      }
 
       if (!data?.tweetId) return;
 
