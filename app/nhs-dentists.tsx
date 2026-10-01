@@ -102,6 +102,15 @@ export default function NhsDentists() {
           Browse NHS dental practices within 5 miles of Stockton Heath, and see
           whether they are taking on new NHS patients
         </Text>
+        {/* Google Play rejected 1.0.7 when the only NHS link was at the foot
+            of the list: the source has to be visible without scrolling. */}
+        <View style={{ marginTop: 4 }}>
+          <SourceNote
+            label="Source:"
+            url={NHS_FIND_A_DENTIST_URL}
+            linkText="nhs.uk"
+          />
+        </View>
       </View>
 
       {MAP_AVAILABLE && (

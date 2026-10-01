@@ -499,6 +499,23 @@ an in-app privacy policy link. Play's App content declarations are complete, but
 app sends push tokens and a UPRN to the backend, and Play's User Data policy expects a
 link inside the app as well as on the listing.
 
+#### Rejected again, October 2026 - Missing Source Link for Government Information
+
+1.0.7 (versionCode 13) was rejected under the same policy, this time as *"Missing
+Source Link for Government Information"*. The cause was NHS Dentists, which shows NHS
+information. Google named two places, and both lacked an NHS link:
+
+- **The store listing.** Its "OFFICIAL SOURCES" list had no NHS entry, and the
+  description didn't mention the dentists feature. The owner added both in Play
+  Console.
+- **The app.** The screen's only NHS link was at the foot of the list, under every
+  practice. A "Source: nhs.uk" line now sits under the subtitle, visible without
+  scrolling, in both the list and map views.
+
+Every new data source therefore needs three things: an entry in
+`utils/dataSources.ts`, a link on the screen's first view, and a line in the
+listing's "OFFICIAL SOURCES". The `/release` skill checks for all three.
+
 ### Environment Variables
 
 **Frontend**

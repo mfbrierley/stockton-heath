@@ -38,7 +38,10 @@ Version asked for (blank means raise the last number): $ARGUMENTS
      - These only reach phones through a store release, so they make this release necessary.
      - A new permission needs its iOS purpose string, or an entry in `android.blockedPermissions`.
      - It may also need new App Privacy answers (Apple) and Data safety answers (Google).
-   - **New data sources.** Each one must be credited and linked through `utils/dataSources.ts`. Google Play has rejected the app over this before; see "Rejected by Google Play" in `PROJECT_CONTEXT.md`.
+   - **New data sources.** Google Play has rejected the app over this twice; see "Rejected by Google Play" in `PROJECT_CONTEXT.md`. Each new source needs all three of these:
+     - credited and linked through `utils/dataSources.ts`
+     - a link visible on the screen's first view, not only at the bottom
+     - a line in the Play listing's "OFFICIAL SOURCES" list. Give the user the exact text to add, in Play Console → Store presence → Main store listing, before the release starts.
 5. Check the current version is live. `curl -s "https://itunes.apple.com/lookup?bundleId=com.mattbrierley1.stocktonheath&country=gb"` gives the live App Store `version`, which can lag a few hours. If `app.json`'s version isn't live yet (still in review, or rejected), stop and ask whether to wait or release anyway.
 
 ## 2. Agree the version and the What's New text
