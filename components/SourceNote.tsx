@@ -8,6 +8,9 @@ import { Linking, Platform, StyleSheet, Text } from "react-native";
  * produced itself. The address is spelled out rather than hidden behind a word
  * so it can be read as well as tapped.
  *
+ * `linkText` replaces the spelled-out address where space is tight, such as a
+ * bare "nhs.uk" at the top of a screen.
+ *
  * `androidOnly` hides the note on iOS. Google Play's Misleading Claims policy
  * wants the attribution where the data is shown; App Store review does not, and
  * About still lists every source on both platforms.
@@ -15,10 +18,12 @@ import { Linking, Platform, StyleSheet, Text } from "react-native";
 export default function SourceNote({
   label,
   url,
+  linkText,
   androidOnly = false,
 }: {
   label: string;
   url: string;
+  linkText?: string;
   androidOnly?: boolean;
 }) {
   if (androidOnly && Platform.OS !== "android") return null;
@@ -31,7 +36,7 @@ export default function SourceNote({
         accessibilityRole="link"
         onPress={() => void Linking.openURL(url).catch(() => {})}
       >
-        {displayUrl(url)}
+        {linkText ?? displayUrl(url)}
       </Text>
     </Text>
   );
