@@ -1,0 +1,12 @@
+name: Submit Android 1.0.7 (14) to Google Play
+
+# One-off, run by hand: sends the finished Android build 1.0.7 (14) to the
+# production track. The build's auto-submit and Expo's direct submit both
+# failed with a credentials conflict, while release.yml's submit job works.
+jobs:
+  submit_android:
+    name: Publish on Google Play
+    type: submit
+    params:
+      build_id: a15b53cf-3cf9-43e2-82a8-9dfcbe8d0314
+      profile: production
