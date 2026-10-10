@@ -43,7 +43,7 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
 #### Bridge Tab
 
 - Shows the latest **swing bridge closure alert** for the Latchford swing bridge (Warrington)
-- Alerts are sourced from the **@trafficwarr** Twitter/X account, which posts "Swingbridge Alert" tweets
+- Alerts are sourced from the **@trafficwarr** Twitter/X account, which posts automated tweets naming the "Swingbridge" (e.g. "A50 Knutsford Road Swingbridge will close to traffic in about 25 minutes...")
 - Users can **subscribe to push notifications** to be alerted whenever a new bridge closure is detected
 - **Closure history chart** (`BridgeClosuresChart`) - a hand-rolled SVG chart of recent closure frequency
 - The backend polls Twitter every 10 minutes (6am-10pm UK time only) and sends Expo push notifications to all subscribed devices when a new alert appears
@@ -212,7 +212,7 @@ Two historical notes: the original `PushToken` table was replaced by the two sub
 
 All scheduled with `setInterval` in `backend/src/index.ts` - there is no cron or job runner.
 
-- **Bridge polling** (every 10 minutes, 6am-10pm UK time): checks twitterapi.io for new tweets from `@trafficwarr` containing "Swingbridge Alert". If a new one is found, it saves it to the database and pushes to all bridge subscribers via the Expo Push Notification service.
+- **Bridge polling** (every 10 minutes, 6am-10pm UK time): checks twitterapi.io for new tweets from `@trafficwarr` containing "Swingbridge" (excluding test posts). If a new one is found, it saves it to the database and, if it was posted in the last 30 minutes, pushes to all bridge subscribers via the Expo Push Notification service.
 - **Fuel price polling** (every 30 minutes): fetches fresh prices from the Gov.uk Fuel Finder API using OAuth client credentials. Results are cached in memory.
 - **NHS dentists** (checked hourly, runs once the saved list is a day old): reads the nhs.uk find-a-dentist results page, then each practice's appointments page five seconds apart - about four minutes in all. Saved to `AppMeta`, so a restart serves the saved list without reading nhs.uk again. A failed read is retried the next hour. See [NHS dentists](#nhs-dentists).
 - **Bin reminders** (checked every minute, fires at 18:00 UK time): groups bin subscriptions by UPRN, queries the council API for each, and pushes "Put out your \<bins\> tonight" to anyone with a collection tomorrow. De-duplicated per day via `AppMeta` so a redeploy can't double-send.

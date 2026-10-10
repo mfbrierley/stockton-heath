@@ -425,6 +425,8 @@ const isWithinPollingHours = (): boolean => {
   return ukHour >= 6 && ukHour < 22;
 };
 
+const BRIDGE_ALERT_MAX_PUSH_AGE_MS = 30 * 60 * 1000;
+
 const syncLatestBridgeAlert = async (
   userName: string,
 ): Promise<BridgeAlert | null> => {
@@ -451,7 +453,12 @@ const syncLatestBridgeAlert = async (
       orderBy: { id: "desc" },
     });
 
-    let query = `"Swingbridge Alert" from:${userName}`;
+    // Matches the one word both formats share. The council's posts used to
+    // open "Swingbridge Alert:"; since October 2026 they read "A50 Knutsford
+    // Road Swingbridge will close to traffic in about 25 minutes...", and the
+    // old exact-phrase search silently found nothing. -test drops the
+    // "This is a test, please ignore" posts the council sends before a change.
+    let query = `Swingbridge from:${userName} -test`;
 
     if (lastStored) {
       const sinceTime =
@@ -502,7 +509,17 @@ const syncLatestBridgeAlert = async (
           },
         });
         console.log("New bridge alert saved:", alert.tweetText);
-        await sendPushNotifications(alert);
+        // A post says the bridges close in ~25 minutes, so one found late
+        // (the backend was down, or a search fix catches up on missed posts)
+        // is kept for the history but not pushed as if it were happening now.
+        const ageMs = Date.now() - new Date(alert.postedAt).getTime();
+        if (ageMs <= BRIDGE_ALERT_MAX_PUSH_AGE_MS) {
+          await sendPushNotifications(alert);
+        } else {
+          console.log(
+            `Bridge alert ${alert.tweetId} is ${Math.round(ageMs / 60000)} min old - saved without pushing.`,
+          );
+        }
       }
     }
 
