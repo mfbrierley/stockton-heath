@@ -54,15 +54,25 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
   cannot drift out of step with it and no chip ever returns nothing
 - Pull-to-refresh
 - Refetches whenever the tab is focused rather than caching. A listing leaves
-  the app the moment its discount or photo is edited, and removing one deletes
-  the row, so a cached copy would advertise a discount that has been withdrawn
-- Links out to the portal at the bottom, for residents who run a business
-- **Hidden on the `production` EAS channel** by `utils/discountsVisible.ts`
-  while it is being finished. Dev builds and the internal `preview` channel
-  show it; App Store builds do not. `href: null` keeps the route registered, so
-  `stocktonheath://discounts` still reaches it inside a production build.
-  Going live is deleting that file and its two call sites, then
-  `npm run ui-update`
+  the app the moment anything residents see on it is edited, and removing one
+  deletes the row, so a cached copy would advertise a discount that has been
+  withdrawn
+- Says under the heading that businesses pay to appear and that every
+  discount is checked: paid listings are adverts, and have to be recognisable
+  as adverts
+- An email link at the bottom (`stocktonheathapp@gmail.com`) for residents who
+  run a business. Not a link to the portal: listings are by invitation, and a
+  link from inside the app to a page selling placement in it invites App
+  Review questions
+- **Shown only once there is something to show** (`hooks/useDiscountsLive.ts`).
+  The tab and the Home card appear when `GET /business-listings` returns a
+  non-empty list, which the backend refuses to do before launch day - see
+  [Launch and the free month](#launch-and-the-free-month). So the page appears
+  on 30 October without anything shipping that day, and never opens onto an
+  empty list. Checked at start-up and whenever the app returns to the
+  foreground; hidden until the first answer, and always shown in development.
+  `href: null` keeps the route registered, so `stocktonheath://discounts`
+  still reaches it
 
 #### Bridge Tab
 
@@ -760,9 +770,9 @@ subscription before then pays nothing until **30 November 2026**. Both dates are
 `backend/src/launch.ts`, as UK midnight (00:00 UTC - the clocks go back on 25 October).
 
 - **The launch switch is the public route.** `GET /business-listings` returns `[]` until
-  launch however much is approved and paid, so nothing has to ship on the day. The app is
-  meant to show its Discounts tab only once that list is non-empty, which also stops the
-  page ever appearing empty. `LOCAL_OFFERS_LAUNCH_AT` moves the date without a code
+  launch however much is approved and paid, so nothing has to ship on the day. The app
+  shows its Discounts tab only once that list is non-empty (`hooks/useDiscountsLive.ts`),
+  which also stops the page ever appearing empty. `LOCAL_OFFERS_LAUNCH_AT` moves the date without a code
   change - set it on the droplet and `npm run deploy:backend`.
 - **The free month is a fixed `trial_end`, not a 30-day trial,** or early sign-ups would
   be billed before the month residents can see. Checkout adds it to any session created

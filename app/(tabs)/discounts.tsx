@@ -16,9 +16,11 @@ import { useBusinessListings } from "../../hooks/useBusinessListings";
 import { globalStyles } from "../styles/globalStyles";
 import { theme } from "../styles/theme";
 
-// Where a business signs itself up. The same address the invitation emails
-// send them to.
-const PORTAL_URL = "https://stockton-heath-support.vercel.app/business";
+// Listings are by invitation, so a business that wants one asks. An email
+// rather than a link to the portal: the portal is no use without an
+// invitation, and a link from inside the app to a page selling placement in
+// the app is the kind of thing App Review asks questions about.
+const CONTACT_EMAIL = "stocktonheathapp@gmail.com";
 
 // The one category with a fixed position in the filter row. Matched by value
 // because that is what the backend stores; if it were ever renamed there this
@@ -102,6 +104,13 @@ export default function Discounts() {
         <Text style={[globalStyles.body, styles.introBody]}>
           Savings from businesses around Stockton Heath, for people with the
           app. Show your phone when you pay to claim one.
+        </Text>
+        {/* Said plainly, because these are adverts and have to be
+            recognisable as adverts. The second half is why they are worth
+            reading anyway. */}
+        <Text style={[globalStyles.body, styles.muted]}>
+          Businesses pay to appear here. We check every discount is genuine
+          before it goes in.
         </Text>
       </View>
 
@@ -232,22 +241,20 @@ export default function Discounts() {
       {!loading && (
         <>
           <View style={globalStyles.divider} />
-          <Pressable onPress={() => void Linking.openURL(PORTAL_URL)}>
+          <Pressable
+            onPress={() => void Linking.openURL(`mailto:${CONTACT_EMAIL}`)}
+          >
             <View style={styles.card}>
               <Text style={globalStyles.cardTitle}>Run a local business?</Text>
               <Text style={[globalStyles.body, styles.muted]}>
-                Put a discount in front of everyone in the village who has the
-                app.
+                Listings are by invitation. Email us and we&apos;ll tell you how it
+                works.
               </Text>
               <View style={styles.linkRow}>
                 <Text style={[globalStyles.body, globalStyles.bodyLink]}>
-                  Find out how
+                  {CONTACT_EMAIL}
                 </Text>
-                <Feather
-                  name="external-link"
-                  size={14}
-                  color={theme.colors.green800}
-                />
+                <Feather name="mail" size={14} color={theme.colors.green800} />
               </View>
             </View>
           </Pressable>

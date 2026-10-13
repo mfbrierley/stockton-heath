@@ -2,7 +2,7 @@ import Feather from "@expo/vector-icons/Feather";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Tabs } from "expo-router";
 import { Text, View } from "react-native";
-import { DISCOUNTS_VISIBLE } from "../../utils/discountsVisible";
+import { useDiscountsLive } from "../../hooks/useDiscountsLive";
 import { globalStyles } from "../styles/globalStyles";
 import { theme } from "../styles/theme";
 
@@ -24,6 +24,8 @@ const customHeader = () => {
 };
 
 export default function TabsLayout() {
+  const discountsLive = useDiscountsLive();
+
   return (
     <Tabs
       screenOptions={{
@@ -74,11 +76,12 @@ export default function TabsLayout() {
         options={{
           title: "Discounts",
           headerTitle: customHeader,
-          // Hidden on the production channel until this is signed off. `null`
-          // takes it out of the tab bar but leaves the route registered, so a
-          // deep link to stocktonheath://discounts still reaches it - which is
-          // how to look at it inside a real App Store build.
-          href: DISCOUNTS_VISIBLE ? undefined : null,
+          // Hidden until the backend's list has something in it - which it
+          // won't before launch day - so the tab appears on the day by itself
+          // and never opens onto an empty page. `null` takes it out of the tab
+          // bar but leaves the route registered, so a deep link to
+          // stocktonheath://discounts still reaches it.
+          href: discountsLive ? undefined : null,
           tabBarIcon: ({ color, size }) => (
             <Feather name="tag" color={color} size={size} />
           ),
