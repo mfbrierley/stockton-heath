@@ -9,6 +9,7 @@ import "dotenv/config";
 import express, { NextFunction, Request, Response } from "express";
 import Stripe from "stripe";
 import {
+  freeMonthEndingUnapproved,
   invoicePaid,
   listingApproved,
   listingRemoved,
@@ -19,6 +20,7 @@ import {
   subscriptionStarted,
 } from "./email";
 import { subscriptionPeriod } from "./subscription";
+import { FREE_UNTIL, freeMonthTrialEnd, isLaunched, launchAt } from "./launch";
 import { getCachedNhsDentists, startNhsDentists } from "./nhsDentists";
 import { PrismaClient } from "./generated/prisma/client";
 
@@ -938,6 +940,15 @@ const LISTING_FIELD_LIMITS = {
   description: 600,
 } as const;
 
+// What residents see of a listing. Changing any of it sends the listing back
+// to be read before it goes in the app again - see PATCH /business-listings/me.
+const REVIEWED_FIELDS = [
+  "businessName",
+  "discountText",
+  "description",
+  "imageUrl",
+] as const;
+
 // Managed Payments is Stripe's merchant-of-record product, enabled by default
 // on the account. It adds 3.5% per transaction and requires a product tax
 // code, neither of which suits selling advertising to businesses a few miles
@@ -1601,8 +1612,15 @@ app.delete("/admin/users/:clerkUserId", requireAdminOrOwner, async (req: Request
 
 // ── Local Offers: public route (the app) ──────────────────────────────────────
 
+// Empty until launch, whatever is approved and paid for. This is the switch:
+// the app shows its Discounts tab only once this list has something in it, so
+// the page appears on launch day by itself and never appears empty. Listings
+// approved before then are held back here, not in the app, so nothing has to
+// be shipped on the day - and postponing is one environment variable.
 app.get("/business-listings", async (req: Request, res: Response) => {
   try {
+    if (!isLaunched()) return res.json([]);
+
     const listings = await prisma.businessListing.findMany({
       where: { approved: true, active: true },
       select: PUBLIC_LISTING_FIELDS,
@@ -1612,6 +1630,21 @@ app.get("/business-listings", async (req: Request, res: Response) => {
   } catch (error) {
     return handleListingError(error, res);
   }
+});
+
+// The dates the portal has to talk about - when discounts go into the app, and
+// whether subscribing now starts with the free month. Served from here rather
+// than copied into the portal, so what a business is told and what Checkout
+// actually does are decided in one place. Public: the pitch page needs it
+// before anyone has signed in, and none of it is secret.
+app.get("/business-listings/launch", (req: Request, res: Response) => {
+  const trialEnd = freeMonthTrialEnd();
+  return res.json({
+    launchAt: launchAt().toISOString(),
+    launched: isLaunched(),
+    freeUntil: FREE_UNTIL.toISOString(),
+    freeMonth: trialEnd !== null,
+  });
 });
 
 // ── Local Offers: business routes (the portal) ────────────────────────────────
@@ -1757,18 +1790,21 @@ app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res
       return res.status(400).json({ error: "No valid fields to update" });
     }
 
-    // Changing the discount drops the listing back to unapproved so the
-    // genuine-discount rule gets re-checked. So does changing the photo: it
-    // is the one field that reaches every resident as a picture nobody has
-    // read, and an approval granted against one image says nothing about the
-    // next. Name and description edits still don't, so fixing a typo can't
-    // pull a paying listing out of the app.
-    const discountChanged =
-      updates.discountText !== undefined &&
-      updates.discountText !== existing.discountText;
-    const imageChanged =
-      updates.imageUrl !== undefined && updates.imageUrl !== existing.imageUrl;
-    if (discountChanged || imageChanged) {
+    // Every listing is read before it goes live, and that has to stay true
+    // after it is edited - so any change to what residents see sends it back
+    // to be read again. Not only the discount and the photo: the description
+    // is where the terms of the offer go ("not on Saturdays", "over £50"), and
+    // a business name is a claim of its own. An approval granted against one
+    // version says nothing about the next.
+    //
+    // The cost is that fixing a typo takes a live listing out of the app until
+    // it has been looked at. That is the price of being able to say that
+    // everything residents see has been checked.
+    const changed = REVIEWED_FIELDS.filter(
+      (field) => updates[field] !== undefined && updates[field] !== existing[field],
+    );
+    const imageChanged = changed.includes("imageUrl");
+    if (changed.length > 0) {
       updates.approved = false;
     }
 
@@ -1784,7 +1820,10 @@ app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res
     // leave the row pointing at a file that has already gone.
     if (imageChanged) await deleteListingImage(existing.imageUrl);
 
-    listingUpdated(listing, discountChanged, imageChanged);
+    // Only when something residents see has changed - and listingUpdated only
+    // writes to a listing that was live, since nobody else has anything to be
+    // told.
+    if (changed.length > 0 && existing.approved) listingUpdated(listing, changed);
 
     return res.json(ownListingView(listing));
   } catch (error) {
@@ -1802,6 +1841,7 @@ app.post("/business-listings/me/checkout", requireBusinessAuth, async (req: Requ
 
     const portalBase = normaliseBaseUrl(requireEnv("PORTAL_BASE_URL"));
     const vatRates = vatRateIds();
+    const trialEnd = freeMonthTrialEnd();
     const params: CheckoutSessionParams = {
       mode: "subscription",
       managed_payments: { enabled: false },
@@ -1815,9 +1855,24 @@ app.post("/business-listings/me/checkout", requireBusinessAuth, async (req: Requ
       // Stripe copies default_tax_rates onto every invoice it raises from it,
       // so the renewals in twelve months' time carry the same VAT as the
       // first payment without anything here running again.
+      //
+      // Before launch the subscription starts with a free period ending on a
+      // fixed date (see launch.ts). Checkout still takes the card - it is the
+      // default, and it is what lets the first real payment happen on that
+      // date without the business having to come back. Should a card somehow
+      // be missing when the free period ends, the subscription is cancelled
+      // rather than left owing.
       subscription_data: {
         metadata: { listingId: String(listing.id) },
         ...(vatRates ? { default_tax_rates: vatRates } : {}),
+        ...(trialEnd
+          ? {
+              trial_end: trialEnd,
+              trial_settings: {
+                end_behavior: { missing_payment_method: "cancel" as const },
+              },
+            }
+          : {}),
       },
       ...(listing.stripeCustomerId
         ? { customer: listing.stripeCustomerId }
@@ -2050,11 +2105,18 @@ app.post("/stripe/webhook", async (req: Request, res: Response) => {
           cancelAtPeriodEnd: false,
           currentPeriodEnd: null,
         };
+        // When the free month ends, if this subscription started with one -
+        // the welcome email has to say when the first payment is, rather than
+        // thanking them for a payment that hasn't happened.
+        let freeUntil: Date | null = null;
         if (subscriptionId) {
           const subscription =
             await getStripe().subscriptions.retrieve(subscriptionId);
           subscriptionStatus = subscription.status;
           period = subscriptionPeriod(subscription);
+          if (subscription.status === "trialing" && subscription.trial_end) {
+            freeUntil = new Date(subscription.trial_end * 1000);
+          }
         }
 
         const checkoutUpdate = await prisma.businessListing.updateMany({
@@ -2080,7 +2142,39 @@ app.post("/stripe/webhook", async (req: Request, res: Response) => {
         const paid = await prisma.businessListing.findUnique({
           where: { id: listingId },
         });
-        if (paid) subscriptionStarted(paid, paid.approved);
+        if (paid) subscriptionStarted(paid, paid.approved, freeUntil);
+        break;
+      }
+
+      // Stripe sends this three days before a free period ends. The first
+      // payment is about to be taken, and a business must not pay for a month
+      // its discount can't be seen - so if it still hasn't been approved, the
+      // owner is told while there is time to approve it, or to remove it,
+      // which cancels the subscription before anything is charged.
+      //
+      // Needs customer.subscription.trial_will_end in the webhook's event
+      // list. Without it nothing arrives and nothing complains.
+      case "customer.subscription.trial_will_end": {
+        const subscription = event.data.object;
+        const listingId = Number(subscription.metadata?.listingId);
+        const listing = await prisma.businessListing.findFirst({
+          where: Number.isInteger(listingId)
+            ? { id: listingId }
+            : { stripeSubscriptionId: subscription.id },
+        });
+        if (!listing) {
+          console.error(
+            `trial_will_end matched no listing (subscription ${subscription.id})`,
+          );
+          break;
+        }
+
+        // Ending anyway, so nothing will be charged and nothing needs doing.
+        const ending =
+          subscription.cancel_at_period_end || subscription.cancel_at !== null;
+        if (!listing.approved && !ending && subscription.trial_end) {
+          freeMonthEndingUnapproved(listing, new Date(subscription.trial_end * 1000));
+        }
         break;
       }
 

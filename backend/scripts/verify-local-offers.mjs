@@ -70,6 +70,14 @@ try {
   check(publicBefore.status === 200 && Array.isArray(publicBefore.json),
     "GET /business-listings returns a list");
 
+  const launch = await api("/business-listings/launch");
+  check(launch.status === 200 && typeof launch.json?.launched === "boolean",
+    "GET /business-listings/launch reports the launch date");
+  if (launch.json?.launched === false) {
+    check(publicBefore.json?.length === 0,
+      "nothing is public before launch, however much is approved and paid");
+  }
+
   // ── A business signs itself up ──────────────────────────────────────────────
   console.log("\nSign-up (real Clerk session token)");
   let jwt;
@@ -148,11 +156,16 @@ try {
 
   // ── Editing rules ───────────────────────────────────────────────────────────
   console.log("\nEditing");
+  // Every change residents would see goes back to be read - the terms in the
+  // description included, since that is where the conditions of an offer go.
   const descEdit = await api("/business-listings/me", {
     method: "PATCH", token: jwt, body: { description: "A description edit." },
   });
-  check(descEdit.status === 200 && descEdit.json?.approved === true,
-    "editing the description keeps approval (a typo fix can't pull a paying listing)");
+  check(descEdit.status === 200 && descEdit.json?.approved === false,
+    "editing the description resets approval for re-review");
+
+  check((await api(`/business-listings/${listingId}/approve`, { method: "POST", admin: true })).status === 200,
+    "approve again");
 
   const discountEdit = await api("/business-listings/me", {
     method: "PATCH", token: jwt, body: { discountText: "15% off for residents" },

@@ -16,6 +16,8 @@
 // alerts down with it. If email isn't configured the send is skipped and
 // logged, and whatever the business was doing still succeeds.
 
+import { freeMonthTrialEnd, FREE_UNTIL, isLaunched, launchAt, ukDate } from "./launch";
+
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SEND_URL =
   "https://gmail.googleapis.com/gmail/v1/users/me/messages/send";
@@ -216,7 +218,44 @@ interface ListingSummary {
   description: string;
   contactEmail: string;
   active: boolean;
+  subscriptionStatus?: string;
 }
+
+// Before launch nothing is in the app yet, so "live" and "residents can see
+// it" are untrue however approved and paid-for a listing is. Every email that
+// would say so says when instead.
+const opensOn = (): string => ukDate(launchAt());
+
+// The offer as it stands for someone deciding now, or "" once it has gone:
+// subscribing after launch is charged straight away.
+const freeMonthOffer = (): string =>
+  freeMonthTrialEnd() === null
+    ? ""
+    : `Start it before ${opensOn()} and your first month is free - nothing ` +
+      `to pay until ${ukDate(FREE_UNTIL)}, then it's ${PRICE()}. `;
+
+// The parts of a listing residents see. Changing any of them sends the listing
+// back to be read.
+export type ReviewedField = "businessName" | "discountText" | "description" | "imageUrl";
+
+// The portal labels the description "Terms and details", but "terms" alone
+// reads better in a list: "business name and terms", not "business name and
+// terms and details".
+const FIELD_WORDS: Record<ReviewedField, string> = {
+  businessName: "business name",
+  discountText: "discount",
+  description: "terms",
+  imageUrl: "photo",
+};
+
+// "discount", "discount and photo", "business name, discount and photo".
+const listWords = (words: string[]): string =>
+  words.length <= 1
+    ? (words[0] ?? "")
+    : `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
+
+const capitalise = (value: string): string =>
+  value.charAt(0).toUpperCase() + value.slice(1);
 
 // Sent once, the first time a new account is seen - which is the first
 // authenticated request, made the moment the listing page loads. So it goes
@@ -262,54 +301,54 @@ export const userSignedUp = (email: string, name: string | null): void => {
 // then walked away, the day-later reminder covers it far better than a
 // receipt sent while they were still typing.
 
+// Sent when a business changes something residents see on a listing that had
+// been approved. Every such change goes back to be read, so this always says
+// so - there is no "updated, and still live" case any more.
 export const listingUpdated = (
   listing: ListingSummary,
-  discountChanged: boolean,
-  // A new photo goes back for review as well. It is the one field a business
-  // can change that reaches every resident without a word of it being read,
-  // so it is treated like the discount rather than like a name.
-  imageChanged = false,
+  changed: readonly ReviewedField[],
 ): void => {
   // Nobody has been told this listing exists yet, so there is nothing to
   // correct. Editing before paying is part of writing the discount, not a
-  // change to something already out there - and both messages below would
-  // be untrue: it has never been in the app, and there is no subscription
-  // for it to be unaffected.
-  if (!listing.active) return;
+  // change to something already out there - and the message below would be
+  // untrue: there is no subscription for it to be unaffected.
+  if (!listing.active || changed.length === 0) return;
 
-  const backForReview = discountChanged || imageChanged;
-
-  // The discount takes precedence when both changed: it is the thing the rule
-  // is about, and quoting the new wording back is the more useful message.
-  const what = discountChanged ? "discount" : "photo";
+  const what = listWords(changed.map((field) => FIELD_WORDS[field]));
+  const discountChanged = changed.includes("discountText");
 
   notify({
     to: listing.contactEmail,
-    subject: backForReview
-      ? `We're checking your new ${what}`
-      : "Your listing has been updated",
-    body: backForReview
-      ? `You've changed the ${what} for ${listing.businessName}` +
-        (discountChanged ? ` to:\n\n${listing.discountText}\n\n` : ".\n\n") +
-        `Because the ${what} changed, your listing comes out of the app until ` +
-        `we've looked at it. We'll email you when it's back. Your ` +
-        `subscription and payments aren't affected.` +
-        SIGN_OFF
-      : `Your listing for ${listing.businessName} has been updated. ` +
-        `Your discount is unchanged, so it stays in the app as it was.` +
-        SIGN_OFF,
+    subject:
+      changed.length === 1
+        ? `We're checking your new ${what}`
+        : "We're checking your changes",
+    body:
+      `You've changed the ${what} for ${listing.businessName}` +
+      (discountChanged
+        ? `. Your discount now reads:\n\n${listing.discountText}\n\n`
+        : ".\n\n") +
+      `Everything residents see is read before it goes in the app, so ` +
+      (isLaunched()
+        ? `your listing comes out of the app until we've looked at it. ` +
+          `We'll email you when it's back. `
+        : `we'll read it again before discounts open in the app on ` +
+          `${opensOn()}. We'll email you when it's approved. `) +
+      `Your subscription and payments aren't affected.` +
+      SIGN_OFF,
   });
 
-  if (backForReview) {
-    notifyOwner(
-      `${discountChanged ? "Discount" : "Photo"} changed, needs approving: ${listing.businessName}`,
-      `${listing.businessName} has changed their ${what} and dropped back ` +
-        `into the approval queue.\n\n` +
-        (discountChanged ? `New discount: ${listing.discountText}\n` : "") +
-        `Contact: ${listing.contactEmail}\n\n` +
-        `Review it here:\n${PORTAL()}/admin\n`,
-    );
-  }
+  notifyOwner(
+    `${capitalise(what)} changed, needs approving: ${listing.businessName}`,
+    `${listing.businessName} has changed their ${what} and dropped back ` +
+      `into the approval queue.\n\n` +
+      (discountChanged ? `New discount: ${listing.discountText}\n` : "") +
+      (changed.includes("description")
+        ? `New terms: ${listing.description || "(none given)"}\n`
+        : "") +
+      `Contact: ${listing.contactEmail}\n\n` +
+      `Review it here:\n${PORTAL()}/admin\n`,
+  );
 };
 
 // Sent once, a day after a discount was written that nobody has paid for.
@@ -330,8 +369,10 @@ export const subscriptionReminder = (listing: ListingSummary): void => {
       `for that.\n\n` +
       `Your discount: ${listing.discountText}\n\n` +
       `It's saved, but residents can't see it until your subscription ` +
-      `starts. It's ${PRICE()}, you can cancel any time, and it takes a ` +
-      `minute here:\n${PORTAL()}/listing\n\n` +
+      `starts. ` +
+      (freeMonthOffer() || `It's ${PRICE()}. `) +
+      `You can cancel any time, and it takes a minute here:\n` +
+      `${PORTAL()}/listing\n\n` +
       `If you've changed your mind that's completely fine - there's nothing ` +
       `to cancel and nothing to reply to. This is the only reminder we'll ` +
       `send.\n\n` +
@@ -341,21 +382,34 @@ export const subscriptionReminder = (listing: ListingSummary): void => {
 };
 
 export const listingApproved = (listing: ListingSummary): void => {
+  const live = listing.active && isLaunched();
+
   notify({
     to: listing.contactEmail,
-    subject: listing.active
+    subject: live
       ? "Your discount is live in the app"
       : "Your discount has been approved",
-    body: listing.active
+    body: live
       ? `Good news - the discount for ${listing.businessName} has been ` +
         `approved and is now live in the Stockton Heath app.\n\n` +
         `Residents can see it right now.\n\n` +
         `You can change it any time here:\n${PORTAL()}/listing` +
         SIGN_OFF
-      : `The discount for ${listing.businessName} has been approved.\n\n` +
-        `It will appear in the app as soon as your subscription is active. ` +
-        `You can set that up here:\n${PORTAL()}/listing` +
-        SIGN_OFF,
+      : listing.active
+        ? `Good news - the discount for ${listing.businessName} has been ` +
+          `approved.\n\n` +
+          `Discounts open to residents in the Stockton Heath app on ` +
+          `${opensOn()}, and yours will be there from the start. There's ` +
+          `nothing else for you to do.\n\n` +
+          `You can see it here:\n${PORTAL()}/listing` +
+          SIGN_OFF
+        : `The discount for ${listing.businessName} has been approved.\n\n` +
+          (isLaunched()
+            ? `It will appear in the app as soon as your subscription is active. `
+            : `It will be in the app when discounts open on ${opensOn()}, ` +
+              `once your subscription has started. ` + freeMonthOffer()) +
+          `You can set that up here:\n${PORTAL()}/listing` +
+          SIGN_OFF,
   });
 };
 
@@ -375,7 +429,10 @@ export const listingRemoved = (listing: ListingSummary): void => {
       `The discount was: ${listing.discountText}\n\n` +
       // Said first and plainly, because it is the part with money in it.
       (listing.active
-        ? `Your subscription has been stopped, so you won't be charged again.\n\n`
+        ? listing.subscriptionStatus === "trialing"
+          ? `Your subscription has been stopped during your free month, so ` +
+            `you won't be charged anything.\n\n`
+          : `Your subscription has been stopped, so you won't be charged again.\n\n`
         : "") +
       `If you think this is a mistake, or you'd like to know why, just reply ` +
       `to this email and someone will get back to you.` +
@@ -438,27 +495,55 @@ export const invoicePaid = (listing: ListingSummary, invoice: PaidInvoice): void
 // Sent when the subscription starts, which is also the moment the discount
 // is really saved: a listing written but never paid for is nobody's news, so
 // nothing goes out before this.
-export const subscriptionStarted = (listing: ListingSummary, approved: boolean): void => {
+// `freeUntil` is set when the subscription began with the free month before
+// launch: nothing has been paid, and the email says when the first payment is
+// rather than thanking them for one.
+export const subscriptionStarted = (
+  listing: ListingSummary,
+  approved: boolean,
+  freeUntil: Date | null = null,
+): void => {
+  const launched = isLaunched();
+  const live = approved && launched;
+
+  const set = freeUntil
+    ? `Thanks - the subscription for ${listing.businessName} is set up`
+    : `Thanks - your ${PRICE()} for ${listing.businessName} is set up`;
+
+  // Said once and plainly, because it is the part with money in it.
+  const money = freeUntil
+    ? `Your first month is free: there's nothing to pay until ` +
+      `${ukDate(freeUntil)}, then it's ${PRICE()}. If you cancel before ` +
+      `${ukDate(freeUntil)}, you won't be charged anything.\n\n`
+    : "";
+
+  const status = live
+    ? ""
+    : approved
+      ? `Your discount is approved. Discounts open to residents in the ` +
+        `Stockton Heath app on ${opensOn()}, and yours will be there from ` +
+        `the start - there's nothing else for you to do.\n\n`
+      : `Someone reads every discount before it appears in the app, ` +
+        `usually within 24 hours. We'll email you as soon as yours is ` +
+        (launched
+          ? `live - there's nothing else for you to do.\n\n`
+          : `approved. Discounts open to residents in the app on ` +
+            `${opensOn()}.\n\n`);
+
   notify({
     to: listing.contactEmail,
     // A different subject from the one they got when they saved it, so the
     // two never look like the same email sent twice.
-    subject: approved
-      ? "Your discount is live in the app"
-      : "Your subscription is set up",
-    body: approved
-      ? `Thanks - your ${PRICE()} for ${listing.businessName} is set up, and ` +
-        `your discount is live in the Stockton Heath app.\n\n` +
-        `Your discount: ${listing.discountText}\n\n` +
-        `You can change it any time here:\n${PORTAL()}/listing` +
-        SIGN_OFF
-      : `Thanks - your ${PRICE()} for ${listing.businessName} is set up.\n\n` +
-        `Your discount: ${listing.discountText}\n\n` +
-        `Someone reads every discount before it appears in the app, ` +
-        `usually within 24 hours. We'll email you as soon as yours is live - ` +
-        `there's nothing else for you to do.\n\n` +
-        `You can change it any time here:\n${PORTAL()}/listing` +
-        SIGN_OFF,
+    subject: live ? "Your discount is live in the app" : "Your subscription is set up",
+    body:
+      (live
+        ? `${set}, and your discount is live in the Stockton Heath app.\n\n`
+        : `${set}.\n\n`) +
+      money +
+      status +
+      `Your discount: ${listing.discountText}\n\n` +
+      `You can change it any time here:\n${PORTAL()}/listing` +
+      SIGN_OFF,
   });
 
   notifyOwner(
@@ -469,8 +554,35 @@ export const subscriptionStarted = (listing: ListingSummary, approved: boolean):
       `Discount: ${listing.discountText}\n` +
       `Description: ${listing.description || "(none given)"}\n` +
       `Contact: ${listing.contactEmail}\n` +
-      `Approved: ${approved ? "yes - they are now live in the app" : "not yet - still needs approving"}\n\n` +
+      (freeUntil ? `Free until: ${ukDate(freeUntil)}\n` : "") +
+      `Approved: ${
+        approved
+          ? launched
+            ? "yes - they are now live in the app"
+            : `yes - they go live on ${opensOn()}`
+          : "not yet - still needs approving"
+      }\n\n` +
       (approved ? "" : `Review it here:\n${PORTAL()}/admin\n`),
+  );
+};
+
+// The owner's warning, three days before a free month ends on a discount
+// nobody has approved. Without it, the first payment would be taken for a
+// month the business can't be seen in. Not sent to the business: the decision
+// is the owner's, and either way of making it fixes the problem.
+export const freeMonthEndingUnapproved = (
+  listing: ListingSummary,
+  endsAt: Date,
+): void => {
+  notifyOwner(
+    `First payment on ${ukDate(endsAt)}, not yet approved: ${listing.businessName}`,
+    `${listing.businessName}'s free month ends on ${ukDate(endsAt)}, when ` +
+      `their first payment of ${PRICE()} is taken - but their discount ` +
+      `hasn't been approved, so it isn't in the app.\n\n` +
+      `Approve it, or remove it to cancel their subscription before anything ` +
+      `is charged:\n${PORTAL()}/admin\n\n` +
+      `Discount: ${listing.discountText}\n` +
+      `Contact: ${listing.contactEmail}\n`,
   );
 };
 

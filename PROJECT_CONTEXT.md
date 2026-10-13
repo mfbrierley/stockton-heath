@@ -94,7 +94,8 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | `DELETE /bin-subscriptions`          | Unregister a token from bin reminders                   |
 | `GET /fuel-prices`                   | Cached fuel prices for local stations                   |
 | `GET /nhs-dentists`                  | Cached NHS dental practices within 5 miles and whether each is taking on new NHS patients. `503` until the first read of nhs.uk after a restart |
-| `GET /business-listings`             | Live Local Offers listings (`approved && active` only)  |
+| `GET /business-listings`             | Live Local Offers listings (`approved && active` only). **Empty until launch** - see [Launch and the free month](#launch-and-the-free-month) |
+| `GET /business-listings/launch`      | The launch date, the free-month end date, and whether subscribing now starts with the free month. Public; the portal reads it |
 | `GET /business-listings/pending` 🔒  | Listings awaiting manual approval                       |
 | `GET /business-listings/admin` 🔒    | Every listing, unapproved first, for the approvals and Listings screens. Each carries a `stripeUrl` straight to the subscription (or the customer) in the Stripe dashboard |
 | `POST /business-listings/:id/approve` 🔒 | Mark a listing as meeting the discount rule         |
@@ -535,12 +536,15 @@ Note that `EXPO_PUBLIC_*` variables are inlined into the client bundle at build 
 - `ADMIN_TOKEN` - shared secret for the admin-only routes above. Generate with `openssl rand -hex 32`. Without it those routes return `503`.
 - `FUEL_FINDER_CLIENT_ID` / `FUEL_FINDER_CLIENT_SECRET` - Gov.uk Fuel Finder OAuth credentials
 
-Local Offers (all optional - each route returns `503` until the variables it needs are set). As of August 2026 everything except the four `R2_*` values is configured on the droplet, with Stripe in a test-mode sandbox:
+Local Offers (all optional - each route returns `503` until the variables it needs are set). As of October 2026 everything, R2 included, is configured on the droplet, with Stripe in a test-mode sandbox and Clerk a development instance:
 
 - `CLERK_SECRET_KEY` - Clerk backend API key; verifies portal session tokens and reads the signed-in business's email address
 - `STRIPE_SECRET_KEY` - Stripe secret key
 - `STRIPE_WEBHOOK_SECRET` - signing secret for `POST /stripe/webhook`
-- `STRIPE_PRICE_ID` - the £20/month recurring price
+- `STRIPE_PRICE_ID` - the £20/month recurring price (VAT is added on top by `STRIPE_TAX_RATE_ID`)
+- `LOCAL_OFFERS_LAUNCH_AT` - **optional.** An ISO date-time that moves the launch, e.g.
+  `2026-11-06T00:00:00Z` to put it back a week. Unset means 30 October 2026, written in
+  `src/launch.ts`. An unreadable value is logged and ignored, never thrown
 - `STRIPE_TAX_RATE_ID` - **optional.** A Stripe Tax Rate id (`txr_...`) for UK VAT at 20%,
   created once in Dashboard → Tax rates. Set it and VAT is added on top of the £20 at
   checkout and on every renewal, the portal advertises the price as excluding VAT, and each
@@ -552,7 +556,7 @@ Local Offers (all optional - each route returns `503` until the variables it nee
   Two things in the Stripe dashboard have to be right for the invoice to be a valid VAT
   invoice: the VAT number under Settings → Business, and `invoice.paid` in the webhook's
   event list.
-- `PORTAL_BASE_URL` - the portal's base URL, currently `https://stockton-heath-support.vercel.app/business`. May carry a path: Stripe's redirect URLs are built from the whole value, while CORS compares against its origin alone.
+- `PORTAL_BASE_URL` - the portal's base URL, currently `https://stockton-heath-support.vercel.app/business`, moving to `https://stocktonheathapp.com/business` with Clerk production (which will not run on `*.vercel.app`). May carry a path: Stripe's redirect URLs are built from the whole value, while CORS compares against its origin alone.
 - `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET_NAME` - Cloudflare R2 credentials for listing images
 - `R2_PUBLIC_URL` - base URL images are served from
 
@@ -590,16 +594,23 @@ saved one, which told them nothing and trained them to skim the rest.
 | Every payment | `invoicePaid` (the VAT invoice) |
 | A day later, still not paying | `subscriptionReminder`, once ever |
 | Their discount goes live | `listingApproved` |
-| They change a discount that was live | `listingUpdated` |
+| They change anything residents see on an approved listing | `listingUpdated` |
 | An admin removes their listing | `listingRemoved` |
+
+Before launch, none of these says a discount is "live": the approved ones say when
+discounts open instead, and a subscription that starts with the free month says when the
+first payment is rather than thanking anyone for one.
 
 The last three are event-driven and are not optional extras: `listingApproved` is the
 email `subscriptionStarted` promises ("we'll email you as soon as yours is live"),
 `listingUpdated` explains why a live discount has come out of the app, and
 `listingRemoved` is the only thing that tells someone their listing has gone.
 
-The owner gets three of his own: `userSignedUp`, and copies inside `listingUpdated` and
-`subscriptionStarted`. Saving a discount sends nothing to anybody.
+The owner gets four emails of their own: `userSignedUp`, copies inside `listingUpdated` and
+`subscriptionStarted`, and `freeMonthEndingUnapproved` - sent when Stripe's
+`customer.subscription.trial_will_end` arrives (three days before a free month ends) for a
+listing nobody has approved, so it can be approved or removed before its first payment
+is taken. Saving a discount sends nothing to anybody.
 
 ### Reminding a business that hasn't subscribed
 
@@ -624,8 +635,10 @@ switched off until these are done, which is deliberate.
 ### VAT (added August 2026, not yet switched on)
 
 The price is advertised as £20 excluding VAT, so Stripe adds 20% and every
-payment produces a VAT invoice. Nothing happens until all five of these are
-done, and doing them in the wrong order is worse than not starting:
+payment produces a VAT invoice. **Decided October 2026: launch at £20 plus VAT.**
+Do these in Stripe's live mode, as part of switching to it - tax rates are
+separate per mode. Nothing happens until all five of these are done, and doing
+them in the wrong order is worse than not starting:
 
 1. **Stripe → Settings → Business**: add the VAT registration number. This is
    what makes the invoice a *VAT* invoice rather than a receipt; without it the
@@ -655,13 +668,16 @@ invoice; turning Stripe's on as well means two emails for every payment.
   and its own domain setup.
 - **Clerk password `min_length` is 15**, which is unusually strict for a
   business signing up from a leaflet. 8 is the normal floor. Dashboard only.
-- **Photo upload has no bucket behind it yet.** The portal has the field and
-  the backend signs the upload URLs, but the five `R2_*` variables are unset,
-  so the route returns 503 by design. It needs an R2 bucket, an Object Read &
-  Write token scoped to it, public access or a custom domain for
-  `R2_PUBLIC_URL`, and **bucket CORS allowing `PUT` from the portal's
-  origin** - the browser uploads straight to R2, so without that last one
-  every upload fails and nothing in the logs explains why.
+- **Photo upload works**, served from a `pub-...r2.dev` address. Before
+  launch: a custom domain on the bucket for `R2_PUBLIC_URL` (Cloudflare
+  rate-limits `r2.dev`), and the new portal origin added to the bucket's CORS
+  `PUT` rule - the browser uploads straight to R2, so without it every upload
+  fails and nothing in the logs explains why.
+- **The portal needs `stocktonheathapp.com`** (bought at IONOS, October 2026):
+  Clerk production refuses `*.vercel.app`. Then Clerk's **Invite-only** mode -
+  sign-up is by invitation, sent from Clerk's dashboard (Users → Invitations).
+- **The webhook's event list** needs `customer.subscription.trial_will_end`
+  as well as `invoice.paid`.
 
 ---
 
@@ -676,7 +692,7 @@ Both reference Rowswood Timber directly, including the logo asset. Changing spon
 
 ### Local Offers
 
-The replacement for the hardcoded sponsor: local businesses pay **£20/month** by Stripe subscription to advertise a **genuine discount** to residents - the editorial rule that keeps the feature useful rather than just advertising. Businesses are emailed a link to the portal, sign themselves up, write their own listing and pay for it.
+The replacement for the hardcoded sponsor: local businesses pay **£20/month plus VAT** by Stripe subscription to advertise a **genuine discount** to residents - the editorial rule that keeps the feature useful rather than just advertising. Businesses are emailed a link to the portal, sign themselves up, write their own listing and pay for it.
 
 The portal is a small React app that does not exist yet. It will live in the **`stockton-heath-support`** repo, served at `https://stockton-heath-support.vercel.app/business` - not a separate repository, as originally planned.
 
@@ -686,12 +702,40 @@ The portal is a small React app that does not exist yet. It will live in the **`
 - **Checkout opts out of Stripe Managed Payments** (`managed_payments: { enabled: false }`). That is Stripe's merchant-of-record product, enabled by default on the account: it adds 3.5% per transaction, requires a product tax code, and would make Stripe rather than the app's owner the party selling advertising. Without opting out, checkout fails outright. It is set in code rather than the dashboard so the decision travels with the repository. The parameter is newer than `stripe@22`'s types, so the params type is extended locally.
 - **The webhook needs the raw request body.** `express.raw` is mounted on `/stripe/webhook` above the global `express.json()`; body-parser marks the request as already read, so the JSON parser leaves that one path alone.
 - **Images** are uploaded directly to Cloudflare R2 via a short-lived signed URL; the portal PATCHes the resulting public URL back once the upload succeeds. The browser shrinks the picture to 1200px and re-encodes it as JPEG first, which keeps residents off 5MB downloads, sidesteps HEIC (which iPhones produce, the backend rejects and React Native won't render), and drops the EXIF block - which is where the GPS coordinates of somebody's home live. Sending an empty `imageUrl` clears the photo; anything else must start with `R2_PUBLIC_URL`, so the field cannot be pointed at another host. **The old file is deleted from R2 whenever the photo is replaced, cleared, or the listing is removed** - which includes deleting a user, where leaving the picture up would make the erasure untrue. The delete happens after the row is written, never throws, and only ever targets a key derived from a URL that starts with `R2_PUBLIC_URL`.
-- Editing `discountText` resets `approved` to `false` so the discount gets re-reviewed. **So does changing the image**: it is the one field that reaches every resident as a picture nobody has read, and an approval granted against one photo says nothing about the next. Name and description edits do not, so a typo fix can't pull a paying listing out of the app.
+- **Any edit residents would see resets `approved` to `false`** - the business name, the discount, the description and the photo (`REVIEWED_FIELDS`). Every listing is read before it goes live, and that has to stay true after an edit: the description is where an offer's terms go, and a terms change unread is an unread offer. The cost is that a typo fix takes a live listing out of the app until it is approved again. Until October 2026 only the discount and photo did this.
 - **A new account is welcomed on its first authenticated request**, because Clerk owns sign-up and never tells this backend it happened. `requireBusinessAuth` only looks for a `WelcomedUser` row when the caller has **no listing** - anyone with one was welcomed long ago - so the extra lookup is paid by new signups and very little else. The insert is the lock: whoever creates the row sends the emails, so two requests arriving together cannot both send. The Clerk lookup happens before the insert, so a Clerk failure leaves no row and the next request tries again rather than marking someone welcomed having sent nothing. The owner gets a row but no email.
 - **Deleting a user is an erasure, and looks their listing up by email as well as Clerk id.** The two normally agree, but a Clerk account deleted and remade with the same address leaves a row pointing at the old id - and `contactEmail` is unique, so a row matched by neither would hold that address for ever with no login left to reach it. It deletes their Stripe customer too, found by email rather than by the row's `stripeCustomerId`, so a listing removed on its own doesn't strand one. Stripe first, then the row, then the account: every step is safe to repeat, so a failure part-way is retried by pressing Delete again. Invoices and charges survive at Stripe on purpose - they are financial records and not ours to throw away.
 - **An admin has two ways to take a listing down, and they are deliberately different.** Unapproving hides it while it carries on paying, and is undone with one click - that is the one to reach for. Removing it (`/remove`) cancels the subscription **there and then** rather than at the end of the period, because a business should not be charged for a month no resident can see; it then deletes the row outright, which frees the business's email and Clerk id, so signing in afterwards looks exactly like the first visit ever did, and emails the business to say their discount is out of the app and their subscription is stopped. Not undoable from the portal. Deleting a user goes through the same route, so the two can't drift apart.
 - All Local Offers config is read lazily. A missing variable returns `503` from the affected route rather than throwing at boot, because `deploy:backend` removes the running container before starting the new one - a boot-time throw would take weather, fuel, bridge alerts and bin reminders down with it.
 - **CORS** is scoped to `PORTAL_BASE_URL` and compares against its **origin**, since a browser's `Origin` header never carries a path and `PORTAL_BASE_URL` does. The mobile app sends no `Origin` header and is unaffected, as are all the pre-existing routes.
+
+#### Launch and the free month
+
+Discounts open in the app on **30 October 2026**, and anyone who starts their
+subscription before then pays nothing until **30 November 2026**. Both dates are in
+`backend/src/launch.ts`, as UK midnight (00:00 UTC - the clocks go back on 25 October).
+
+- **The launch switch is the public route.** `GET /business-listings` returns `[]` until
+  launch however much is approved and paid, so nothing has to ship on the day. The app is
+  meant to show its Discounts tab only once that list is non-empty, which also stops the
+  page ever appearing empty. `LOCAL_OFFERS_LAUNCH_AT` moves the date without a code
+  change - set it on the droplet and `npm run deploy:backend`.
+- **The free month is a fixed `trial_end`, not a 30-day trial,** or early sign-ups would
+  be billed before the month residents can see. Checkout adds it to any session created
+  before launch ("signing up before launch" means starting the subscription before it).
+  After launch, Checkout charges straight away. Stripe refuses a `trial_end` less than 48
+  hours away, so a launch postponed past 28 November would stop offering it.
+- Checkout still takes the card, so the first payment happens on 30 November without the
+  business coming back; `trial_settings` cancels rather than leaves owing if one is
+  somehow missing. `trialing` counts as paid (`PAID_SUBSCRIPTION_STATUSES`), so a listing
+  in its free month is `active`.
+- **Cancelling in the free month costs nothing:** the cancel route sets
+  `cancel_at_period_end`, and during a trial the period ends at `trial_end`, so Stripe
+  ends the subscription without raising an invoice.
+- Every renewal after that falls on the 30th (the 28th in February).
+- **An unapproved listing in its free month will be charged on 30 November.** The
+  `trial_will_end` email warns the owner three days before. Approve it, or remove it -
+  removing cancels the subscription immediately, so nothing is charged.
 
 #### Verifying it
 
