@@ -556,7 +556,7 @@ Local Offers (all optional - each route returns `503` until the variables it nee
   Two things in the Stripe dashboard have to be right for the invoice to be a valid VAT
   invoice: the VAT number under Settings → Business, and `invoice.paid` in the webhook's
   event list.
-- `PORTAL_BASE_URL` - the portal's base URL, currently `https://stockton-heath-support.vercel.app/business`, moving to `https://stocktonheathapp.com/business` with Clerk production (which will not run on `*.vercel.app`). May carry a path: Stripe's redirect URLs are built from the whole value, while CORS compares against its origin alone.
+- `PORTAL_BASE_URL` - the portal's base URL, currently `https://stockton-heath-support.vercel.app/business`, moving to `https://www.stocktonheathapp.com/business` with Clerk production (which will not run on `*.vercel.app`). `www`, not the bare domain: Vercel redirects `stocktonheathapp.com` to `www`, so that is the origin browsers send and CORS must match. May carry a path: Stripe's redirect URLs are built from the whole value, while CORS compares against its origin alone.
 - `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET_NAME` - Cloudflare R2 credentials for listing images
 - `R2_PUBLIC_URL` - base URL images are served from
 
@@ -666,16 +666,21 @@ invoice; turning Stripe's on as well means two emails for every payment.
   to live, which also means new keys on the droplet.
 - **Clerk is a development instance.** A production instance has its own keys
   and its own domain setup.
-- **Clerk password `min_length` is 15**, which is unusually strict for a
-  business signing up from a leaflet. 8 is the normal floor. Dashboard only.
+- **Clerk production was created on 13 October 2026** for `stocktonheathapp.com`
+  (Invite-only, password minimum 8, paths under `/business`). It is not live
+  until its five CNAMEs are added at IONOS and verified, and then the
+  publishable key (Vercel) and secret key (droplet) are swapped **together** -
+  either one alone breaks every login. Production starts with no accounts:
+  invite the `OWNER_EMAIL` address first.
 - **Photo upload works**, served from a `pub-...r2.dev` address. Before
   launch: a custom domain on the bucket for `R2_PUBLIC_URL` (Cloudflare
   rate-limits `r2.dev`), and the new portal origin added to the bucket's CORS
   `PUT` rule - the browser uploads straight to R2, so without it every upload
   fails and nothing in the logs explains why.
-- **The portal needs `stocktonheathapp.com`** (bought at IONOS, October 2026):
-  Clerk production refuses `*.vercel.app`. Then Clerk's **Invite-only** mode -
-  sign-up is by invitation, sent from Clerk's dashboard (Users → Invitations).
+- **The portal moves to `https://www.stocktonheathapp.com/business`** (domain
+  bought at IONOS, on Vercel since 13 October 2026): Clerk production refuses
+  `*.vercel.app`. Sign-up is by invitation, sent from Clerk's dashboard
+  (Users → Invitations).
 - **The webhook's event list** needs `customer.subscription.trial_will_end`
   as well as `invoice.paid`.
 
