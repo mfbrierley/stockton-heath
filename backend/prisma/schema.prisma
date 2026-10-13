@@ -63,6 +63,17 @@ model BusinessListing {
   businessName         String
   discountText         String
   description          String
+  // One of LISTING_CATEGORIES in src/index.ts, stored as the label itself.
+  // SQLite has no enum type, and a readable value in the database beats a
+  // code nobody has the lookup table for. The backend refuses anything not
+  // on that list, so the column is an enum in everything but name.
+  //
+  // Defaulted rather than required because rows written before the field
+  // existed have to say something, and 'Other' is the honest answer for a
+  // listing nobody has classified. New listings must choose - the portal
+  // will not submit without one and the backend rejects a create that omits
+  // it - so the default only ever applies to those older rows.
+  category             String  @default("Other")
   imageUrl             String?
   contactEmail         String  @unique
   clerkUserId          String? @unique
