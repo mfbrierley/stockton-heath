@@ -929,6 +929,7 @@ const getR2 = (): S3Client => {
 const PUBLIC_LISTING_FIELDS = {
   id: true,
   businessName: true,
+  category: true,
   discountText: true,
   description: true,
   imageUrl: true,
@@ -947,6 +948,29 @@ const REVIEWED_FIELDS = [
   "discountText",
   "description",
   "imageUrl",
+] as const;
+
+// What a business files its discount under, and what a resident filters the
+// app by. Eight of them, because a list long enough to be precise is too long
+// to scan on a phone - and "Other" exists so that nobody is forced to file
+// themselves somewhere untrue.
+//
+// The order is the order they appear in the portal's dropdown. Stored as the
+// label rather than a code: SQLite has no enum type, and a readable value in
+// the database is worth more than a lookup table nobody has to hand.
+//
+// Mirrored in the portal (src/business/listingFields.ts). The app does not
+// carry a copy - it builds its filters from whatever categories the listings
+// actually use, so it cannot drift from this list.
+const LISTING_CATEGORIES = [
+  "Food & Drink",
+  "Hair & Beauty",
+  "Health & Wellbeing",
+  "Home & Garden",
+  "Shopping & Gifts",
+  "Professional Services",
+  "Motoring",
+  "Other",
 ] as const;
 
 // Managed Payments is Stripe's merchant-of-record product, enabled by default
@@ -987,6 +1011,17 @@ const cleanListingField = (value: unknown, max: number): string | null => {
   const trimmed = value.trim();
   if (!trimmed || trimmed.length > max) return null;
   return trimmed;
+};
+
+// A category has to be one of the eight, not merely a string of a sensible
+// length, so neither of the helpers around it fits: this is membership, not a
+// ceiling. Anything unrecognised is refused rather than quietly filed under
+// "Other", so a portal and a backend that disagree about the list say so
+// instead of silently mis-filing somebody's discount.
+const cleanCategory = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return (LISTING_CATEGORIES as readonly string[]).includes(trimmed) ? trimmed : null;
 };
 
 // The description is where a business puts any terms, so plenty of them have
@@ -1396,6 +1431,49 @@ app.post("/business-listings/:id/unapprove", requireAdminOrOwner, (req: Request,
   setListingApproval(req, res, false),
 );
 
+// Re-filing a listing someone else wrote. Every row that predates the category
+// column was backfilled to "Other", and a business that picks the wrong shelf
+// is not going to know it - so the owner needs to be able to fix it without
+// asking them to log in, and without a shell open on the live database.
+//
+// It emails nobody, deliberately. Being told "we have moved you to Home &
+// Garden" is not news a business can act on, and the cost of getting it wrong
+// is that they set it back themselves from their own page, which they can:
+// their own PATCH accepts a category and, like this, leaves approval alone.
+//
+// Its own route rather than a reuse of PATCH /me, which is the business's own
+// route - it acts on whoever is signed in, not on a listing chosen by id.
+//
+// No approval reset, for the same reason a business changing its own category
+// does not trigger one: it is cataloguing, not a claim any resident acts on.
+// No pending-queue lock either - the 409 on PATCH /me stops the words changing
+// underneath whoever is reading them, and the reader is who this is for.
+app.post("/business-listings/:id/category", requireAdminOrOwner, async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: "Invalid id" });
+    }
+
+    const category = cleanCategory(req.body?.category);
+    if (category === null) {
+      return res.status(400).json({ error: "Invalid category" });
+    }
+
+    const existing = await prisma.businessListing.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: "Listing not found" });
+
+    const listing = await prisma.businessListing.update({
+      where: { id },
+      data: { category, updatedAt: new Date().toISOString() },
+    });
+
+    return res.json(listing);
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+});
+
 // Unapproving hides a listing but leaves it paying; this ends both. Kept
 // separate from unapprove because it spends the business's money - it stops
 // their subscription there and then - so it is never something to reach for by
@@ -1661,11 +1739,18 @@ app.post("/business-listings/me", requireBusinessAuth, async (req: Request, res:
     const businessName = cleanListingField(req.body?.businessName, LISTING_FIELD_LIMITS.businessName);
     const discountText = cleanListingField(req.body?.discountText, LISTING_FIELD_LIMITS.discountText);
     const description = cleanOptionalField(req.body?.description, LISTING_FIELD_LIMITS.description);
+    const category = cleanCategory(req.body?.category);
 
     if (!businessName || !discountText) {
       return res.status(400).json({
         error: "businessName and discountText are both required",
       });
+    }
+    // Its own branch rather than folded into the one above, because the two
+    // failures are not the same thing: a missing discount is a box nobody
+    // filled in, an unusable category is a value that is not on the list.
+    if (!category) {
+      return res.status(400).json({ error: "Choose a category for your business" });
     }
     if (description === null) {
       return res.status(400).json({ error: "Invalid description" });
@@ -1688,6 +1773,7 @@ app.post("/business-listings/me", requireBusinessAuth, async (req: Request, res:
     const listing = await prisma.businessListing.create({
       data: {
         businessName,
+        category,
         discountText,
         description,
         contactEmail,
@@ -1750,6 +1836,7 @@ app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res
 
     const updates: {
       businessName?: string;
+      category?: string;
       discountText?: string;
       description?: string;
       imageUrl?: string | null;
@@ -1767,6 +1854,16 @@ app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res
           : cleanListingField(req.body[field], LISTING_FIELD_LIMITS[field]);
       if (value === null) return res.status(400).json({ error: `Invalid ${field}` });
       updates[field] = value;
+    }
+
+    // Outside the loop above for the same reason imageUrl is: that loop
+    // length-checks free text, and a category is picked from a list. It
+    // cannot be cleared - a listing with no category would fall out of every
+    // filter in the app and show up in none of them.
+    if (req.body?.category !== undefined) {
+      const value = cleanCategory(req.body.category);
+      if (value === null) return res.status(400).json({ error: "Invalid category" });
+      updates.category = value;
     }
 
     // Only a URL this backend just handed out may be stored, so the field
@@ -1800,6 +1897,11 @@ app.patch("/business-listings/me", requireBusinessAuth, async (req: Request, res
     // The cost is that fixing a typo takes a live listing out of the app until
     // it has been looked at. That is the price of being able to say that
     // everything residents see has been checked.
+    //
+    // The category is the one exception, and is left out of REVIEWED_FIELDS
+    // on purpose: it is the shelf a listing is filed on, not a claim any
+    // resident acts on, so correcting it neither needs reading nor should pull
+    // a paying listing out of the app.
     const changed = REVIEWED_FIELDS.filter(
       (field) => updates[field] !== undefined && updates[field] !== existing[field],
     );
