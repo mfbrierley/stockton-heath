@@ -666,12 +666,13 @@ invoice; turning Stripe's on as well means two emails for every payment.
   to live, which also means new keys on the droplet.
 - **Clerk is a development instance.** A production instance has its own keys
   and its own domain setup.
-- **Clerk production was created on 13 October 2026** for `stocktonheathapp.com`
-  (Invite-only, password minimum 8, paths under `/business`). It is not live
-  until its five CNAMEs are added at IONOS and verified, and then the
-  publishable key (Vercel) and secret key (droplet) are swapped **together** -
-  either one alone breaks every login. Production starts with no accounts:
-  invite the `OWNER_EMAIL` address first.
+- **Clerk production has been live since 13 October 2026** for
+  `stocktonheathapp.com` (Invite-only, password minimum 8, paths under
+  `/business`), with the portal on `https://www.stocktonheathapp.com/business`
+  and `PORTAL_BASE_URL` set to match. The publishable key (Vercel) and secret
+  key (droplet) must always be from the same instance - one without the other
+  breaks every login. Businesses are invited from Clerk's dashboard; accounts
+  made on the old development instance did not carry over.
 - **Photo upload works**, served from a `pub-...r2.dev` address. Before
   launch: a custom domain on the bucket for `R2_PUBLIC_URL` (Cloudflare
   rate-limits `r2.dev`), and the new portal origin added to the bucket's CORS
