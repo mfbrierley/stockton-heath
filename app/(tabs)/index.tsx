@@ -15,8 +15,8 @@ import {
   WeatherApiResponse,
   WeatherSection,
 } from "../../components/WeatherSection";
+import { useDiscountsLive } from "../../hooks/useDiscountsLive";
 import { useUserName } from "../../hooks/useUserName";
-import { DISCOUNTS_VISIBLE } from "../../utils/discountsVisible";
 import { globalStyles } from "../styles/globalStyles";
 import { theme } from "../styles/theme";
 
@@ -27,6 +27,7 @@ const MS_TO_MPH = 2.237;
 
 export default function Index() {
   const { firstName } = useUserName();
+  const discountsLive = useDiscountsLive();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<WeatherApiResponse | null>(null);
@@ -153,10 +154,10 @@ export default function Index() {
         />
         <LocalFuelSection />
         <SponsorCard />
-        {/* Guarded on the same flag as the tab itself: with the tab hidden
+        {/* Guarded on the same switch as the tab itself: with the tab hidden
             the route is still reachable, and a card that pushed residents
             into it would defeat the point of hiding it. */}
-        {DISCOUNTS_VISIBLE && (
+        {discountsLive && (
           <DiscountsCard
             onPress={() => router.push("/(tabs)/discounts" as never)}
           />
