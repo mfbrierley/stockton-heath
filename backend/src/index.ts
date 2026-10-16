@@ -1976,8 +1976,25 @@ app.post("/business-listings/me/checkout", requireBusinessAuth, async (req: Requ
             }
           : {}),
       },
+      // What a VAT invoice needs from the buyer. Stripe prints the customer's
+      // name, address and VAT number on every invoice it raises from this
+      // subscription, renewals included, so they are asked for once, here.
+      // The address is required. The business name and VAT number sit behind
+      // Stripe's own "purchasing as a business" box and stay optional: a
+      // business that isn't VAT registered can't reclaim the VAT, so has no
+      // use for them, and demanding a number it doesn't have would stop it
+      // subscribing at all.
+      billing_address_collection: "required",
+      tax_id_collection: { enabled: true },
+      // A returning business already has a Stripe customer. Stripe refuses
+      // tax ID collection for one unless Checkout may save the business name
+      // onto it, and without the address too, whatever they type here would
+      // be dropped and their invoices would carry the old details.
       ...(listing.stripeCustomerId
-        ? { customer: listing.stripeCustomerId }
+        ? {
+            customer: listing.stripeCustomerId,
+            customer_update: { name: "auto" as const, address: "auto" as const },
+          }
         : { customer_email: listing.contactEmail }),
       // Back to the page they came from: writing the discount and paying for
       // it are one step now, so both outcomes belong there rather than on a
