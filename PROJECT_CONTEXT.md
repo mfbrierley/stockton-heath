@@ -570,7 +570,7 @@ Note that `EXPO_PUBLIC_*` variables are inlined into the client bundle at build 
 - `ADMIN_TOKEN` - shared secret for the admin-only routes above. Generate with `openssl rand -hex 32`. Without it those routes return `503`.
 - `FUEL_FINDER_CLIENT_ID` / `FUEL_FINDER_CLIENT_SECRET` - Gov.uk Fuel Finder OAuth credentials
 
-Local Offers (all optional - each route returns `503` until the variables it needs are set). As of October 2026 everything, R2 included, is configured on the droplet, with Stripe in a test-mode sandbox and Clerk a development instance:
+Local Offers (all optional - each route returns `503` until the variables it needs are set). As of 16 October 2026 everything, R2 included, is configured on the droplet, with Stripe in live mode and Clerk on its production instance:
 
 - `CLERK_SECRET_KEY` - Clerk backend API key; verifies portal session tokens and reads the signed-in business's email address
 - `STRIPE_SECRET_KEY` - Stripe secret key
@@ -589,7 +589,10 @@ Local Offers (all optional - each route returns `503` until the variables it nee
   other says what is advertised, and they are meant to agree.
   Two things in the Stripe dashboard have to be right for the invoice to be a valid VAT
   invoice: the VAT number under Settings → Business, and `invoice.paid` in the webhook's
-  event list.
+  event list. The buyer's half comes from Checkout, which requires a billing address and
+  offers Stripe's "purchasing as a business" box for the business name and VAT number
+  (optional, since a business that isn't VAT registered can't reclaim the VAT anyway).
+  Stripe prints all three on every invoice the subscription raises.
 - `PORTAL_BASE_URL` - the portal's base URL, currently `https://stockton-heath-support.vercel.app/business`, moving to `https://www.stocktonheathapp.com/business` with Clerk production (which will not run on `*.vercel.app`). `www`, not the bare domain: Vercel redirects `stocktonheathapp.com` to `www`, so that is the origin browsers send and CORS must match. May carry a path: Stripe's redirect URLs are built from the whole value, while CORS compares against its origin alone.
 - `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET_NAME` - Cloudflare R2 credentials for listing images
 - `R2_PUBLIC_URL` - base URL images are served from
@@ -666,7 +669,7 @@ Everything below is the owner's to do by hand - dashboards and environment
 variables, not code. The code for all of it is written and merged; it sits
 switched off until these are done, which is deliberate.
 
-### VAT (added August 2026, not yet switched on)
+### VAT (added August 2026, switched on 16 October 2026)
 
 The price is advertised as £20 excluding VAT, so Stripe adds 20% and every
 payment produces a VAT invoice. **Decided October 2026: launch at £20 plus VAT.**
@@ -696,10 +699,20 @@ invoice; turning Stripe's on as well means two emails for every payment.
 
 ### Also outstanding
 
-- **Stripe is a test-mode sandbox.** Real cards do nothing until it is switched
-  to live, which also means new keys on the droplet.
-- **Clerk is a development instance.** A production instance has its own keys
-  and its own domain setup.
+- **Stripe has been live since 16 October 2026**, in the Zap Digital account
+  (`acct_1U7eLsAYotNwImtB`; Stripe is used for nothing else). Price
+  `price_1URDIyAYotNwImtBCpRy88h3` (£20/month, tax exclusive), tax rate
+  `txr_1URDHEAYotNwImtB5y37MZph` (UK VAT 20%, exclusive), webhook
+  `we_1URDYpAYotNwImtBnWxtMAAN` on API version `2026-07-29.dahlia` - the version
+  the backend's Stripe library uses, and the payload shape `invoice.paid` is read
+  in. Stripe's own emails are on for failed payments, payment confirmation (3D
+  Secure), trial ending and expiring cards, because the backend sends none of
+  those; its receipt and finalised-invoice emails are off, because the backend
+  sends the invoice. A renewal that fails every retry cancels the subscription.
+  Checkout, invoices and bank statements say Zap Digital, not Stockton Heath.
+  The values in `backend/.env` are written `NAME=value` with no quotes: Docker's
+  `--env-file` keeps quotes as part of the value, and a name pasted twice
+  (`NAME=NAME=value`) gave a key Stripe rejected without logging it.
 - **Clerk production has been live since 13 October 2026** for
   `stocktonheathapp.com` (Invite-only, password minimum 8, paths under
   `/business`), with the portal on `https://www.stocktonheathapp.com/business`
@@ -816,7 +829,7 @@ It leaves one listing row behind, prints the command to remove it, and prints th
 | The business portal | built, in `mfbrierley/stockton-heath-support` |
 | The app's Discounts tab | built, and **hidden on the `production` channel** until it is signed off - see below |
 
-Stripe is in a sandbox with test keys. Going live means repeating the product, price and webhook setup in the live account and swapping all four `STRIPE_*` values.
+Stripe went live on 16 October 2026 - see "Also outstanding" under "Before going live" for the account and its ids.
 
 ---
 
