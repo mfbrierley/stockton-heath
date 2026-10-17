@@ -2261,7 +2261,7 @@ app.post("/stripe/webhook", async (req: Request, res: Response) => {
         const paid = await prisma.businessListing.findUnique({
           where: { id: listingId },
         });
-        if (paid) subscriptionStarted(paid, paid.approved, freeUntil);
+        if (paid) subscriptionStarted(paid, paid.approved, freeUntil, `stripe/${event.id}`);
         break;
       }
 
@@ -2292,7 +2292,11 @@ app.post("/stripe/webhook", async (req: Request, res: Response) => {
         const ending =
           subscription.cancel_at_period_end || subscription.cancel_at !== null;
         if (!listing.approved && !ending && subscription.trial_end) {
-          freeMonthEndingUnapproved(listing, new Date(subscription.trial_end * 1000));
+          freeMonthEndingUnapproved(
+            listing,
+            new Date(subscription.trial_end * 1000),
+            `stripe/${event.id}`,
+          );
         }
         break;
       }
@@ -2351,7 +2355,7 @@ app.post("/stripe/webhook", async (req: Request, res: Response) => {
           currency: invoice.currency,
           url: invoice.hosted_invoice_url ?? null,
           first: invoice.billing_reason === "subscription_create",
-        });
+        }, `stripe/${event.id}`);
         break;
       }
 

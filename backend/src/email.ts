@@ -1,191 +1,181 @@
 // Notification email for Local Offers.
 //
-// Sent through the Gmail API over HTTPS rather than SMTP. DigitalOcean blocks
-// outbound SMTP (ports 25, 465 and 587) on every droplet and declined to lift
-// it, so nodemailer could never open a connection. The Gmail API runs on 443,
-// which is not blocked, and mail genuinely comes from the Google account that
-// authorised it - so it has Gmail's own deliverability rather than a
-// third party's.
+// Sent through Resend's HTTP API from info@stocktonheathapp.com, rather than
+// SMTP. DigitalOcean blocks outbound SMTP (ports 25, 465 and 587) on every
+// droplet and declined to lift it, so neither nodemailer nor the IONOS mailbox
+// itself can send from here. Resend runs on 443, signs the mail for
+// stocktonheathapp.com (its records are on the domain at IONOS), and replies
+// go to the IONOS inbox like any other mail to info@. Until October 2026 this
+// went through the Gmail API from stocktonheathapp@gmail.com.
 //
-// Hand-rolled against fetch rather than pulling in googleapis: the droplet has
-// 1GB of RAM and a history of deploys failing on disk, and this needs no
-// dependency at all.
+// Hand-rolled against fetch rather than pulling in Resend's SDK: the droplet
+// has 1GB of RAM and a history of deploys failing on disk, and one POST needs
+// no dependency at all.
 //
 // Configured lazily like the other integrations: nothing here throws at boot,
 // because a missing mail setting must not take weather, bins, fuel and bridge
 // alerts down with it. If email isn't configured the send is skipped and
 // logged, and whatever the business was doing still succeeds.
 
+import { randomUUID } from "node:crypto";
 import { freeMonthTrialEnd, FREE_UNTIL, isLaunched, launchAt, ukDate } from "./launch";
 
-const TOKEN_URL = "https://oauth2.googleapis.com/token";
-const SEND_URL =
-  "https://gmail.googleapis.com/gmail/v1/users/me/messages/send";
+const SEND_URL = "https://api.resend.com/emails";
+
+// The sender everything goes out as. Overridable, but the domain has to be
+// the one verified in Resend or every send is refused.
+const DEFAULT_FROM = "Stockton Heath <info@stocktonheathapp.com>";
 
 interface Message {
   to: string;
   subject: string;
   body: string;
+  // Makes sending the same message again a no-op at Resend for 24 hours.
+  // Set for everything a Stripe webhook sends: Stripe delivers an event again
+  // when our answer is slow or lost, and without this the business would get
+  // its VAT invoice email twice.
+  key?: string;
 }
 
-// Access tokens last an hour. Cached so a burst of notifications doesn't
-// fetch a new one for each.
-let cachedToken: { value: string; expiresAt: number } | null = null;
 let configWarned = false;
 
-const oauthConfig = (): { id: string; secret: string; refresh: string } | null => {
-  const id = process.env.GOOGLE_CLIENT_ID;
-  const secret = process.env.GOOGLE_CLIENT_SECRET;
-  const refresh = process.env.GOOGLE_REFRESH_TOKEN;
-  if (!id || !secret || !refresh) {
+const apiKey = (): string | null => {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) {
     if (!configWarned) {
-      console.error(
-        "GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET/GOOGLE_REFRESH_TOKEN are not all set - email is disabled",
-      );
+      console.error("RESEND_API_KEY is not set - email is disabled");
       configWarned = true;
     }
     return null;
   }
-  return { id, secret, refresh };
+  return key;
 };
 
-const getAccessToken = async (): Promise<string | null> => {
-  if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) {
-    return cachedToken.value;
+const fromHeader = (): string => process.env.MAIL_FROM ?? DEFAULT_FROM;
+
+// Where the app's owner hears about new accounts, listings and payments. The
+// same variable decides who may approve from the portal (index.ts), so the
+// owner's login address and the address these go to are one setting.
+const ownerAddress = (): string | null => process.env.OWNER_EMAIL ?? null;
+
+const MAX_ATTEMPTS = 4;
+
+const wait = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+// How long to wait before trying again. Resend says when, for rate limits;
+// otherwise a growing pause with some jitter, so the hourly reminder sweep's
+// burst of sends doesn't retry in lockstep and hit the limit again.
+const backoff = (attempt: number, retryAfter: string | null): number => {
+  const seconds = Number(retryAfter);
+  if (retryAfter && Number.isFinite(seconds) && seconds >= 0) {
+    return Math.min(seconds, 30) * 1000;
   }
-
-  const config = oauthConfig();
-  if (!config) return null;
-
-  const response = await fetch(TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: config.id,
-      client_secret: config.secret,
-      refresh_token: config.refresh,
-      grant_type: "refresh_token",
-    }),
-  });
-
-  if (!response.ok) {
-    // The usual cause is a revoked refresh token: Google drops these when the
-    // account password is reset, and after 7 days while the OAuth app is still
-    // in "Testing". Both need the setup script running again.
-    console.error(
-      `Gmail token refresh failed (${response.status}): ${await response.text()}`,
-    );
-    return null;
-  }
-
-  const data = (await response.json()) as {
-    access_token?: string;
-    expires_in?: number;
-  };
-  if (!data.access_token) {
-    console.error("Gmail token refresh returned no access token");
-    return null;
-  }
-
-  cachedToken = {
-    value: data.access_token,
-    expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000,
-  };
-  return cachedToken.value;
+  return attempt * 1000 + Math.floor(Math.random() * 500);
 };
-
-const senderAddress = (): string => process.env.GMAIL_ADDRESS ?? "";
-
-const fromHeader = (): string => {
-  const address = senderAddress();
-  return process.env.MAIL_FROM ?? `Stockton Heath <${address}>`;
-};
-
-// Where the app's owner wants to hear about new listings and payments.
-// Defaults to the sending account, which is the common case.
-const ownerAddress = (): string | null =>
-  process.env.OWNER_EMAIL ?? process.env.GMAIL_ADDRESS ?? null;
-
-const isAscii = (value: string): boolean => /^[\x20-\x7E]*$/.test(value);
-
-// A header carrying anything outside plain ASCII - an accented business name,
-// a curly apostrophe - has to be encoded, or the header is invalid.
-const encodeHeader = (value: string): string =>
-  isAscii(value)
-    ? value
-    : `=?UTF-8?B?${Buffer.from(value, "utf8").toString("base64")}?=`;
-
-const buildMessage = (message: Message): string => {
-  // Base64 with CRLF folding: the bodies here have lines well over the 998
-  // characters a raw message is allowed.
-  const body = Buffer.from(message.body, "utf8")
-    .toString("base64")
-    .replace(/(.{76})/g, "$1\r\n");
-
-  const headers = [
-    `From: ${fromHeader()}`,
-    `To: ${message.to}`,
-    `Subject: ${encodeHeader(message.subject)}`,
-    "MIME-Version: 1.0",
-    'Content-Type: text/plain; charset="UTF-8"',
-    "Content-Transfer-Encoding: base64",
-  ].join("\r\n");
-
-  return `${headers}\r\n\r\n${body}`;
-};
-
-// Gmail wants the whole RFC 2822 message base64url encoded.
-const toRaw = (message: string): string =>
-  Buffer.from(message, "utf8")
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
 
 // Never rejects. Notification is a side effect of someone's action, so a mail
 // failure must not turn their successful save into an error. Failures are
 // logged loudly enough to find later.
+//
+// Retried on network errors, server errors and rate limits. Every attempt
+// carries the same idempotency key - the caller's, or one made up here - so a
+// retry after a request that did get through can't send the email twice.
 export const send = async (message: Message): Promise<void> => {
-  try {
-    const token = await getAccessToken();
-    if (!token) return;
+  const key = apiKey();
+  if (!key) return;
 
-    const response = await fetch(SEND_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ raw: toRaw(buildMessage(message)) }),
-    });
+  const idempotencyKey = message.key ?? randomUUID();
+  const label = `"${message.subject}" to ${message.to}`;
 
-    if (!response.ok) {
-      console.error(
-        `Failed to send "${message.subject}" to ${message.to} (${response.status}): ${await response.text()}`,
-      );
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const last = attempt === MAX_ATTEMPTS;
+    try {
+      const response = await fetch(SEND_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
+        body: JSON.stringify({
+          from: fromHeader(),
+          to: [message.to],
+          subject: message.subject,
+          text: message.body,
+        }),
+      });
+
+      if (response.ok) {
+        const data = (await response.json().catch(() => ({}))) as {
+          id?: string;
+        };
+        console.log(`Sent "${message.subject}" (${data.id ?? "no id"})`);
+        return;
+      }
+
+      const text = await response.text();
+      let name = "";
+      try {
+        name = (JSON.parse(text) as { name?: string }).name ?? "";
+      } catch {
+        // Not JSON: logged as it is below.
+      }
+
+      // The same key with a different body: an earlier delivery of this
+      // event already sent its email, and the listing has changed since.
+      // That is the duplicate the key exists to stop, not a failure.
+      if (name === "invalid_idempotent_request") {
+        console.log(
+          `Not resending ${label}: already sent under ${idempotencyKey}`,
+        );
+        return;
+      }
+
+      // Worth another go: Resend's side, a per-second rate limit, or the
+      // same send still in flight. A daily or monthly quota is not - it
+      // won't have reset in a few seconds.
+      const retryable =
+        response.status >= 500 ||
+        name === "rate_limit_exceeded" ||
+        name === "concurrent_idempotent_requests";
+
+      if (!retryable || last) {
+        console.error(`Failed to send ${label} (${response.status}): ${text}`);
+        return;
+      }
+      await wait(backoff(attempt, response.headers.get("retry-after")));
+    } catch (error) {
+      if (last) {
+        console.error(
+          `Failed to send ${label}:`,
+          error instanceof Error ? error.message : error,
+        );
+        return;
+      }
+      await wait(backoff(attempt, null));
     }
-  } catch (error) {
-    console.error(
-      `Failed to send "${message.subject}" to ${message.to}:`,
-      error instanceof Error ? error.message : error,
-    );
   }
 };
 
 // Deliberately not awaited by callers: the business's request shouldn't wait
-// on Google. `send` swallows its own errors, so there is no unhandled
+// on Resend. `send` swallows its own errors, so there is no unhandled
 // rejection.
 export const notify = (message: Message): void => {
   void send(message);
 };
 
-export const notifyOwner = (subject: string, body: string): void => {
+export const notifyOwner = (
+  subject: string,
+  body: string,
+  key?: string,
+): void => {
   const to = ownerAddress();
   if (!to) {
-    console.error("OWNER_EMAIL/GMAIL_ADDRESS are not set - owner not notified");
+    console.error("OWNER_EMAIL is not set - owner not notified");
     return;
   }
-  notify({ to, subject, body });
+  notify({ to, subject, body, key });
 };
 
 // ── Templates ─────────────────────────────────────────────────────────────────
@@ -463,7 +453,14 @@ export interface PaidInvoice {
 //
 // The owner is not copied. They get told once, when the subscription starts;
 // a note every month for every business would be a filing cabinet, not news.
-export const invoicePaid = (listing: ListingSummary, invoice: PaidInvoice): void => {
+//
+// `key`, here and on the other emails a Stripe webhook sends, names the event
+// that caused it, so Stripe delivering that event twice sends one email.
+export const invoicePaid = (
+  listing: ListingSummary,
+  invoice: PaidInvoice,
+  key?: string,
+): void => {
   const vat = invoice.tax > 0;
   const total = money(invoice.total, invoice.currency);
   const document = vat ? "VAT invoice" : "invoice";
@@ -489,6 +486,7 @@ export const invoicePaid = (listing: ListingSummary, invoice: PaidInvoice): void
           `here:\n${PORTAL()}/listing`
         : `Nothing for you to do - your discount stays in the app.`) +
       SIGN_OFF,
+    key,
   });
 };
 
@@ -502,6 +500,7 @@ export const subscriptionStarted = (
   listing: ListingSummary,
   approved: boolean,
   freeUntil: Date | null = null,
+  key?: string,
 ): void => {
   const launched = isLaunched();
   const live = approved && launched;
@@ -544,6 +543,8 @@ export const subscriptionStarted = (
       `Your discount: ${listing.discountText}\n\n` +
       `You can change it any time here:\n${PORTAL()}/listing` +
       SIGN_OFF,
+    // Two emails from one event, so each gets its own key.
+    key: key ? `${key}/business` : undefined,
   });
 
   notifyOwner(
@@ -563,6 +564,7 @@ export const subscriptionStarted = (
           : "not yet - still needs approving"
       }\n\n` +
       (approved ? "" : `Review it here:\n${PORTAL()}/admin\n`),
+    key ? `${key}/owner` : undefined,
   );
 };
 
@@ -573,6 +575,7 @@ export const subscriptionStarted = (
 export const freeMonthEndingUnapproved = (
   listing: ListingSummary,
   endsAt: Date,
+  key?: string,
 ): void => {
   notifyOwner(
     `First payment on ${ukDate(endsAt)}, not yet approved: ${listing.businessName}`,
@@ -583,6 +586,7 @@ export const freeMonthEndingUnapproved = (
       `is charged:\n${PORTAL()}/admin\n\n` +
       `Discount: ${listing.discountText}\n` +
       `Contact: ${listing.contactEmail}\n`,
+    key,
   );
 };
 
