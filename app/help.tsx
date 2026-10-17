@@ -244,11 +244,11 @@ export default function Help() {
                 ]}
                 onPress={() =>
                   void Linking.openURL(
-                    "mailto:stocktonheathapp@gmail.com",
+                    "mailto:info@stocktonheathapp.com",
                   ).catch(() => {})
                 }
               >
-                stocktonheathapp@gmail.com
+                info@stocktonheathapp.com
               </Text>
             </View>
           </View>

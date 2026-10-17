@@ -133,9 +133,9 @@ export default function About() {
             out by email at{" "}
             <Text
               style={[globalStyles.bodyBold, globalStyles.bodyLink]}
-              onPress={() => openUrl("mailto:stocktonheathapp@gmail.com")}
+              onPress={() => openUrl("mailto:info@stocktonheathapp.com")}
             >
-              stocktonheathapp@gmail.com
+              info@stocktonheathapp.com
             </Text>
             .
           </Text>

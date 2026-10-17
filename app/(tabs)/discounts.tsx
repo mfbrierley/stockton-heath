@@ -20,7 +20,7 @@ import { theme } from "../styles/theme";
 // rather than a link to the portal: the portal is no use without an
 // invitation, and a link from inside the app to a page selling placement in
 // the app is the kind of thing App Review asks questions about.
-const CONTACT_EMAIL = "stocktonheathapp@gmail.com";
+const CONTACT_EMAIL = "info@stocktonheathapp.com";
 
 // The one category with a fixed position in the filter row. Matched by value
 // because that is what the backend stores; if it were ever renamed there this

@@ -60,7 +60,7 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
 - Says under the heading that businesses pay to appear and that every
   discount is checked: paid listings are adverts, and have to be recognisable
   as adverts
-- An email link at the bottom (`stocktonheathapp@gmail.com`) for residents who
+- An email link at the bottom (`info@stocktonheathapp.com`) for residents who
   run a business. Not a link to the portal: listings are by invitation, and a
   link from inside the app to a page selling placement in it invites App
   Review questions
@@ -296,7 +296,7 @@ falls back to the results page's status for that practice, or to yesterday's rea
 the results page shows the same groups as yesterday, so one failed request doesn't lose a
 practice's "not confirmed" status or its date.
 
-**You are emailed** (at `OWNER_EMAIL`, through the existing Gmail setup) when the list's
+**You are emailed** (at `OWNER_EMAIL`, through the same Resend setup as Local Offers) when the list's
 health changes, never once per failed attempt:
 
 | Email | When |
@@ -600,21 +600,30 @@ Local Offers (all optional - each route returns `503` until the variables it nee
 Notification email (optional - with none of it set, nothing is sent and every request still
 succeeds; failures are logged, never returned to the caller).
 
-Sent through the **Gmail API over HTTPS**, not SMTP. DigitalOcean blocks outbound SMTP on
-every droplet (ports 25, 465 and 587) and declined to lift it, so nodemailer could never
-open a connection. The Gmail API runs on 443 and mail genuinely comes from the authorising
-account, so deliverability is Gmail's own.
+Sent through **Resend's HTTP API**, as `Stockton Heath <info@stocktonheathapp.com>`, not
+SMTP. DigitalOcean blocks outbound SMTP on every droplet (ports 25, 465 and 587) and
+declined to lift it, so neither nodemailer nor the IONOS mailbox can send from the droplet.
+Resend's records are on the domain at IONOS (DKIM at `resend._domainkey`, and the `send`
+subdomain's MX and SPF for bounces, sending region Ireland); the domain's own MX, SPF and
+DMARC are IONOS's and untouched, so `info@` still receives at IONOS and replies land there.
+Until October 2026 mail went through the Gmail API from `stocktonheathapp@gmail.com`, which
+is no longer used anywhere - it forwards to `info@` for the copies of the app that still show it.
 
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` - an OAuth **Desktop app** client from the
-  Google Cloud console, with the Gmail API enabled
-- `GOOGLE_REFRESH_TOKEN` - produced by `backend/scripts/get-gmail-refresh-token.mjs`, which
-  walks the one-off consent flow. Google revokes it if the account password is reset, and
-  after 7 days while the OAuth app is still in "Testing" - **publish the app** to avoid that.
-- `GMAIL_ADDRESS` - the address mail is sent from; must be the account that authorised
+- `RESEND_API_KEY` - a **sending-only** Resend key restricted to `stocktonheathapp.com`.
+  Without it nothing is sent, which is logged once.
 - `OWNER_EMAIL` - where "needs approving" and "new subscriber" notices go, and the account
-  allowed to approve from the portal UI. Defaults to `GMAIL_ADDRESS` for notifications, but
-  must be set explicitly to enable owner approval from the browser.
-- `MAIL_FROM` - optional display sender, defaults to `Stockton Heath <GMAIL_ADDRESS>`
+  allowed to approve from the portal UI: the owner's Clerk login address and this must match.
+  `info@stocktonheathapp.com`.
+- `MAIL_FROM` - optional sender, defaults to `Stockton Heath <info@stocktonheathapp.com>`. Its
+  domain must be the one verified in Resend. Written without quotes in `backend/.env`, like
+  every value there.
+
+Sends are retried on network errors, Resend server errors and per-second rate limits, with
+one idempotency key across the attempts, so a retry can't deliver twice. Emails a Stripe
+webhook sends (`subscriptionStarted`, `freeMonthEndingUnapproved`, `invoicePaid`) are keyed
+on the Stripe event id: Stripe redelivers an event when the answer is slow or lost, and
+Resend drops the repeat for 24 hours. Each successful send logs Resend's email id, which
+finds it in Resend's dashboard.
 
 ---
 
