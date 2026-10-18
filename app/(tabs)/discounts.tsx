@@ -16,10 +16,10 @@ import { useBusinessListings } from "../../hooks/useBusinessListings";
 import { globalStyles } from "../styles/globalStyles";
 import { theme } from "../styles/theme";
 
-// Listings are by invitation, so a business that wants one asks. An email
-// rather than a link to the portal: the portal is no use without an
-// invitation, and a link from inside the app to a page selling placement in
-// the app is the kind of thing App Review asks questions about.
+// A business that wants a listing asks by email, and gets sent the link to
+// the business page. Not a link straight from here: a link from inside the
+// app to a page selling placement in the app is the kind of thing App Review
+// asks questions about.
 const CONTACT_EMAIL = "info@stocktonheathapp.com";
 
 // The one category with a fixed position in the filter row. Matched by value
@@ -247,8 +247,8 @@ export default function Discounts() {
             <View style={styles.card}>
               <Text style={globalStyles.cardTitle}>Run a local business?</Text>
               <Text style={[globalStyles.body, styles.muted]}>
-                Listings are by invitation. Email us and we&apos;ll tell you how it
-                works.
+                Want your discount here? Email us and we&apos;ll send you the
+                details.
               </Text>
               <View style={styles.linkRow}>
                 <Text style={[globalStyles.body, globalStyles.bodyLink]}>
