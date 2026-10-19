@@ -61,9 +61,9 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
   discount is checked: paid listings are adverts, and have to be recognisable
   as adverts
 - An email link at the bottom (`info@stocktonheathapp.com`) for residents who
-  run a business. Not a link to the portal: listings are by invitation, and a
-  link from inside the app to a page selling placement in it invites App
-  Review questions
+  run a business; they're sent the link to the business page. Not a link to
+  the portal from the app itself: a link from inside the app to a page selling
+  placement in it invites App Review questions
 - **Shown only once there is something to show** (`hooks/useDiscountsLive.ts`).
   The tab and the Home card appear when `GET /business-listings` returns a
   non-empty list, which the backend refuses to do before launch day - see
@@ -723,21 +723,26 @@ invoice; turning Stripe's on as well means two emails for every payment.
   `--env-file` keeps quotes as part of the value, and a name pasted twice
   (`NAME=NAME=value`) gave a key Stripe rejected without logging it.
 - **Clerk production has been live since 13 October 2026** for
-  `stocktonheathapp.com` (Invite-only, password minimum 8, paths under
-  `/business`), with the portal on `https://www.stocktonheathapp.com/business`
-  and `PORTAL_BASE_URL` set to match. The publishable key (Vercel) and secret
-  key (droplet) must always be from the same instance - one without the other
-  breaks every login. Businesses are invited from Clerk's dashboard; accounts
-  made on the old development instance did not carry over.
-- **Photo upload works**, served from a `pub-...r2.dev` address. Before
-  launch: a custom domain on the bucket for `R2_PUBLIC_URL` (Cloudflare
-  rate-limits `r2.dev`), and the new portal origin added to the bucket's CORS
-  `PUT` rule - the browser uploads straight to R2, so without it every upload
-  fails and nothing in the logs explains why.
-- **The portal moves to `https://www.stocktonheathapp.com/business`** (domain
+  `stocktonheathapp.com` (password minimum 8, email confirmed by a code,
+  CAPTCHA, paths under `/business`), with the portal on
+  `https://www.stocktonheathapp.com/business` and `PORTAL_BASE_URL` set to
+  match. The publishable key (Vercel) and secret key (droplet) must always be
+  from the same instance - one without the other breaks every login. **Sign-up
+  has been open since 18 October 2026** (invitation-only before): businesses
+  are emailed a link to the business page and sign up with whichever address
+  they want, since the one found for a business online isn't necessarily it.
+  Nothing reaches residents without approval and a subscription. Accounts made
+  on the old development instance did not carry over.
+- **Photo upload works**, served from a `pub-...r2.dev` address, with the
+  portal's `www` origin in the bucket's CORS `PUT` rule - the browser uploads
+  straight to R2, so without it every upload fails and nothing in the logs
+  explains why. A custom domain for `R2_PUBLIC_URL` would avoid `r2.dev`'s
+  rate limits, but Cloudflare only attaches one when it also runs the
+  domain's DNS, which is at IONOS - so it waits until after launch; at this
+  app's traffic `r2.dev` is fine.
+- **The portal is at `https://www.stocktonheathapp.com/business`** (domain
   bought at IONOS, on Vercel since 13 October 2026): Clerk production refuses
-  `*.vercel.app`. Sign-up is by invitation, sent from Clerk's dashboard
-  (Users → Invitations).
+  `*.vercel.app`.
 - **The webhook's event list** needs `customer.subscription.trial_will_end`
   as well as `invoice.paid`.
 
