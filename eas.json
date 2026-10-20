@@ -8,24 +8,21 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://stocktonheath.duckdns.org",
-        "EXPO_PUBLIC_OPENWEATHER_API_KEY": "b8c7f719ee45ff75d69d0f84d317ab5e"
+        "EXPO_PUBLIC_BACKEND_URL": "https://stocktonheath.duckdns.org"
       },
       "channel": "development"
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://stocktonheath.duckdns.org",
-        "EXPO_PUBLIC_OPENWEATHER_API_KEY": "b8c7f719ee45ff75d69d0f84d317ab5e"
+        "EXPO_PUBLIC_BACKEND_URL": "https://stocktonheath.duckdns.org"
       },
       "channel": "preview"
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://stocktonheath.duckdns.org",
-        "EXPO_PUBLIC_OPENWEATHER_API_KEY": "b8c7f719ee45ff75d69d0f84d317ab5e"
+        "EXPO_PUBLIC_BACKEND_URL": "https://stocktonheath.duckdns.org"
       },
       "channel": "production"
     }

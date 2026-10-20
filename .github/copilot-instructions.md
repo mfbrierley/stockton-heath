@@ -65,14 +65,13 @@ backend/                  # Node.js/Express API server
 
 | Variable                          | Purpose                                                |
 | --------------------------------- | ------------------------------------------------------ |
-| `EXPO_PUBLIC_OPENWEATHER_API_KEY` | OpenWeather One Call API                               |
 | `EXPO_PUBLIC_BACKEND_URL`         | Backend base URL (`https://stocktonheath.duckdns.org`) |
 
 ### Screens
 
 | Screen                                               | Description                                                                                             |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Home (`index.tsx`)                                   | Weather (OpenWeather API, lat/lon hardcoded to Stockton Heath) + local fuel prices from backend         |
+| Home (`index.tsx`)                                   | Weather and local fuel prices, both from the backend (it reads OpenWeather and Fuel Finder)             |
 | Services (`services.tsx`)                            | Postcode-based bin collection lookup via Warrington Borough Council API and local place links           |
 | Discounts (`discounts.tsx`)                          | Approved, paid-for business discounts from `GET /business-listings`, searchable by business name or discount wording, and filterable by category chips built from the listings themselves. Shown only once the backend's list is non-empty (`hooks/useDiscountsLive.ts`), which it isn't before launch day |
 | Bridge (`bridge.tsx`)                                | Latest swing bridge closure alert + push notification subscribe                                         |
@@ -114,6 +113,7 @@ const LONGITUDE = -2.5811; // Stockton Heath, Warrington
 | `ADMIN_TOKEN` | Shared secret for admin-only routes (`x-admin-token` header) |
 | `TWITTERAPI_IO_API_KEY` | twitterapi.io key for bridge alert tweets |
 | `FUEL_FINDER_CLIENT_ID` / `FUEL_FINDER_CLIENT_SECRET` | Gov.uk Fuel Finder OAuth credentials |
+| `OPENWEATHER_API_KEY` | OpenWeather One Call API 3.0 key; without it `/weather` returns `503` |
 | `CLERK_SECRET_KEY` | Verifies business portal session tokens |
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_ID` / `STRIPE_WEBHOOK_SECRET` | Local Offers subscriptions |
 | `PORTAL_BASE_URL` | Business portal base URL; Stripe redirects and the CORS allow-list |
@@ -138,7 +138,7 @@ Admin routes are gated by `requireAdmin` (`x-admin-token`); business routes by
 | POST | `/notifications/broadcast` | admin - dry run unless `confirm` matches the recipient count |
 | GET | `/test-key` | admin |
 | POST / DELETE | `/bridge-subscriptions` , `/bin-subscriptions` | public |
-| GET | `/fuel-prices` | public |
+| GET | `/fuel-prices` , `/weather` | public |
 | GET | `/business-listings` | public - only `approved && active`; read by the app's Discounts tab |
 | GET | `/business-listings/pending` | admin |
 | POST | `/business-listings/:id/approve` , `/:id/unapprove` | admin |
@@ -151,6 +151,7 @@ Admin routes are gated by `requireAdmin` (`x-admin-token`); business routes by
 
 - **Bridge alerts:** polls `twitterapi.io` every **10 minutes** for tweets from `trafficwarr` containing "Swingbridge" (excluding test posts); alerts older than 30 minutes are saved but not pushed. Only runs 6am-10pm UK time. Sends Expo push notifications on new alerts.
 - **Fuel prices:** polls Gov.uk Fuel Finder API every **30 minutes**, caches results in memory for 3 local stations (Wilderspool Causeway, Latchford, Morrisons).
+- **Weather:** reads OpenWeather One Call 3.0 every **10 minutes** (`src/weather.ts`), caches it in memory and serves it at `/weather` - 144 calls a day however many people use the app. A reading over an hour old is withheld (`503`) rather than shown as live.
 - **Bin reminders:** checked every minute, fires at **18:00 UK**. Groups `BinSubscription` rows by UPRN, queries the council API, and pushes to anyone with a collection tomorrow. De-duplicated per day via `AppMeta`.
 
 ### Database models (Prisma)

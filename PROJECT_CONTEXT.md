@@ -18,7 +18,7 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
 
 - Personalised greeting card - the user is asked for their first name on first launch (`WelcomeNamePrompt`), stored locally and editable from the About screen via `/change-name`
 - **NHS dentists announcement** (`NhsDentistsAnnouncement`) - a temporary launch notice between the greeting and the weather: "New: see which NHS dentists near Stockton Heath are taking on new patients", tapping through to `/nhs-dentists`. It can be closed (remembered in AsyncStorage) and stops showing on its own after `ANNOUNCEMENT_EXPIRY`, 1 December 2026 - delete it once that has passed
-- Displays current **weather** for Stockton Heath (lat/lon hardcoded) using the **OpenWeather One Call API**
+- Displays current **weather** for Stockton Heath from the backend, which reads the **OpenWeather One Call API** every 10 minutes. Until October 2026 every phone called OpenWeather itself with a key built into the app, so each app open was a call on the account
 - Shows live **local fuel prices** for three nearby petrol stations:
   - ASDA (Wilderspool Causeway)
   - ESSO (Latchford / Knutsford Road)
@@ -105,6 +105,7 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 ### What it does
 
 - Serves as a proxy/cache for fuel price data (fetching from the Gov.uk Fuel Finder API every 30 minutes)
+- Reads the weather from OpenWeather every 10 minutes and caches it, so every phone shares one reading
 - Reads which nearby NHS dentists are taking on new patients from nhs.uk once a day, and caches it
 - Polls Twitter (via twitterapi.io) for bridge closure tweets and stores them in a database
 - Stores Expo push notification tokens and fans out push notifications for bridge closures and bin collection reminders
@@ -127,6 +128,7 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | `POST /bin-subscriptions`            | Register a token + UPRN for bin reminders               |
 | `DELETE /bin-subscriptions`          | Unregister a token from bin reminders                   |
 | `GET /fuel-prices`                   | Cached fuel prices for local stations                   |
+| `GET /weather`                       | Cached OpenWeather One Call reading (`current` and `hourly`) with its `fetchedAt`. `503` until the first read after a restart, without `OPENWEATHER_API_KEY`, or once the last good reading is over an hour old |
 | `GET /nhs-dentists`                  | Cached NHS dental practices within 5 miles and whether each is taking on new NHS patients. `503` until the first read of nhs.uk after a restart |
 | `GET /business-listings`             | Live Local Offers listings (`approved && active` only). **Empty until launch** - see [Launch and the free month](#launch-and-the-free-month) |
 | `GET /business-listings/launch`      | The launch date, the free-month end date, and whether subscribing now starts with the free month. Public; the portal reads it |
@@ -249,6 +251,7 @@ All scheduled with `setInterval` in `backend/src/index.ts` - there is no cron or
 
 - **Bridge polling** (every 10 minutes, 6am-10pm UK time): checks twitterapi.io for new tweets from `@trafficwarr` containing "Swingbridge" (excluding test posts). If a new one is found, it saves it to the database and, if it was posted in the last 30 minutes, pushes to all bridge subscribers via the Expo Push Notification service.
 - **Fuel price polling** (every 30 minutes): fetches fresh prices from the Gov.uk Fuel Finder API using OAuth client credentials. Results are cached in memory.
+- **Weather polling** (every 10 minutes, `src/weather.ts`): reads OpenWeather's One Call API 3.0 for Stockton Heath and caches it in memory - 144 calls a day, well inside the 1,000 a day One Call 3.0 gives free, however many people open the app. A failed read keeps the last good one, but `/weather` stops serving it once it is an hour old: the app labels the weather LIVE.
 - **NHS dentists** (checked hourly, runs once the saved list is a day old): reads the nhs.uk find-a-dentist results page, then each practice's appointments page five seconds apart - about four minutes in all. Saved to `AppMeta`, so a restart serves the saved list without reading nhs.uk again. A failed read is retried the next hour. See [NHS dentists](#nhs-dentists).
 - **Bin reminders** (checked every minute, fires at 18:00 UK time): groups bin subscriptions by UPRN, queries the council API for each, and pushes "Put out your \<bins\> tonight" to anyone with a collection tomorrow. De-duplicated per day via `AppMeta` so a redeploy can't double-send.
 
@@ -555,12 +558,11 @@ listing's "OFFICIAL SOURCES". The `/release` skill checks for all three.
 
 **Frontend**
 
-Both public keys are committed into `eas.json` per build profile, so EAS builds pick them up without a local `.env`. A local `.env` with the same two keys is needed for `expo start`:
+The backend URL is committed into `eas.json` per build profile, so EAS builds pick it up without a local `.env`. A local `.env` with the same key is needed for `expo start`:
 
-- `EXPO_PUBLIC_OPENWEATHER_API_KEY` - OpenWeather One Call API key
 - `EXPO_PUBLIC_BACKEND_URL` - Backend base URL (`https://stocktonheath.duckdns.org`)
 
-Note that `EXPO_PUBLIC_*` variables are inlined into the client bundle at build time and are therefore readable by anyone with the app - they are not secrets.
+Note that `EXPO_PUBLIC_*` variables are inlined into the client bundle at build time and are therefore readable by anyone with the app - they are not secrets. That is why the OpenWeather key moved to the backend in October 2026: as `EXPO_PUBLIC_OPENWEATHER_API_KEY` anyone could read it out of the app and spend it. Copies of the app from before then still call OpenWeather directly with that key, so the backend has a key of its own and the old one can be deleted in OpenWeather once those copies have updated - they then show "Weather is unavailable" until they do.
 
 **Backend (`backend/.env`)**
 
@@ -569,6 +571,7 @@ Note that `EXPO_PUBLIC_*` variables are inlined into the client bundle at build 
 - `TWITTERAPI_IO_API_KEY` - API key for twitterapi.io (used to read tweets)
 - `ADMIN_TOKEN` - shared secret for the admin-only routes above. Generate with `openssl rand -hex 32`. Without it those routes return `503`.
 - `FUEL_FINDER_CLIENT_ID` / `FUEL_FINDER_CLIENT_SECRET` - Gov.uk Fuel Finder OAuth credentials
+- `OPENWEATHER_API_KEY` - OpenWeather key with the One Call API 3.0 subscription. Without it `/weather` returns `503`, which is logged once; nothing else is affected
 
 Local Offers (all optional - each route returns `503` until the variables it needs are set). As of 16 October 2026 everything, R2 included, is configured on the droplet, with Stripe in live mode and Clerk on its production instance:
 

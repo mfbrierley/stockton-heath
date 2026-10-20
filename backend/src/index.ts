@@ -22,6 +22,7 @@ import {
 import { subscriptionPeriod } from "./subscription";
 import { FREE_UNTIL, freeMonthTrialEnd, isLaunched, launchAt } from "./launch";
 import { getCachedNhsDentists, startNhsDentists } from "./nhsDentists";
+import { getCachedWeather, syncWeather, WEATHER_REFRESH_MS } from "./weather";
 import { PrismaClient } from "./generated/prisma/client";
 
 setDefaultResultOrder("ipv4first");
@@ -849,6 +850,16 @@ app.get("/fuel-prices", (req: Request, res: Response) => {
     return res.status(503).json({ error: "Fuel prices not yet available" });
   }
   return res.json(cachedFuelPrices);
+});
+
+// 503 until the first read of OpenWeather after a restart, and again once
+// every read for an hour has failed.
+app.get("/weather", (req: Request, res: Response) => {
+  const weather = getCachedWeather();
+  if (!weather) {
+    return res.status(503).json({ error: "Weather not yet available" });
+  }
+  return res.json(weather);
 });
 
 app.get("/nhs-dentists", (req: Request, res: Response) => {
@@ -2640,6 +2651,7 @@ const SWING_BRIDGE_USER_NAME = "trafficwarr";
 
 void syncLatestBridgeAlert(SWING_BRIDGE_USER_NAME);
 void syncFuelPrices();
+void syncWeather();
 
 setInterval(
   () => {
@@ -2654,6 +2666,10 @@ setInterval(
   },
   30 * 60 * 1000,
 );
+
+setInterval(() => {
+  void syncWeather();
+}, WEATHER_REFRESH_MS);
 
 // Daily: practices change their status rarely, and nhs.uk's terms ask for
 // data copied from it to be refreshed every 24 hours. Loads the saved list

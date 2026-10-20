@@ -2,9 +2,9 @@ name: OTA update (production)
 
 # Run manually from expo.dev or with `npx eas-cli workflow:run ota-production.yml`.
 # Publishes the checked-out commit as an over-the-air update to the production channel.
-# EXPO_PUBLIC_BACKEND_URL and EXPO_PUBLIC_OPENWEATHER_API_KEY must exist as EAS
-# environment variables in the "production" environment; `eas update` does not
-# read the build-profile env in eas.json.
+# EXPO_PUBLIC_BACKEND_URL must exist as an EAS environment variable in the
+# "production" environment; `eas update` does not read the build-profile env in
+# eas.json.
 on:
   workflow_dispatch:
     inputs:
