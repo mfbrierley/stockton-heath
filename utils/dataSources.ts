@@ -121,7 +121,8 @@ export const DATA_SOURCES: DataSource[] = [
   {
     icon: "cloud",
     name: "OpenWeather",
-    detail: "One Call API 3.0 - temperature, wind, rain and sunset",
+    detail:
+      "One Call API 3.0 - temperature, wind, rain and sunset, refreshed every 10 minutes",
     url: OPENWEATHER_URL,
     group: "live",
   },

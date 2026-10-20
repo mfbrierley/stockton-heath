@@ -20,9 +20,6 @@ import { useUserName } from "../../hooks/useUserName";
 import { globalStyles } from "../styles/globalStyles";
 import { theme } from "../styles/theme";
 
-const LATITUDE = 53.3705;
-const LONGITUDE = -2.5811;
-
 const MS_TO_MPH = 2.237;
 
 export default function Index() {
@@ -32,25 +29,8 @@ export default function Index() {
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<WeatherApiResponse | null>(null);
 
-  const endpoint = useMemo(() => {
-    const apiKey = process.env.EXPO_PUBLIC_OPENWEATHER_API_KEY;
-
-    if (!apiKey) {
-      throw new Error(
-        "API key is missing. Restart the Expo server after adding .env",
-      );
-    }
-
-    const params = new URLSearchParams({
-      lat: String(LATITUDE),
-      lon: String(LONGITUDE),
-      units: "metric",
-      appid: apiKey,
-    });
-
-    return `https://api.openweathermap.org/data/3.0/onecall?${params.toString()}`;
-  }, []);
-
+  // The backend reads OpenWeather every ten minutes and every phone shares
+  // that one reading, so opening the app costs no call on the account.
   useEffect(() => {
     let isMounted = true;
 
@@ -59,23 +39,20 @@ export default function Index() {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(endpoint);
-        if (!response.ok) {
-          const body = await response.text();
-          throw new Error(`${response.status}: ${body}`);
-        }
+        const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
+        if (!backendUrl) throw new Error("EXPO_PUBLIC_BACKEND_URL is not set");
 
-        const json = (await response.json()) as WeatherApiResponse;
+        const response = await fetch(`${backendUrl}/weather`);
+        if (!response.ok) throw new Error(`${response.status}`);
+
+        const json = (await response.json()) as { data: WeatherApiResponse };
         if (isMounted) {
-          setData(json);
+          setData(json.data);
         }
       } catch (err) {
+        console.error("Weather request failed:", err);
         if (isMounted) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Weather is unavailable right now.",
-          );
+          setError("Weather is unavailable right now.");
         }
       } finally {
         if (isMounted) {
@@ -89,7 +66,7 @@ export default function Index() {
     return () => {
       isMounted = false;
     };
-  }, [endpoint]);
+  }, []);
 
   const windMph = useMemo(() => {
     return data ? Math.round(data.current.wind_speed * MS_TO_MPH) : undefined;
