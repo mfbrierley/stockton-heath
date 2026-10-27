@@ -403,6 +403,32 @@ Two constraints have blocked deploys before:
 - `.eas/workflows/ota-production.yml` does the same on Expo's servers (run it from expo.dev → Workflows). It reads the `EXPO_PUBLIC_*` values from the **production** EAS environment variables, since `eas update` does not read the build-profile env in `eas.json`. **Prefer `npm run ui-update` from a local checkout of `main`:** it publishes in about a minute, whereas we're on Expo's free plan and workflow jobs wait in the shared queue (~1 hour seen in September 2026)
 - Push notifications are delivered via the **Expo Push Notification service**, which wraps APNs on iOS. EAS manages the APNs key, so iOS push needs nothing in the repo - unlike Android, see below
 
+### Meta SDK (app install ads)
+
+Added October 2026 so the app can be advertised with Meta's **App Promotion**
+objective, one campaign per platform, instead of a traffic ad pointing at the
+website's `/get` page. `react-native-fbsdk-next` is configured entirely by its plugin
+entry in `app.json`; there is no JavaScript for it.
+
+- **What it sends:** installs and app opens only, logged automatically
+  (`isAutoInitEnabled` and `autoLogAppEventsEnabled`). No custom events, no Facebook
+  Login, nothing about what someone does in the app.
+- **No tracking prompt on iOS, by choice.** `iosUserTrackingPermission` is `false`, so
+  there is no `NSUserTrackingUsageDescription` and the app never shows Apple's "Allow
+  tracking?" pop-up. iPhone installs reach Meta only through its aggregated measurement
+  and SKAdNetwork (the plugin adds Meta's two SKAdNetwork IDs), which report in
+  aggregate and up to three days late.
+- **No advertising ID on either platform:** `advertiserIDCollectionEnabled` is `false`,
+  and `com.google.android.gms.permission.AD_ID` is in `blockedPermissions`, so the Play
+  Console's Advertising ID declaration stays "No". Android installs are matched through
+  the Play install referrer instead.
+- The App ID and Client Token in the plugin entry come from developers.facebook.com
+  (App settings → Basic, and → Advanced → Security). Neither is secret: both are
+  compiled into the app.
+- It is native code, so it ships in a store release, never with `npm run ui-update`.
+- The website's privacy policy, the App Store privacy details and Play's Data safety
+  form all describe this. Change what the SDK sends and all three need updating.
+
 ### Releasing a new store version
 
 In Claude Code, `/release` (or asking Claude to release) runs this whole process from

@@ -27,7 +27,8 @@
       "googleServicesFile": "./google-services.json",
       "blockedPermissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "com.google.android.gms.permission.AD_ID"
       ]
     },
     "web": {
@@ -57,7 +58,19 @@
           }
         }
       ],
-      "@maplibre/maplibre-react-native"
+      "@maplibre/maplibre-react-native",
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": "META_APP_ID",
+          "clientToken": "META_CLIENT_TOKEN",
+          "displayName": "Stockton Heath",
+          "isAutoInitEnabled": true,
+          "autoLogAppEventsEnabled": true,
+          "advertiserIDCollectionEnabled": false,
+          "iosUserTrackingPermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
