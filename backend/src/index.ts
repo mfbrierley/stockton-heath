@@ -1699,6 +1699,117 @@ app.delete("/admin/users/:clerkUserId", requireAdminOrOwner, async (req: Request
   }
 });
 
+// ── Download link counts (/get on the website) ────────────────────────────────
+
+// www.stocktonheathapp.com/get?src=... sends iPhones to the App Store and
+// Android phones to Google Play. Meta reports taps on an ad and the stores
+// report downloads, but nothing said how many people actually reached the page
+// in between, or on what - which is the question when the two don't add up.
+// The page pings POST /get-hits as it loads (through a rewrite on the website,
+// so this sees Vercel, not the phone), and this keeps one running total per UK
+// day, `src` tag, kind of phone and app the link was opened in.
+//
+// Totals only: no IP address, user agent, cookie or anything else about the
+// person is read or kept. They live in AppMeta, a plain key/value table, so
+// this needed no migration. Keys look like
+// `get-hits|2026-10-27|facebook|ios|facebook`.
+const DOWNLOAD_HITS_PREFIX = "get-hits|";
+const DOWNLOAD_HIT_PLATFORMS = new Set(["ios", "android", "other"]);
+// Which app's built-in browser the link opened in. Ads open inside the
+// Facebook or Instagram app, which is where a redirect is most likely to stall.
+const DOWNLOAD_HIT_VIAS = new Set(["facebook", "instagram", "browser"]);
+
+// Anyone can call this, so a script inventing `src` tags could otherwise add
+// rows without end. Real use is a handful of rows a day.
+const DOWNLOAD_HITS_MAX_ROWS_PER_DAY = 200;
+
+const queryString = (value: unknown): string =>
+  typeof value === "string" ? value : "";
+
+// The same cleaning get.html does, so the two can't disagree about a tag.
+const cleanDownloadSrc = (value: unknown): string =>
+  queryString(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, "")
+    .slice(0, 40) || "direct";
+
+const recordDownloadHit = async (
+  src: string,
+  platform: string,
+  via: string,
+): Promise<void> => {
+  const dayPrefix = `${DOWNLOAD_HITS_PREFIX}${getUKDateString(new Date())}|`;
+  const key = `${dayPrefix}${src}|${platform}|${via}`;
+
+  const existing = await prisma.appMeta.findUnique({ where: { key } });
+  if (!existing) {
+    const rowsToday = await prisma.appMeta.count({
+      where: { key: { startsWith: dayPrefix } },
+    });
+    if (rowsToday >= DOWNLOAD_HITS_MAX_ROWS_PER_DAY) return;
+  }
+
+  // One statement, so two phones opening the link at once both count.
+  await prisma.$executeRaw`
+    INSERT INTO "AppMeta" ("key", "value") VALUES (${key}, '1')
+    ON CONFLICT ("key") DO UPDATE SET "value" = CAST("value" AS INTEGER) + 1
+  `;
+};
+
+app.post("/get-hits", (req: Request, res: Response) => {
+  const platform = queryString(req.query.platform);
+  const via = queryString(req.query.via);
+
+  // Answered before the write: the page has already moved on to the store and
+  // never reads the reply, so a slow database has nothing to hold up.
+  res.status(204).end();
+
+  if (!DOWNLOAD_HIT_PLATFORMS.has(platform) || !DOWNLOAD_HIT_VIAS.has(via)) {
+    return;
+  }
+
+  recordDownloadHit(cleanDownloadSrc(req.query.src), platform, via).catch(
+    (error) => {
+      console.warn(
+        "Download link count not recorded:",
+        error instanceof Error ? error.message : error,
+      );
+    },
+  );
+});
+
+// The totals behind the portal's Admin > Download link page, newest day first.
+// `days` counts today as one of them.
+app.get("/admin/download-link", requireAdminOrOwner, async (req: Request, res: Response) => {
+  try {
+    const requested = Number.parseInt(queryString(req.query.days), 10);
+    const days = Number.isFinite(requested)
+      ? Math.min(Math.max(requested, 1), 400)
+      : 30;
+    const since = getUKDateString(
+      new Date(Date.now() - (days - 1) * 24 * 60 * 60 * 1000),
+    );
+
+    const rows = await prisma.appMeta.findMany({
+      where: { key: { startsWith: DOWNLOAD_HITS_PREFIX } },
+    });
+
+    const counts = rows
+      .flatMap((row) => {
+        const [, day, src, platform, via] = row.key.split("|");
+        const count = Number.parseInt(row.value, 10);
+        if (!day || !src || !platform || !via || day < since) return [];
+        if (!Number.isFinite(count)) return [];
+        return [{ day, src, platform, via, count }];
+      })
+      .sort((a, b) => b.day.localeCompare(a.day) || b.count - a.count);
+
+    return res.json({ since, days, counts });
+  } catch (error) {
+    return handleListingError(error, res);
+  }
+});
+
 // ── Local Offers: public route (the app) ──────────────────────────────────────
 
 // Empty until launch, whatever is approved and paid for. This is the switch:
