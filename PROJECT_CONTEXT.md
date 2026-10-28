@@ -407,27 +407,42 @@ Two constraints have blocked deploys before:
 
 Added October 2026 so the app can be advertised with Meta's **App Promotion**
 objective, one campaign per platform, instead of a traffic ad pointing at the
-website's `/get` page. `react-native-fbsdk-next` is configured entirely by its plugin
-entry in `app.json`; there is no JavaScript for it.
+website's `/get` page. Meta app "Stockton Heath", App ID `1710831803797789`, in the
+Zap Digital business portfolio, with the iOS and Google Play platforms added.
 
+- **Set up by** the `react-native-fbsdk-next` plugin entry in `app.json`, plus
+  `utils/metaSdk.ts`, which `app/_layout.tsx` calls once the first screen is up.
 - **What it sends:** installs and app opens only, logged automatically
-  (`isAutoInitEnabled` and `autoLogAppEventsEnabled`). No custom events, no Facebook
-  Login, nothing about what someone does in the app.
-- **No tracking prompt on iOS, by choice.** `iosUserTrackingPermission` is `false`, so
-  there is no `NSUserTrackingUsageDescription` and the app never shows Apple's "Allow
-  tracking?" pop-up. iPhone installs reach Meta only through its aggregated measurement
-  and SKAdNetwork (the plugin adds Meta's two SKAdNetwork IDs), which report in
-  aggregate and up to three days late.
-- **No advertising ID on either platform:** `advertiserIDCollectionEnabled` is `false`,
-  and `com.google.android.gms.permission.AD_ID` is in `blockedPermissions`, so the Play
-  Console's Advertising ID declaration stays "No". Android installs are matched through
-  the Play install referrer instead.
+  (`autoLogAppEventsEnabled`). No custom events, no Facebook Login, nothing about
+  what someone does in the app.
+- **iPhone: Apple's "Allow tracking?" prompt, asked once.** Added before 1.0.9 because
+  Apple's own App Privacy guidance counts an ad SDK that measures installs as
+  tracking, and apps carrying Meta's SDK without the prompt have been rejected. The
+  wording is the `expo-tracking-transparency` plugin entry in `app.json`. If someone
+  allows it, `utils/metaSdk.ts` turns on advertiser ID collection so the IDFA goes to
+  Meta; otherwise none is sent and Meta counts the install only through SKAdNetwork
+  and its aggregated measurement (the plugin adds Meta's two SKAdNetwork IDs). This is
+  re-checked every launch, so turning tracking off in iOS Settings takes effect on the
+  next one. iOS starts the SDK at launch regardless, so on a first launch the install
+  can reach Meta before the answer does.
+- **Android: no advertising ID, no prompt.** `advertiserIDCollectionEnabled` is `false`
+  and `com.google.android.gms.permission.AD_ID` is in `blockedPermissions` (both
+  `react-native-fbsdk-next` and `expo-tracking-transparency` would otherwise add it), so
+  the Play Console's Advertising ID declaration stays "No". Android installs are
+  matched through the Play install referrer.
 - The App ID and Client Token in the plugin entry come from developers.facebook.com
   (App settings → Basic, and → Advanced → Security). Neither is secret: both are
   compiled into the app.
 - It is native code, so it ships in a store release, never with `npm run ui-update`.
-- The website's privacy policy, the App Store privacy details and Play's Data safety
-  form all describe this. Change what the SDK sends and all three need updating.
+- Declared, as of 28 October 2026:
+  - **App Store App Privacy:** Coarse Location, Device ID and Product Interaction, each
+    for Developer's Advertising or Marketing and Analytics, not linked to identity,
+    used for tracking.
+  - **Play Data safety:** Approximate location, App interactions and Device or other
+    IDs, each collected and shared, required, for Analytics and Advertising or
+    marketing; encrypted in transit; no accounts.
+  - **The website's privacy policy** describes the same.
+  Change what the SDK sends and all three need updating.
 
 ### Releasing a new store version
 

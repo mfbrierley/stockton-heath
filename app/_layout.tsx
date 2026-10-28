@@ -18,6 +18,7 @@ import { cloneElement, useEffect, useRef, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 import { AppSplashScreen } from "../components/AppSplashScreen";
 import { UserNameProvider, useUserName } from "../hooks/useUserName";
+import { startMetaSdk } from "../utils/metaSdk";
 import { theme } from "./styles/theme";
 
 export const ACTIVE_CLOSURE_KEY = "activeBridgeClosure";
@@ -75,6 +76,13 @@ function RootLayoutInner() {
     useUserName();
   const [showSplash, setShowSplash] = useState(false);
   const [splashVisible, setSplashVisible] = useState(true);
+
+  // Once the first screen is up, so Apple's tracking prompt (iPhone only, asked
+  // once) has something to sit over. Early on purpose: the sooner it's
+  // answered, the more likely the install Meta records carries the answer.
+  useEffect(() => {
+    if (fontsLoaded) void startMetaSdk();
+  }, [fontsLoaded]);
 
   useEffect(() => {
     if (fontsLoaded) {
