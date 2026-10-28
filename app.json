@@ -62,8 +62,8 @@
       [
         "react-native-fbsdk-next",
         {
-          "appID": "META_APP_ID",
-          "clientToken": "META_CLIENT_TOKEN",
+          "appID": "1710831803797789",
+          "clientToken": "2cf14af90449a5caf540eac95f49f202",
           "displayName": "Stockton Heath",
           "isAutoInitEnabled": true,
           "autoLogAppEventsEnabled": true,
