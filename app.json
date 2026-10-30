@@ -74,7 +74,7 @@
       [
         "expo-tracking-transparency",
         {
-          "userTrackingPermission": "This lets Stockton Heath see which of its Facebook and Instagram adverts led you to the app. Nothing in the app changes if you say no."
+          "userTrackingPermission": "This lets Stockton Heath see how people find the app. Nothing in the app changes if you say no."
         }
       ]
     ],

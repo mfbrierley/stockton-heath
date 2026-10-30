@@ -17,7 +17,7 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
 #### Home Tab
 
 - Personalised greeting card - the user is asked for their first name on first launch (`WelcomeNamePrompt`), stored locally and editable from the About screen via `/change-name`
-- **NHS dentists announcement** (`NhsDentistsAnnouncement`) - a temporary launch notice between the greeting and the weather: "New: see which NHS dentists near Stockton Heath are taking on new patients", tapping through to `/nhs-dentists`. It can be closed (remembered in AsyncStorage) and stops showing on its own after `ANNOUNCEMENT_EXPIRY`, 1 December 2026 - delete it once that has passed
+- **Discounts announcement** (`DiscountsAnnouncement`) - a temporary launch notice between the greeting and the weather: "New: save money at local businesses around Stockton Heath with discounts for people with the app", tapping through to the Discounts tab. Shown only when the tab is (`useDiscountsLive`). It can be closed (remembered in AsyncStorage) and stops showing on its own after `ANNOUNCEMENT_EXPIRY`, 1 January 2027 - delete it once that has passed. It replaced the NHS dentists notice that sat in the same spot
 - Displays current **weather** for Stockton Heath from the backend, which reads the **OpenWeather One Call API** every 10 minutes. Until October 2026 every phone called OpenWeather itself with a key built into the app, so each app open was a call on the account
 - Shows live **local fuel prices** for three nearby petrol stations:
   - ASDA (Wilderspool Causeway)
@@ -57,9 +57,7 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
   the app the moment anything residents see on it is edited, and removing one
   deletes the row, so a cached copy would advertise a discount that has been
   withdrawn
-- Says under the heading that businesses pay to appear and that every
-  discount is checked: paid listings are adverts, and have to be recognisable
-  as adverts
+- Says under the heading that every discount is checked before it goes in
 - An email link at the bottom (`info@stocktonheathapp.com`) for residents who
   run a business; they're sent the link to the business page. Not a link to
   the portal from the app itself: a link from inside the app to a page selling
@@ -418,7 +416,8 @@ Zap Digital business portfolio, with the iOS and Google Play platforms added.
 - **iPhone: Apple's "Allow tracking?" prompt, asked once.** Added before 1.0.9 because
   Apple's own App Privacy guidance counts an ad SDK that measures installs as
   tracking, and apps carrying Meta's SDK without the prompt have been rejected. The
-  wording is the `expo-tracking-transparency` plugin entry in `app.json`. If someone
+  wording is the `expo-tracking-transparency` plugin entry in `app.json`, and
+  deliberately doesn't mention Facebook or Instagram adverts. If someone
   allows it, `utils/metaSdk.ts` turns on advertiser ID collection so the IDFA goes to
   Meta; otherwise none is sent and Meta counts the install only through SKAdNetwork
   and its aggregated measurement (the plugin adds Meta's two SKAdNetwork IDs). This is

@@ -1,5 +1,4 @@
 import Feather from "@expo/vector-icons/Feather";
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -8,19 +7,21 @@ import { theme } from "../app/styles/theme";
 
 // A launch notice, not a permanent part of Home: it stops showing on its own
 // after this date (local time), and anyone can close it sooner. Move the date
-// if the launch slips; delete the component once it has passed.
-const ANNOUNCEMENT_EXPIRY = new Date("2026-12-01T00:00:00");
+// if it should run longer; delete the component once it has passed.
+const ANNOUNCEMENT_EXPIRY = new Date("2027-01-01T00:00:00");
 
-const DISMISSED_KEY = "nhsDentistsAnnouncementDismissed";
+// A key of its own rather than the old NHS dentists one, so closing that
+// notice doesn't hide this one.
+const DISMISSED_KEY = "discountsAnnouncementDismissed";
 
-type NhsDentistsAnnouncementProps = {
+type DiscountsAnnouncementProps = {
   onPress: () => void;
 };
 
-/** Tells people on the Home tab that the NHS Dentists screen exists. */
-export default function NhsDentistsAnnouncement({
+/** Tells people on the Home tab that the Discounts tab exists. */
+export default function DiscountsAnnouncement({
   onPress,
-}: NhsDentistsAnnouncementProps) {
+}: DiscountsAnnouncementProps) {
   // Hidden until the dismissal has been read, so someone who closed it never
   // sees it flash back up while the app starts.
   const [visible, setVisible] = useState(false);
@@ -53,19 +54,19 @@ export default function NhsDentistsAnnouncement({
         onPress={onPress}
         style={styles.body}
         accessibilityRole="link"
-        accessibilityLabel="New: see which NHS dentists near Stockton Heath are taking on new patients"
+        accessibilityLabel="New: save money at local businesses around Stockton Heath with discounts for people with the app"
       >
-        <MaterialCommunityIcons
-          name="tooth-outline"
-          size={22}
+        <Feather
+          name="tag"
+          size={20}
           color={theme.colors.primary}
-          style={{ marginTop: 1 }}
+          style={{ marginTop: 2 }}
         />
         <View style={{ flex: 1, gap: 4 }}>
           <Text style={globalStyles.bodySmall}>
             <Text style={globalStyles.bodyBold}>New: </Text>
-            see which NHS dentists near Stockton Heath are taking on new
-            patients.
+            save money at local businesses around Stockton Heath with discounts
+            for people with the app.
           </Text>
           <View style={styles.linkRow}>
             <Text
@@ -75,7 +76,7 @@ export default function NhsDentistsAnnouncement({
                 globalStyles.bodyLink,
               ]}
             >
-              Take a look
+              See the discounts
             </Text>
             <Feather
               name="arrow-right"
