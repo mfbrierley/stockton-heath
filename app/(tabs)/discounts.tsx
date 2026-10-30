@@ -105,12 +105,8 @@ export default function Discounts() {
           Savings from businesses around Stockton Heath, for people with the
           app. Show your phone when you pay to claim one.
         </Text>
-        {/* Said plainly, because these are adverts and have to be
-            recognisable as adverts. The second half is why they are worth
-            reading anyway. */}
         <Text style={[globalStyles.body, styles.muted]}>
-          Businesses pay to appear here. We check every discount is genuine
-          before it goes in.
+          We check every discount is genuine before it goes in.
         </Text>
       </View>
 

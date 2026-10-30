@@ -5,10 +5,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, View } from "react-native";
 import BinReminderCard from "../../components/BinReminderCard";
 import BridgeAlertsCard from "../../components/BridgeAlertsCard";
+import DiscountsAnnouncement from "../../components/DiscountsAnnouncement";
 import DiscountsCard from "../../components/DiscountsCard";
 import { GreetingCard } from "../../components/GreetingCard";
 import { LocalFuelSection } from "../../components/LocalFuelSection";
-import NhsDentistsAnnouncement from "../../components/NhsDentistsAnnouncement";
 import QuickLinkCard from "../../components/QuickLinkCard";
 import SponsorCard from "../../components/SponsorCard";
 import {
@@ -120,9 +120,13 @@ export default function Index() {
         )}
       >
         <GreetingCard data={data} windMph={windMph} firstName={firstName} />
-        <NhsDentistsAnnouncement
-          onPress={() => router.push("/nhs-dentists")}
-        />
+        {/* Same guard as the Discounts card below: no banner pointing at a
+            tab that is still hidden. */}
+        {discountsLive && (
+          <DiscountsAnnouncement
+            onPress={() => router.push("/(tabs)/discounts" as never)}
+          />
+        )}
         <WeatherSection
           data={data}
           loading={loading}
