@@ -14,6 +14,10 @@ import { theme } from "./styles/theme";
 
 const version = Constants.expoConfig?.version ?? "-";
 
+// The page itself, not /privacy: the website answers any unknown path by
+// showing its home page, so /privacy looks like a working link and isn't.
+const PRIVACY_POLICY_URL = "https://www.stocktonheathapp.com/privacy.html";
+
 function openUrl(url: string) {
   void Linking.openURL(url).catch(() => {});
 }
@@ -136,6 +140,20 @@ export default function About() {
               onPress={() => openUrl("mailto:info@stocktonheathapp.com")}
             >
               info@stocktonheathapp.com
+            </Text>
+            .
+          </Text>
+          {/* Google Play's User Data policy wants the privacy policy linked
+              inside the app as well as on the store listing. Kept on the
+              screen's first view, where a reviewer looks for it. */}
+          <Text style={globalStyles.largeBody}>
+            What the app collects and how it&apos;s used is set out in the{" "}
+            <Text
+              style={[globalStyles.bodyBold, globalStyles.bodyLink]}
+              accessibilityRole="link"
+              onPress={() => openUrl(PRIVACY_POLICY_URL)}
+            >
+              privacy policy
             </Text>
             .
           </Text>

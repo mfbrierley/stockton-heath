@@ -17,6 +17,7 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
 #### Home Tab
 
 - Personalised greeting card - the user is asked for their first name on first launch (`WelcomeNamePrompt`), stored locally and editable from the About screen via `/change-name`
+- **Update banner** (`UpdateBanner`) - straight under the greeting, "Update available: a newer version of the app is ready", opening the App Store or Google Play. Shown only when the phone's own store has a newer version than the one installed, read from the backend's `GET /store-versions`, so it never appears while a release is still in review and Android and iPhone are told separately. Closing it hides it until the next version. Added in November 2026: nothing else tells someone with automatic updates off that they're behind, and an over-the-air update can't reach them (see `runtimeVersion` under [Releasing a new store version](#releasing-a-new-store-version)). Only phones on the version that carries it, or a later one, can show it
 - **Discounts announcement** (`DiscountsAnnouncement`) - a temporary launch notice between the greeting and the weather: "New: save money at local businesses around Stockton Heath with discounts for people with the app", tapping through to the Discounts tab. Shown only when the tab is (`useDiscountsLive`). It can be closed (remembered in AsyncStorage) and stops showing on its own after `ANNOUNCEMENT_EXPIRY`, 1 January 2027 - delete it once that has passed. It replaced the NHS dentists notice that sat in the same spot
 - Displays current **weather** for Stockton Heath from the backend, which reads the **OpenWeather One Call API** every 10 minutes. Until October 2026 every phone called OpenWeather itself with a key built into the app, so each app open was a call on the account
 - Shows live **local fuel prices** for three nearby petrol stations:
@@ -127,6 +128,7 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | `DELETE /bin-subscriptions`          | Unregister a token from bin reminders                   |
 | `GET /fuel-prices`                   | Cached fuel prices for local stations                   |
 | `GET /weather`                       | Cached OpenWeather One Call reading (`current` and `hourly`) with its `fetchedAt`. `503` until the first read after a restart, without `OPENWEATHER_API_KEY`, or once the last good reading is over an hour old |
+| `GET /store-versions`                | The newest version live on each store, `{ ios, android }`, each `null` until read. Always `200`. The app's update banner compares its own version with these |
 | `GET /nhs-dentists`                  | Cached NHS dental practices within 5 miles and whether each is taking on new NHS patients. `503` until the first read of nhs.uk after a restart |
 | `GET /business-listings`             | Live Local Offers listings (`approved && active` only). **Empty until launch** - see [Launch and the free month](#launch-and-the-free-month) |
 | `GET /business-listings/launch`      | The launch date, the free-month end date, and whether subscribing now starts with the free month. Public; the portal reads it |
@@ -251,6 +253,7 @@ All scheduled with `setInterval` in `backend/src/index.ts` - there is no cron or
 
 - **Bridge polling** (every 10 minutes, 6am-10pm UK time): checks twitterapi.io for new tweets from `@trafficwarr` containing "Swingbridge" (excluding test posts). If a new one is found, it saves it to the database and, if it was posted in the last 30 minutes, pushes to all bridge subscribers via the Expo Push Notification service.
 - **Fuel price polling** (every 30 minutes): fetches fresh prices from the Gov.uk Fuel Finder API using OAuth client credentials. Results are cached in memory.
+- **Store versions** (hourly, `src/storeVersions.ts`): reads the live App Store version from Apple's public lookup API, and the live Google Play version out of the Play listing page, since Google has no public API for it. The Play read depends on how Google builds that page: anything but exactly one version-shaped value is logged as `Google Play listing: expected one version...` and refused, and the last good value is kept, so the worst a change at Google can do is stop Android being prompted. A restart serves `null` until the first read, which hides the banner for a moment rather than showing a wrong one.
 - **Weather polling** (every 10 minutes, `src/weather.ts`): reads OpenWeather's One Call API 3.0 for Stockton Heath and caches it in memory - 144 calls a day, well inside the 1,000 a day One Call 3.0 gives free, however many people open the app. A failed read keeps the last good one, but `/weather` stops serving it once it is an hour old: the app labels the weather LIVE.
 - **NHS dentists** (checked hourly, runs once the saved list is a day old): reads the nhs.uk find-a-dentist results page, then each practice's appointments page five seconds apart - about four minutes in all. Saved to `AppMeta`, so a restart serves the saved list without reading nhs.uk again. A failed read is retried the next hour. See [NHS dentists](#nhs-dentists).
 - **Bin reminders** (checked every minute, fires at 18:00 UK time): groups bin subscriptions by UPRN, queries the council API for each, and pushes "Put out your \<bins\> tonight" to anyone with a collection tomorrow. De-duplicated per day via `AppMeta` so a redeploy can't double-send.
@@ -473,6 +476,10 @@ Run it on `main` from expo.dev → Workflows, or with `npx eas-cli workflow:run 
    the What's New text, pick the build and press Submit for Review. `ascAppId` in `eas.json`
    is the app's Apple ID, which lets EAS upload without asking questions.
 
+Once a version is live on a store, the app's update banner starts offering it to phones
+on older versions from that store, within the hour (`GET /store-versions`). Nothing needs
+doing for that, but it needs the backend deployed.
+
 Ship new features this way rather than with `ui-update`. A store update runs the new code
 the first time the app opens, while an over-the-air update is only downloaded when the app
 starts from closed and applied the start after that, which can take weeks for people who
@@ -574,10 +581,19 @@ The app half is fixed:
   council's behalf.
 
 The resubmission is version **1.0.3**: build 8 and the rejected build 5 both read
-1.0.2, which was ambiguous in correspondence with review. Still to do, not blocking:
-an in-app privacy policy link. Play's App content declarations are complete, but the
-app sends push tokens and a UPRN to the backend, and Play's User Data policy expects a
-link inside the app as well as on the listing.
+1.0.2, which was ambiguous in correspondence with review. Play's User Data policy also
+expects the privacy policy to be linked inside the app as well as on the listing: since
+November 2026 About links it on its first view. The link is
+`https://www.stocktonheathapp.com/privacy.html` - not `/privacy`, which the website
+answers with its home page, so it looks like a working link to anyone who doesn't read it.
+
+**Outstanding (November 2026): the website's privacy policy doesn't match the app.** It says
+a name and address entered in the app "never leave your device", but turning on bin
+reminders sends the push token and the address's UPRN to the backend, and the bin lookup
+sends the postcode and UPRN to the council's API. It also names only Apple's push service,
+while Android push goes through Google's Firebase Cloud Messaging, and every push through
+Expo's push service. The policy lives on the website (`privacy.html`), not in this repo.
+Play's User Data policy expects it to describe what the app actually does.
 
 #### Rejected again, October 2026 - Missing Source Link for Government Information
 

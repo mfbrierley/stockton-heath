@@ -22,6 +22,11 @@ import {
 import { subscriptionPeriod } from "./subscription";
 import { FREE_UNTIL, freeMonthTrialEnd, isLaunched, launchAt } from "./launch";
 import { getCachedNhsDentists, startNhsDentists } from "./nhsDentists";
+import {
+  getStoreVersions,
+  STORE_VERSIONS_REFRESH_MS,
+  syncStoreVersions,
+} from "./storeVersions";
 import { getCachedWeather, syncWeather, WEATHER_REFRESH_MS } from "./weather";
 import { PrismaClient } from "./generated/prisma/client";
 
@@ -860,6 +865,13 @@ app.get("/weather", (req: Request, res: Response) => {
     return res.status(503).json({ error: "Weather not yet available" });
   }
   return res.json(weather);
+});
+
+// The newest version live on each store, or null for a store that hasn't been
+// read yet. The app offers an update when its own version is older. Always
+// 200: a store that can't be read means no prompt, not an error.
+app.get("/store-versions", (req: Request, res: Response) => {
+  return res.json(getStoreVersions());
 });
 
 app.get("/nhs-dentists", (req: Request, res: Response) => {
@@ -2781,6 +2793,13 @@ setInterval(
 setInterval(() => {
   void syncWeather();
 }, WEATHER_REFRESH_MS);
+
+// Hourly: a new version only appears after a store review, and an hour's lag
+// in telling people about it costs nothing.
+void syncStoreVersions();
+setInterval(() => {
+  void syncStoreVersions();
+}, STORE_VERSIONS_REFRESH_MS);
 
 // Daily: practices change their status rarely, and nhs.uk's terms ask for
 // data copied from it to be refreshed every 24 hours. Loads the saved list

@@ -11,6 +11,7 @@ import { GreetingCard } from "../../components/GreetingCard";
 import { LocalFuelSection } from "../../components/LocalFuelSection";
 import QuickLinkCard from "../../components/QuickLinkCard";
 import SponsorCard from "../../components/SponsorCard";
+import UpdateBanner from "../../components/UpdateBanner";
 import {
   WeatherApiResponse,
   WeatherSection,
@@ -120,6 +121,7 @@ export default function Index() {
         )}
       >
         <GreetingCard data={data} windMph={windMph} firstName={firstName} />
+        <UpdateBanner />
         {/* Same guard as the Discounts card below: no banner pointing at a
             tab that is still hidden. */}
         {discountsLive && (
