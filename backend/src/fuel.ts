@@ -81,6 +81,13 @@ type StationPrices = {
   location: string;
   public_phone_number: string | null;
   fuel_prices: FuelPrice[];
+  // For the station's own screen. Absent from a backend before these were
+  // added, so the app treats each as optional.
+  latitude: number;
+  longitude: number;
+  address: string;
+  amenities: string[];
+  distance_miles: number;
 };
 
 /** A forecourt as /pfs describes it - only the fields read here. */
@@ -89,9 +96,12 @@ type Forecourt = {
   trading_name?: string | null;
   brand_name?: string | null;
   permanent_closure?: boolean | null;
+  amenities?: unknown;
   location?: {
     address_line_1?: string | null;
+    address_line_2?: string | null;
     city?: string | null;
+    postcode?: string | null;
     latitude?: number | string | null;
     longitude?: number | string | null;
   } | null;
@@ -100,6 +110,10 @@ type Forecourt = {
 type NearbyStation = {
   display_name: string;
   location: string;
+  latitude: number;
+  longitude: number;
+  address: string;
+  amenities: string[];
   distance_miles: number;
 };
 
@@ -246,6 +260,55 @@ function displayInfo(forecourt: Forecourt): {
   };
 }
 
+/** One line: the street, town and postcode, without repeats. */
+function fullAddress(location: Forecourt["location"]): string {
+  const parts: string[] = [];
+  for (const line of [
+    location?.address_line_1,
+    location?.address_line_2,
+    location?.city,
+  ]) {
+    const tidied = line?.trim() ? tidy(line) : "";
+    if (tidied && !parts.some((p) => p.toLowerCase() === tidied.toLowerCase())) {
+      parts.push(tidied);
+    }
+  }
+  const postcode = location?.postcode?.trim().toUpperCase();
+  if (postcode) parts.push(postcode);
+  return parts.join(", ");
+}
+
+// Words that read wrongly in sentence case.
+const AMENITY_WORDS: Record<string, string> = {
+  adblue: "AdBlue",
+  atm: "ATM",
+  ev: "EV",
+  hvo: "HVO",
+  lpg: "LPG",
+  wifi: "Wi-Fi",
+};
+
+/**
+ * Fuel Finder lists a forecourt's facilities as codes ("car_wash"). They are
+ * shown as written, in sentence case ("Car wash"). The codes are logged with
+ * each station list so a label that reads badly can be added above.
+ */
+function amenityLabels(amenities: unknown): string[] {
+  if (!Array.isArray(amenities)) return [];
+  return amenities
+    .filter((a): a is string => typeof a === "string" && a.trim() !== "")
+    .map((code) =>
+      code
+        .toLowerCase()
+        .split(/[_\s-]+/)
+        .filter(Boolean)
+        .map((w) => (Object.hasOwn(AMENITY_WORDS, w) ? AMENITY_WORDS[w] : w))
+        .join(" "),
+    )
+    .filter(Boolean)
+    .map((label) => label[0].toUpperCase() + label.slice(1));
+}
+
 /**
  * Work out which stations are within the radius. A failed read keeps the
  * last list. So does a read that finds none, which would mean /pfs no longer
@@ -253,6 +316,7 @@ function displayInfo(forecourt: Forecourt): {
  */
 async function syncNearbyStations(): Promise<void> {
   const found = new Map<string, NearbyStation>();
+  const amenityCodes = new Set<string>();
   let unplaced = 0;
 
   // Every batch is read: there is no telling which one holds the last
@@ -275,8 +339,15 @@ async function syncNearbyStations(): Promise<void> {
       if (distance <= RADIUS_MILES) {
         found.set(forecourt.node_id, {
           ...displayInfo(forecourt),
+          latitude,
+          longitude,
+          address: fullAddress(forecourt.location),
+          amenities: amenityLabels(forecourt.amenities),
           distance_miles: distance,
         });
+        if (Array.isArray(forecourt.amenities)) {
+          for (const code of forecourt.amenities) amenityCodes.add(String(code));
+        }
       }
     }
     return false;
@@ -303,7 +374,7 @@ async function syncNearbyStations(): Promise<void> {
         `${s.display_name}${s.location ? `, ${s.location}` : ""} (${s.distance_miles.toFixed(1)} mi)`,
     );
   console.log(
-    `[${new Date().toISOString()}] Fuel stations synced. ${found.size} within ${RADIUS_MILES} miles (${unplaced} with no position skipped): ${names.join("; ")}`,
+    `[${new Date().toISOString()}] Fuel stations synced. ${found.size} within ${RADIUS_MILES} miles (${unplaced} with no position skipped): ${names.join("; ")}. Facility codes: ${[...amenityCodes].sort().join(", ") || "none"}`,
   );
 }
 
@@ -382,6 +453,11 @@ export async function syncFuelPrices(): Promise<void> {
           display_name: station.display_name,
           location: station.location,
           fuel_prices,
+          latitude: station.latitude,
+          longitude: station.longitude,
+          address: station.address,
+          amenities: station.amenities,
+          distance_miles: Math.round(station.distance_miles * 10) / 10,
         },
         distance_miles: station.distance_miles,
       };

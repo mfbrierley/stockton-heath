@@ -22,7 +22,7 @@ import { GROUPS, StatusBadge } from "./DentistCard";
  * ever down the map is blank and the list still works, and another provider
  * (MapTiler, Stadia, or self-hosted tiles) is a change to this one URL.
  */
-const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+export const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 
 export const MAP_AVAILABLE = true;
 

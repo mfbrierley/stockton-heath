@@ -1,6 +1,7 @@
 import { theme } from "@/app/styles/theme";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -10,33 +11,9 @@ import {
   View,
 } from "react-native";
 import { FUEL_FINDER_URL } from "@/utils/dataSources";
+import { StationPrices, useFuelPrices } from "../hooks/useFuelPrices";
 import { globalStyles } from "../app/styles/globalStyles";
 import SourceNote from "./SourceNote";
-
-type FuelPrice = {
-  fuel_type: string;
-  price: number;
-  price_last_updated: string;
-};
-
-type StationPrices = {
-  node_id: string;
-  trading_name: string;
-  display_name: string;
-  location: string;
-  fuel_prices: FuelPrice[];
-};
-
-/**
- * `data` is the five cheapest stations for petrol and `diesel` the five
- * cheapest for diesel, both within five miles of Stockton Heath. A backend
- * from before the diesel list sends `data` alone.
- */
-type FuelPricesResponse = {
-  data: StationPrices[];
-  diesel?: StationPrices[];
-  fetchedAt: number;
-};
 
 type Fuel = "E10" | "B7_STANDARD";
 
@@ -49,12 +26,9 @@ const FUEL_OPTIONS: { fuel: Fuel; label: string }[] = [
 const FUEL_CHOICE_KEY = "fuelPricesFuelType";
 
 export function LocalFuelSection() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [petrolStations, setPetrolStations] = useState<StationPrices[]>([]);
-  const [dieselStations, setDieselStations] = useState<StationPrices[] | null>(
-    null,
-  );
+  const { prices, loading, error } = useFuelPrices();
+  const petrolStations = prices?.data ?? [];
+  const dieselStations = Array.isArray(prices?.diesel) ? prices.diesel : null;
   const [fuel, setFuel] = useState<Fuel>("E10");
 
   useEffect(() => {
@@ -73,40 +47,6 @@ export function LocalFuelSection() {
     setFuel(choice);
     AsyncStorage.setItem(FUEL_CHOICE_KEY, choice).catch(() => {});
   };
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function fetchFuelPrices() {
-      try {
-        const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
-        if (!backendUrl) throw new Error("EXPO_PUBLIC_BACKEND_URL is not set");
-
-        const res = await fetch(`${backendUrl}/fuel-prices`);
-        if (res.status === 503)
-          throw new Error("Fuel prices loading, try again shortly");
-        if (!res.ok) throw new Error(`${res.status}`);
-
-        const json = (await res.json()) as FuelPricesResponse;
-        if (isMounted) {
-          setPetrolStations(json.data ?? []);
-          setDieselStations(Array.isArray(json.diesel) ? json.diesel : null);
-        }
-      } catch (err) {
-        if (isMounted)
-          setError(
-            err instanceof Error ? err.message : "Failed to load fuel prices",
-          );
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    }
-
-    void fetchFuelPrices();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   function getPrice(station: StationPrices, fuelType: string): string {
     const entry = station.fuel_prices.find((p) => p.fuel_type === fuelType);
@@ -151,7 +91,7 @@ export function LocalFuelSection() {
 
       {loading ? (
         <ActivityIndicator />
-      ) : error ? (
+      ) : error && !prices ? (
         <Text style={[globalStyles.body, styles.errorText]}>{error}</Text>
       ) : (
         <View style={styles.table}>
@@ -207,7 +147,22 @@ export function LocalFuelSection() {
               Number.isFinite(lowestDiesel) &&
               getPriceValue(station, "B7_STANDARD") === lowestDiesel;
             return (
-              <View key={station.node_id} style={styles.tableRow}>
+              <Pressable
+                key={station.node_id}
+                onPress={() =>
+                  router.push({
+                    pathname: "/fuel-station/[id]",
+                    params: { id: station.node_id },
+                  })
+                }
+                style={({ pressed }) => [
+                  styles.tableRow,
+                  pressed && styles.tableRowPressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`${station.display_name}, ${station.location}: petrol ${getPrice(station, "E10")}, diesel ${getPrice(station, "B7_STANDARD")}`}
+                accessibilityHint="Shows the station on a map, with directions"
+              >
                 <View style={{ flex: 2 }}>
                   <Text style={styles.stationName}>{station.display_name}</Text>
                   <View style={styles.locationRow}>
@@ -241,7 +196,7 @@ export function LocalFuelSection() {
                     </View>
                   )}
                 </View>
-              </View>
+              </Pressable>
             );
           })}
 
@@ -325,6 +280,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderTopWidth: 1,
     borderTopColor: theme.colors.neutral300,
+  },
+  tableRowPressed: {
+    backgroundColor: theme.colors.neutral100,
   },
   stationName: {
     fontFamily: theme.fonts.bodyBold,
