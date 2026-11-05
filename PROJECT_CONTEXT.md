@@ -123,6 +123,7 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | `POST /bin-subscriptions`            | Register a token + UPRN for bin reminders               |
 | `DELETE /bin-subscriptions`          | Unregister a token from bin reminders                   |
 | `GET /fuel-prices`                   | `?v=2`: six cheapest within 5 miles, petrol and diesel. Without: the three village stations |
+| `GET /app-version`                   | The newest app version in the stores, `{ ios, android }`, for the update prompt. Nulls until the App Store has been read |
 | `GET /weather`                       | Cached OpenWeather One Call reading (`current` and `hourly`) with its `fetchedAt`. `503` until the first read after a restart, without `OPENWEATHER_API_KEY`, or once the last good reading is over an hour old |
 | `GET /nhs-dentists`                  | Cached NHS dental practices within 5 miles and whether each is taking on new NHS patients. `503` until the first read of nhs.uk after a restart |
 | `GET /business-listings`             | Live Local Offers listings (`approved && active` only). **Empty until launch** - see [Launch and the free month](#launch-and-the-free-month) |
@@ -248,6 +249,7 @@ All scheduled with `setInterval` in `backend/src/index.ts` - there is no cron or
 
 - **Bridge polling** (every 10 minutes, 6am-10pm UK time): checks twitterapi.io for new tweets from `@trafficwarr` containing "Swingbridge" (excluding test posts). If a new one is found, it saves it to the database and, if it was posted in the last 30 minutes, pushes to all bridge subscribers via the Expo Push Notification service.
 - **Fuel price polling** (every 30 minutes, `src/fuel.ts`): reads the Gov.uk Fuel Finder API using OAuth client credentials. Once a day it reads every forecourt's position (`/api/v1/pfs`) to find those within 5 miles of Stockton Heath; every 30 minutes it reads prices (`/api/v1/pfs/fuel-prices`) for just those. Prices over a month old or outside 100-250p are left out, then the six cheapest for E10 and for B7 are cached in memory, each with its position, address, facilities and distance for the station screen. Facility codes are shown in sentence case (`car_wash` → "Car wash"), with a few words fixed in `AMENITY_WORDS`; the daily log line lists every code seen, so a label that reads badly can be added there. `/fuel-prices?v=2`, which the app asks for from November 2026, sends the petrol six as `data` and the diesel six as `diesel`. Without `v=2` it sends what it always has: the three village stations (ASDA Causeway, ESSO Latchford, Morrisons), with no age or range check. That kept residents' app unchanged until the new one reached them, and has to stay while versions that never had that over-the-air update are in use. The village stations are read whatever happens to the 5-mile list, so a failed `/api/v1/pfs` read only affects `v=2`, which answers 503 until a list has been read. Fuel Finder answers 404 past the last batch rather than an empty list, so that is read as the end of the data. A failed read keeps the last good list.
+- **App version polling** (hourly, `src/appVersion.ts`): reads the live App Store version from Apple's public iTunes lookup (`itunes.apple.com/lookup?bundleId=...&country=gb`) for `/app-version`. Apple only reports a version once it is live, so nobody is asked to update to something they can't get. Google Play has no public equivalent, so Android is given the same version: releases ship both stores together and Google usually approves first. If Google is still reviewing when Apple goes live, set `LATEST_ANDROID_VERSION` in `backend/.env` to the version Play has (e.g. `1.0.10`) and redeploy, and remove it once Play has the new one. A failed read keeps the last version.
 - **Weather polling** (every 10 minutes, `src/weather.ts`): reads OpenWeather's One Call API 3.0 for Stockton Heath and caches it in memory - 144 calls a day, well inside the 1,000 a day One Call 3.0 gives free, however many people open the app. A failed read keeps the last good one, but `/weather` stops serving it once it is an hour old: the app labels the weather LIVE.
 - **NHS dentists** (checked hourly, runs once the saved list is a day old): reads the nhs.uk find-a-dentist results page, then each practice's appointments page five seconds apart - about four minutes in all. Saved to `AppMeta`, so a restart serves the saved list without reading nhs.uk again. A failed read is retried the next hour. See [NHS dentists](#nhs-dentists).
 - **Bin reminders** (checked every minute, fires at 18:00 UK time): groups bin subscriptions by UPRN, queries the council API for each, and pushes "Put out your \<bins\> tonight" to anyone with a collection tomorrow. De-duplicated per day via `AppMeta` so a redeploy can't double-send.
@@ -472,8 +474,20 @@ Run it on `main` from expo.dev → Workflows, or with `npx eas-cli workflow:run 
 
 Ship new features this way rather than with `ui-update`. A store update runs the new code
 the first time the app opens, while an over-the-air update is only downloaded when the app
-starts from closed and applied the start after that, which can take weeks for people who
-never close it.
+starts from closed. From November 2026 (1.0.10 once it has that update, and 1.0.11 on) the
+app restarts into an update straight away if the download finishes while the 3-second splash
+is still up (`app/_layout.tsx`). Otherwise it applies the next time the app starts, which can
+take weeks for people who never close it, and for versions before that it is always the
+start after.
+
+**Update prompt.** `hooks/useUpdatePrompt.ts` asks anyone on an older version to update from
+the store: an alert, "Update available", with Not now and Update (which opens the App Store
+or Google Play page). It checks `/app-version` each time the app opens or comes back to the
+screen, after the splash and the first-launch name prompt. Either answer holds it back for
+three days (`updatePromptSnoozedUntil` in AsyncStorage), so someone who doesn't update is
+asked again, but not every time. The comparison is in `utils/appVersion.ts`. It needs no
+native code, so it also went to 1.0.10 over the air. Anyone on an older version than that
+only sees it once they have updated by themselves.
 
 `runtimeVersion` uses the `appVersion` policy, so `npm run ui-update` only reaches phones on
 the `version` currently in `app.json`. Once a bump is merged, over-the-air fixes stop reaching
@@ -610,6 +624,7 @@ Note that `EXPO_PUBLIC_*` variables are inlined into the client bundle at build 
 - `TWITTERAPI_IO_API_KEY` - API key for twitterapi.io (used to read tweets)
 - `ADMIN_TOKEN` - shared secret for the admin-only routes above. Generate with `openssl rand -hex 32`. Without it those routes return `503`.
 - `FUEL_FINDER_CLIENT_ID` / `FUEL_FINDER_CLIENT_SECRET` - Gov.uk Fuel Finder OAuth credentials
+- `LATEST_ANDROID_VERSION` - optional. Holds the Android update prompt at this version while Google Play is still reviewing a release Apple has already put live. Unset otherwise
 - `OPENWEATHER_API_KEY` - OpenWeather key with the One Call API 3.0 subscription. Without it `/weather` returns `503`, which is logged once; nothing else is affected
 
 Local Offers (all optional - each route returns `503` until the variables it needs are set). As of 16 October 2026 everything, R2 included, is configured on the droplet, with Stripe in live mode and Clerk on its production instance:

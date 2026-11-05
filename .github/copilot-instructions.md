@@ -113,6 +113,7 @@ const LONGITUDE = -2.5811; // Stockton Heath, Warrington
 | `ADMIN_TOKEN` | Shared secret for admin-only routes (`x-admin-token` header) |
 | `TWITTERAPI_IO_API_KEY` | twitterapi.io key for bridge alert tweets |
 | `FUEL_FINDER_CLIENT_ID` / `FUEL_FINDER_CLIENT_SECRET` | Gov.uk Fuel Finder OAuth credentials |
+| `LATEST_ANDROID_VERSION` | Optional: holds the Android update prompt at this version while Google Play is still reviewing a release |
 | `OPENWEATHER_API_KEY` | OpenWeather One Call API 3.0 key; without it `/weather` returns `503` |
 | `CLERK_SECRET_KEY` | Verifies business portal session tokens |
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_ID` / `STRIPE_WEBHOOK_SECRET` | Local Offers subscriptions |

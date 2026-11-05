@@ -13,13 +13,18 @@ import * as Notifications from "expo-notifications";
 import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import * as Updates from "expo-updates";
 import type { ReactElement } from "react";
 import { cloneElement, useEffect, useRef, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 import { AppSplashScreen } from "../components/AppSplashScreen";
+import { useUpdatePrompt } from "../hooks/useUpdatePrompt";
 import { UserNameProvider, useUserName } from "../hooks/useUserName";
 import { startMetaSdk } from "../utils/metaSdk";
 import { theme } from "./styles/theme";
+
+// How long the branded splash stays up on every launch.
+const SPLASH_MS = 3000; // TODO: revert to 4000
 
 export const ACTIVE_CLOSURE_KEY = "activeBridgeClosure";
 
@@ -88,10 +93,29 @@ function RootLayoutInner() {
     if (fontsLoaded) {
       void SplashScreen.hideAsync();
       setShowSplash(true);
-      const timer = setTimeout(() => setSplashVisible(false), 3000); // TODO: revert to 4000
+      const timer = setTimeout(() => setSplashVisible(false), SPLASH_MS);
       return () => clearTimeout(timer);
     }
   }, [fontsLoaded]);
+
+  // The app looks for an over-the-air update each time it starts and
+  // downloads it in the background, which on its own only takes effect the
+  // next time the app starts - for someone who mostly uses the notifications,
+  // that can be months. If the download finishes while the splash still
+  // covers the screen, restart into it there and then. Never after the
+  // splash: the screen must not jump while someone is using it, so a later
+  // download waits for the next start as before.
+  const { isUpdatePending } = Updates.useUpdates();
+  useEffect(() => {
+    if (__DEV__ || !Updates.isEnabled || !isUpdatePending || !splashVisible) {
+      return;
+    }
+    Updates.reloadAsync().catch(() => {});
+  }, [isUpdatePending, splashVisible]);
+
+  // Ask anyone on an older version to update from the store, once the splash
+  // and the first-launch name prompt are out of the way.
+  useUpdatePrompt(!splashVisible && !loading && welcomeCompleted);
 
   const handledResponseIds = useRef<Set<string>>(new Set());
 
