@@ -99,6 +99,15 @@ function StationDetails({ station }: { station: StationPrices }) {
         >
           {station.address || station.location}
         </Text>
+        {/* Google Play rejected 1.0.7 when NHS Dentists' only source link was
+            at the foot of the list: it has to be visible without scrolling. */}
+        <View style={{ marginTop: 4 }}>
+          <SourceNote
+            label="Prices and station details from the UK Government's Fuel Finder scheme. Source:"
+            url={FUEL_FINDER_URL}
+            androidOnly
+          />
+        </View>
       </View>
 
       {latitude != null && longitude != null && (
@@ -211,12 +220,6 @@ function StationDetails({ station }: { station: StationPrices }) {
           </View>
         </View>
       )}
-
-      <SourceNote
-        label="Prices and station details from the UK Government's Fuel Finder scheme. Source:"
-        url={FUEL_FINDER_URL}
-        androidOnly
-      />
     </ScrollView>
   );
 }
