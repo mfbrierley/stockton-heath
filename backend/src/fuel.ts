@@ -8,8 +8,11 @@
 // radius. /pfs/fuel-prices holds prices and no positions, and is read every
 // 30 minutes for just those stations.
 //
-// Until November 2026 this was a fixed list of three stations near the
-// village.
+// /fuel-prices has two answers. The app from November 2026 asks with ?v=2
+// and gets the two lists. Without it, it gets what it has always sent: the
+// three stations near the village. That keeps the app residents already have
+// unchanged until the new one reaches them, and must stay while versions
+// that never had the over-the-air update are still in use.
 
 const FUEL_FINDER_TOKEN_URL =
   "https://www.fuel-finder.service.gov.uk/api/v1/oauth/generate_access_token";
@@ -74,15 +77,22 @@ type FuelPrice = {
   price_change_effective_timestamp: string;
 };
 
-type StationPrices = {
+/** One station's prices as /pfs/fuel-prices sends them. */
+type PriceRow = {
   node_id: string;
   trading_name: string;
-  display_name: string;
-  location: string;
   public_phone_number: string | null;
   fuel_prices: FuelPrice[];
-  // For the station's own screen. Absent from a backend before these were
-  // added, so the app treats each as optional.
+};
+
+/** One station as the app is sent it. */
+type StationPrices = PriceRow & {
+  display_name: string;
+  location: string;
+};
+
+/** The new app also gets what the station's own screen shows. */
+type StationDetails = StationPrices & {
   latitude: number;
   longitude: number;
   address: string;
@@ -117,14 +127,15 @@ type NearbyStation = {
   distance_miles: number;
 };
 
-/**
- * `data` is the petrol list. App versions from before the diesel list draw
- * every row of `data`, so it must stay a short list in this shape.
- */
-type FuelPricesResponse = {
-  data: StationPrices[];
-  diesel: StationPrices[];
-  fetchedAt: number;
+type FuelPricesResponses = {
+  /** Without ?v=2: the three village stations, exactly as before. */
+  current: { data: StationPrices[]; fetchedAt: number };
+  /** ?v=2: the five cheapest within the radius, petrol and diesel. */
+  v2: {
+    data: StationDetails[];
+    diesel: StationDetails[];
+    fetchedAt: number;
+  } | null;
 };
 
 let cachedFuelToken: { value: string; expiresAt: number } | null = null;
@@ -132,9 +143,11 @@ let nearbyStations: {
   stations: Map<string, NearbyStation>;
   fetchedAt: number;
 } | null = null;
-let cachedFuelPrices: FuelPricesResponse | null = null;
+let cachedFuelPrices: FuelPricesResponses | null = null;
 
-export const getCachedFuelPrices = () => cachedFuelPrices;
+/** The answer for the app asking, or null until it has been read. */
+export const getCachedFuelPrices = (v2: boolean) =>
+  (v2 ? cachedFuelPrices?.v2 : cachedFuelPrices?.current) ?? null;
 
 async function getFuelFinderToken(): Promise<string> {
   if (cachedFuelToken && Date.now() < cachedFuelToken.expiresAt - 60_000) {
@@ -390,10 +403,10 @@ function isTrustworthy(price: FuelPrice, now: number): boolean {
   );
 }
 
-type Ranked = { prices: StationPrices; distance_miles: number };
+type Ranked = { prices: StationDetails; distance_miles: number };
 
 /** The cheapest stations for one fuel; a tie goes to the nearer station. */
-function cheapest(stations: Ranked[], fuelType: string): StationPrices[] {
+function cheapest(stations: Ranked[], fuelType: string): StationDetails[] {
   const priceOf = (s: Ranked) =>
     Number(s.prices.fuel_prices.find((p) => p.fuel_type === fuelType)?.price);
   return stations
@@ -415,20 +428,21 @@ export async function syncFuelPrices(): Promise<void> {
     ) {
       await syncNearbyStations();
     }
-    // Nothing to price until the first station list has been read; the app
-    // is told to try again shortly.
-    if (!nearbyStations) return;
 
-    const { stations } = nearbyStations;
-    const rows = new Map<string, StationPrices>();
+    // The village stations are read whatever happened to the station list,
+    // so the current app never depends on it.
+    const villageIds = Object.keys(STATION_DISPLAY_INFO);
+    const nearby = nearbyStations?.stations ?? new Map<string, NearbyStation>();
+    const wanted = new Set([...villageIds, ...nearby.keys()]);
+    const rows = new Map<string, PriceRow>();
 
     const ok = await readBatches(FUEL_FINDER_PRICES_URL, (batch) => {
-      for (const row of batch as StationPrices[]) {
-        if (row?.node_id && stations.has(row.node_id)) {
+      for (const row of batch as PriceRow[]) {
+        if (row?.node_id && wanted.has(row.node_id)) {
           rows.set(row.node_id, row);
         }
       }
-      return rows.size === stations.size;
+      return rows.size === wanted.size;
     });
 
     if (!ok) {
@@ -439,37 +453,57 @@ export async function syncFuelPrices(): Promise<void> {
     }
 
     const now = Date.now();
-    let dropped = 0;
-    const ranked: Ranked[] = [...rows.values()].map((row) => {
-      const station = stations.get(row.node_id)!;
-      const shown = (row.fuel_prices ?? []).filter(
-        (p) => DISPLAY_FUEL_TYPES.has(p.fuel_type),
-      );
-      const fuel_prices = shown.filter((p) => isTrustworthy(p, now));
-      dropped += shown.length - fuel_prices.length;
-      return {
-        prices: {
-          ...row,
-          display_name: station.display_name,
-          location: station.location,
-          fuel_prices,
-          latitude: station.latitude,
-          longitude: station.longitude,
-          address: station.address,
-          amenities: station.amenities,
-          distance_miles: Math.round(station.distance_miles * 10) / 10,
-        },
-        distance_miles: station.distance_miles,
-      };
+    const shownPrices = (row: PriceRow) =>
+      (row.fuel_prices ?? []).filter((p) => DISPLAY_FUEL_TYPES.has(p.fuel_type));
+
+    // Exactly what the app was sent before ?v=2: no age or range check.
+    const current: StationPrices[] = villageIds.flatMap((id) => {
+      const row = rows.get(id);
+      return row
+        ? [{ ...row, ...STATION_DISPLAY_INFO[id], fuel_prices: shownPrices(row) }]
+        : [];
     });
 
-    cachedFuelPrices = {
-      data: cheapest(ranked, "E10"),
-      diesel: cheapest(ranked, "B7_STANDARD"),
-      fetchedAt: now,
-    };
+    // Until the first station list has been read the new app is told to try
+    // again shortly.
+    let v2 = cachedFuelPrices?.v2 ?? null;
+    let priced = 0;
+    let dropped = 0;
+    if (nearby.size > 0) {
+      const ranked: Ranked[] = [...nearby].flatMap(([id, station]) => {
+        const row = rows.get(id);
+        if (!row) return [];
+        priced++;
+        const shown = shownPrices(row);
+        const fuel_prices = shown.filter((p) => isTrustworthy(p, now));
+        dropped += shown.length - fuel_prices.length;
+        return [
+          {
+            prices: {
+              ...row,
+              display_name: station.display_name,
+              location: station.location,
+              fuel_prices,
+              latitude: station.latitude,
+              longitude: station.longitude,
+              address: station.address,
+              amenities: station.amenities,
+              distance_miles: Math.round(station.distance_miles * 10) / 10,
+            },
+            distance_miles: station.distance_miles,
+          },
+        ];
+      });
+      v2 = {
+        data: cheapest(ranked, "E10"),
+        diesel: cheapest(ranked, "B7_STANDARD"),
+        fetchedAt: now,
+      };
+    }
+
+    cachedFuelPrices = { current: { data: current, fetchedAt: now }, v2 };
     console.log(
-      `[${new Date().toISOString()}] Fuel prices synced. ${rows.size} of ${stations.size} nearby station(s) priced, ${dropped} implausible or stale price(s) left out.`,
+      `[${new Date().toISOString()}] Fuel prices synced. ${current.length} of ${villageIds.length} village station(s) for the current app; ${priced} of ${nearby.size} nearby station(s) priced, ${dropped} implausible or stale price(s) left out.`,
     );
   } catch (error) {
     console.error("Fuel price sync error:", error);

@@ -684,8 +684,10 @@ app.delete("/bin-subscriptions", async (req: Request, res: Response) => {
   }
 });
 
+// ?v=2 is the app from November 2026; without it, the three village
+// stations the app before that shows. See fuel.ts.
 app.get("/fuel-prices", (req: Request, res: Response) => {
-  const fuelPrices = getCachedFuelPrices();
+  const fuelPrices = getCachedFuelPrices(req.query.v === "2");
   if (!fuelPrices) {
     return res.status(503).json({ error: "Fuel prices not yet available" });
   }

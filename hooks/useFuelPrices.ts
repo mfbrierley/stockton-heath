@@ -42,7 +42,9 @@ async function fetchFuelPrices(): Promise<FuelPricesResponse> {
   const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
   if (!backendUrl) throw new Error("EXPO_PUBLIC_BACKEND_URL is not set");
 
-  const res = await fetch(`${backendUrl}/fuel-prices`);
+  // v=2 asks for the two five-station lists. Without it the backend sends
+  // the three village stations the app before November 2026 shows.
+  const res = await fetch(`${backendUrl}/fuel-prices?v=2`);
   if (res.status === 503)
     throw new Error("Fuel prices loading, try again shortly");
   if (!res.ok) throw new Error(`${res.status}`);

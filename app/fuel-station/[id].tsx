@@ -83,7 +83,6 @@ export default function FuelStation() {
 
 function StationDetails({ station }: { station: StationPrices }) {
   const { latitude, longitude } = station;
-  const phone = station.public_phone_number?.trim();
   const amenities = station.amenities ?? [];
 
   return (
@@ -121,23 +120,6 @@ function StationDetails({ station }: { station: StationPrices }) {
           </Button>
         </>
       )}
-
-      {phone ? (
-        <Button
-          variant="neutral"
-          width="full"
-          icon={
-            <Feather name="phone" size={16} color={theme.colors.neutral1000} />
-          }
-          onPress={() =>
-            void Linking.openURL(`tel:${phone.replace(/\s/g, "")}`).catch(
-              () => {},
-            )
-          }
-        >
-          {`Call ${phone}`}
-        </Button>
-      ) : null}
 
       {/* Prices */}
       <View
