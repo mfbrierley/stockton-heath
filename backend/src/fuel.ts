@@ -1,5 +1,5 @@
-// Fuel prices for the Home screen: the five cheapest stations within five
-// miles of Stockton Heath for petrol, and the five cheapest for diesel, read
+// Fuel prices for the Home screen: the six cheapest stations within five
+// miles of Stockton Heath for petrol, and the six cheapest for diesel, read
 // from the UK Government's Fuel Finder API and served to the app from memory.
 //
 // Fuel Finder publishes two datasets, both in numbered batches covering the
@@ -24,7 +24,7 @@ const FUEL_FINDER_PRICES_URL =
 // The same point the weather and NHS dentists are read for.
 const STOCKTON_HEATH = { latitude: 53.3705, longitude: -2.5811 };
 const RADIUS_MILES = 5;
-const STATIONS_SHOWN = 5;
+const STATIONS_SHOWN = 6;
 
 export const FUEL_PRICES_REFRESH_MS = 30 * 60 * 1000;
 const STATIONS_REFRESH_MS = 24 * 60 * 60 * 1000;
@@ -130,7 +130,7 @@ type NearbyStation = {
 type FuelPricesResponses = {
   /** Without ?v=2: the three village stations, exactly as before. */
   current: { data: StationPrices[]; fetchedAt: number };
-  /** ?v=2: the five cheapest within the radius, petrol and diesel. */
+  /** ?v=2: the six cheapest within the radius, petrol and diesel. */
   v2: {
     data: StationDetails[];
     diesel: StationDetails[];
