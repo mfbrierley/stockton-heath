@@ -150,7 +150,7 @@ Admin routes are gated by `requireAdmin` (`x-admin-token`); business routes by
 ### Background polling
 
 - **Bridge alerts:** polls `twitterapi.io` every **10 minutes** for tweets from `trafficwarr` containing "Swingbridge" (excluding test posts); alerts older than 30 minutes are saved but not pushed. Only runs 6am-10pm UK time. Sends Expo push notifications on new alerts.
-- **Fuel prices:** polls Gov.uk Fuel Finder API every **30 minutes**, caches results in memory for 3 local stations (Wilderspool Causeway, Latchford, Morrisons).
+- **Fuel prices** (`src/fuel.ts`): reads which Gov.uk Fuel Finder stations are within 5 miles of Stockton Heath once a day, polls their prices every **30 minutes**, and caches the five cheapest for petrol (`data`) and diesel (`diesel`) in memory.
 - **Weather:** reads OpenWeather One Call 3.0 every **10 minutes** (`src/weather.ts`), caches it in memory and serves it at `/weather` - 144 calls a day however many people use the app. A reading over an hour old is withheld (`503`) rather than shown as live.
 - **Bin reminders:** checked every minute, fires at **18:00 UK**. Groups `BinSubscription` rows by UPRN, queries the council API, and pushes to anyone with a collection tomorrow. De-duplicated per day via `AppMeta`.
 

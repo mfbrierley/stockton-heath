@@ -19,10 +19,7 @@ Built with **Expo / React Native** - a cross-platform mobile framework using Rea
 - Personalised greeting card - the user is asked for their first name on first launch (`WelcomeNamePrompt`), stored locally and editable from the About screen via `/change-name`
 - **Discounts announcement** (`DiscountsAnnouncement`) - a temporary launch notice between the greeting and the weather: "New: save money at local businesses around Stockton Heath with discounts for people with the app", tapping through to the Discounts tab. Shown only when the tab is (`useDiscountsLive`). It can be closed (remembered in AsyncStorage) and stops showing on its own after `ANNOUNCEMENT_EXPIRY`, 1 January 2027 - delete it once that has passed. It replaced the NHS dentists notice that sat in the same spot
 - Displays current **weather** for Stockton Heath from the backend, which reads the **OpenWeather One Call API** every 10 minutes. Until October 2026 every phone called OpenWeather itself with a key built into the app, so each app open was a call on the account
-- Shows live **local fuel prices** for three nearby petrol stations:
-  - ASDA (Wilderspool Causeway)
-  - ESSO (Latchford / Knutsford Road)
-  - Morrisons (Stockton Heath)
+- Shows live **local fuel prices**: the five cheapest stations within 5 miles of Stockton Heath, with a Petrol | Diesel switch that swaps between the cheapest five for each. The choice is remembered on the phone. Until November 2026 it was a fixed three: ASDA (Wilderspool Causeway), ESSO (Latchford / Knutsford Road) and Morrisons (Stockton Heath), which keep those names
 - Fuel prices come from the backend, which polls the UK Government's **Fuel Finder API**
 - **Sponsor card** - a paid placement for a local business (currently Rowswood Timber). Hardcoded in `components/SponsorCard.tsx`
 - Summary cards linking through to local discounts, bin collections and bridge alerts
@@ -125,7 +122,7 @@ A **Node.js / Express 5** API server written in TypeScript, deployed on a Digita
 | `DELETE /bridge-subscriptions`       | Unregister a token from bridge alerts                   |
 | `POST /bin-subscriptions`            | Register a token + UPRN for bin reminders               |
 | `DELETE /bin-subscriptions`          | Unregister a token from bin reminders                   |
-| `GET /fuel-prices`                   | Cached fuel prices for local stations                   |
+| `GET /fuel-prices`                   | Five cheapest stations within 5 miles, petrol and diesel |
 | `GET /weather`                       | Cached OpenWeather One Call reading (`current` and `hourly`) with its `fetchedAt`. `503` until the first read after a restart, without `OPENWEATHER_API_KEY`, or once the last good reading is over an hour old |
 | `GET /nhs-dentists`                  | Cached NHS dental practices within 5 miles and whether each is taking on new NHS patients. `503` until the first read of nhs.uk after a restart |
 | `GET /business-listings`             | Live Local Offers listings (`approved && active` only). **Empty until launch** - see [Launch and the free month](#launch-and-the-free-month) |
@@ -250,7 +247,7 @@ Two historical notes: the original `PushToken` table was replaced by the two sub
 All scheduled with `setInterval` in `backend/src/index.ts` - there is no cron or job runner.
 
 - **Bridge polling** (every 10 minutes, 6am-10pm UK time): checks twitterapi.io for new tweets from `@trafficwarr` containing "Swingbridge" (excluding test posts). If a new one is found, it saves it to the database and, if it was posted in the last 30 minutes, pushes to all bridge subscribers via the Expo Push Notification service.
-- **Fuel price polling** (every 30 minutes): fetches fresh prices from the Gov.uk Fuel Finder API using OAuth client credentials. Results are cached in memory.
+- **Fuel price polling** (every 30 minutes, `src/fuel.ts`): reads the Gov.uk Fuel Finder API using OAuth client credentials. Once a day it reads every forecourt's position (`/api/v1/pfs`) to find those within 5 miles of Stockton Heath; every 30 minutes it reads prices (`/api/v1/pfs/fuel-prices`) for just those. Prices over a month old or outside 100-250p are left out, then the five cheapest for E10 and for B7 are cached in memory. `/fuel-prices` sends the petrol five as `data` and the diesel five as `diesel`: app versions from before the switch draw every row of `data`, so it must stay the short petrol list. Fuel Finder answers 404 past the last batch rather than an empty list, so that is read as the end of the data. A failed read keeps the last good list.
 - **Weather polling** (every 10 minutes, `src/weather.ts`): reads OpenWeather's One Call API 3.0 for Stockton Heath and caches it in memory - 144 calls a day, well inside the 1,000 a day One Call 3.0 gives free, however many people open the app. A failed read keeps the last good one, but `/weather` stops serving it once it is an hour old: the app labels the weather LIVE.
 - **NHS dentists** (checked hourly, runs once the saved list is a day old): reads the nhs.uk find-a-dentist results page, then each practice's appointments page five seconds apart - about four minutes in all. Saved to `AppMeta`, so a restart serves the saved list without reading nhs.uk again. A failed read is retried the next hour. See [NHS dentists](#nhs-dentists).
 - **Bin reminders** (checked every minute, fires at 18:00 UK time): groups bin subscriptions by UPRN, queries the council API for each, and pushes "Put out your \<bins\> tonight" to anyone with a collection tomorrow. De-duplicated per day via `AppMeta` so a redeploy can't double-send.
@@ -923,4 +920,4 @@ Stockton Heath is a village suburb of Warrington in Cheshire, England. Key local
 - **Medical centres** - Stockton Heath, Latchford and Stretton surgeries
 - **Stockton Heath Post Office** - local post office on London Road
 - **Household Waste Recycling Centres** - Lymm Road (Thelwall) and Woolston
-- Local petrol stations: ASDA Wilderspool Causeway, ESSO Latchford, Morrisons Stockton Heath
+- Local petrol stations: the five cheapest within 5 miles of Stockton Heath, from Fuel Finder

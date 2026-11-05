@@ -1,0 +1,401 @@
+// Fuel prices for the Home screen: the five cheapest stations within five
+// miles of Stockton Heath for petrol, and the five cheapest for diesel, read
+// from the UK Government's Fuel Finder API and served to the app from memory.
+//
+// Fuel Finder publishes two datasets, both in numbered batches covering the
+// whole UK. /pfs holds each forecourt's details and position. Those rarely
+// change, so it is read once a day to work out which stations are within the
+// radius. /pfs/fuel-prices holds prices and no positions, and is read every
+// 30 minutes for just those stations.
+//
+// Until November 2026 this was a fixed list of three stations near the
+// village.
+
+const FUEL_FINDER_TOKEN_URL =
+  "https://www.fuel-finder.service.gov.uk/api/v1/oauth/generate_access_token";
+const FUEL_FINDER_STATIONS_URL =
+  "https://www.fuel-finder.service.gov.uk/api/v1/pfs";
+const FUEL_FINDER_PRICES_URL =
+  "https://www.fuel-finder.service.gov.uk/api/v1/pfs/fuel-prices";
+
+// The same point the weather and NHS dentists are read for.
+const STOCKTON_HEATH = { latitude: 53.3705, longitude: -2.5811 };
+const RADIUS_MILES = 5;
+const STATIONS_SHOWN = 5;
+
+export const FUEL_PRICES_REFRESH_MS = 30 * 60 * 1000;
+const STATIONS_REFRESH_MS = 24 * 60 * 60 * 1000;
+const REQUEST_TIMEOUT_MS = 30_000;
+
+// A safety cap on the batch loop. The whole UK is a few dozen batches.
+const MAX_BATCHES = 200;
+
+// A price is left out of the ranking when it is plainly wrong (in pounds
+// rather than pence, say) or has not been updated for a month. Either would
+// otherwise sit at the top of a cheapest-first list indefinitely. The age
+// limit is generous because retailers only report a price when it changes,
+// so an independent's correct price can go unchanged for weeks.
+const MIN_PLAUSIBLE_PENCE = 100;
+const MAX_PLAUSIBLE_PENCE = 250;
+const MAX_PRICE_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
+const DISPLAY_FUEL_TYPES = new Set(["E10", "B7_STANDARD"]);
+
+/**
+ * Friendly local names for the three stations nearest the village, keyed by
+ * Fuel Finder node_id. These are the app's OWN labels, not the operator's
+ * registered names - locals say "Morrisons", not the trading name on the
+ * licence. Every other station is named from its brand and street as Fuel
+ * Finder publishes them (see displayInfo). The API's trading_name is passed
+ * through untouched alongside. Prices are never altered.
+ */
+const STATION_DISPLAY_INFO: Record<
+  string,
+  { display_name: string; location: string }
+> = {
+  "78e106b10ddec09572a290959030b50fbe237f6913711e24d5a465fbe6220e61": {
+    display_name: "ASDA Causeway",
+    location: "Wilderspool Causeway",
+  },
+  "751b9cfbdf59cba708c06226acef37f63dae67b933732d7c67976daf58af7d39": {
+    display_name: "ESSO Latchford",
+    location: "Knutsford Road",
+  },
+  "0ee49af1acdf5301f588d07afc3d9c274bfbffd56a3cb25cf830dfd336b6d7ae": {
+    display_name: "Morrisons",
+    location: "Stockton Heath",
+  },
+};
+
+type FuelPrice = {
+  fuel_type: string;
+  price: number;
+  price_last_updated: string;
+  price_change_effective_timestamp: string;
+};
+
+type StationPrices = {
+  node_id: string;
+  trading_name: string;
+  display_name: string;
+  location: string;
+  public_phone_number: string | null;
+  fuel_prices: FuelPrice[];
+};
+
+/** A forecourt as /pfs describes it - only the fields read here. */
+type Forecourt = {
+  node_id: string;
+  trading_name?: string | null;
+  brand_name?: string | null;
+  permanent_closure?: boolean | null;
+  location?: {
+    address_line_1?: string | null;
+    city?: string | null;
+    latitude?: number | string | null;
+    longitude?: number | string | null;
+  } | null;
+};
+
+type NearbyStation = {
+  display_name: string;
+  location: string;
+  distance_miles: number;
+};
+
+/**
+ * `data` is the petrol list. App versions from before the diesel list draw
+ * every row of `data`, so it must stay a short list in this shape.
+ */
+type FuelPricesResponse = {
+  data: StationPrices[];
+  diesel: StationPrices[];
+  fetchedAt: number;
+};
+
+let cachedFuelToken: { value: string; expiresAt: number } | null = null;
+let nearbyStations: {
+  stations: Map<string, NearbyStation>;
+  fetchedAt: number;
+} | null = null;
+let cachedFuelPrices: FuelPricesResponse | null = null;
+
+export const getCachedFuelPrices = () => cachedFuelPrices;
+
+async function getFuelFinderToken(): Promise<string> {
+  if (cachedFuelToken && Date.now() < cachedFuelToken.expiresAt - 60_000) {
+    return cachedFuelToken.value;
+  }
+
+  const clientId = process.env.FUEL_FINDER_CLIENT_ID;
+  const clientSecret = process.env.FUEL_FINDER_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    throw new Error(
+      "Missing FUEL_FINDER_CLIENT_ID or FUEL_FINDER_CLIENT_SECRET",
+    );
+  }
+
+  const res = await fetch(FUEL_FINDER_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+
+  if (!res.ok) {
+    throw new Error(
+      `Fuel Finder token request failed: ${res.status} ${await res.text()}`,
+    );
+  }
+
+  const json = (await res.json()) as {
+    data: { access_token: string; expires_in: number };
+  };
+
+  cachedFuelToken = {
+    value: json.data.access_token,
+    expiresAt: Date.now() + json.data.expires_in * 1000,
+  };
+
+  return cachedFuelToken.value;
+}
+
+/**
+ * Read a Fuel Finder dataset batch by batch, handing each batch to `onBatch`
+ * until it returns true, the batches run out, or a request fails. Returns
+ * false on a failure, so the caller can keep what it had.
+ *
+ * Past the last batch the API answers 404 rather than an empty list, so a 404
+ * after the first batch is the end of the data, not an error.
+ */
+async function readBatches(
+  url: string,
+  onBatch: (rows: unknown[]) => boolean,
+): Promise<boolean> {
+  const token = await getFuelFinderToken();
+
+  for (let batch = 1; batch <= MAX_BATCHES; batch++) {
+    const res = await fetch(`${url}?batch-number=${batch}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+
+    if (res.status === 404 && batch > 1) return true;
+    if (!res.ok) {
+      const body = await res.text().catch(() => "(unreadable)");
+      console.error(
+        `Fuel Finder request failed: ${url} batch ${batch}: ${res.status} - ${body}`,
+      );
+      return false;
+    }
+
+    const rows = (await res.json()) as unknown;
+    if (!Array.isArray(rows) || rows.length === 0) return true;
+    if (onBatch(rows)) return true;
+  }
+
+  console.error(`Fuel Finder: more than ${MAX_BATCHES} batches at ${url}`);
+  return false;
+}
+
+function milesBetween(
+  a: { latitude: number; longitude: number },
+  b: { latitude: number; longitude: number },
+): number {
+  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+  const dLat = toRadians(b.latitude - a.latitude);
+  const dLon = toRadians(b.longitude - a.longitude);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRadians(a.latitude)) *
+      Math.cos(toRadians(b.latitude)) *
+      Math.sin(dLon / 2) ** 2;
+  return 2 * 3958.8 * Math.asin(Math.sqrt(h));
+}
+
+// Brands usually written in capitals, matching the labels above.
+const KEEP_CAPITALS = new Set(["ASDA", "ESSO"]);
+
+/**
+ * Fuel Finder's names are often all capitals ("TESCO", "WINWICK ROAD").
+ * Capitalised words of four letters or more are put in title case. Shorter
+ * ones are left alone because they are usually initials (BP, JET, MFG).
+ */
+const tidy = (text: string): string =>
+  text
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\b[A-Z][A-Z']{3,}\b/g, (word) =>
+      KEEP_CAPITALS.has(word) ? word : word[0] + word.slice(1).toLowerCase(),
+    );
+
+function displayInfo(forecourt: Forecourt): {
+  display_name: string;
+  location: string;
+} {
+  const own = STATION_DISPLAY_INFO[forecourt.node_id];
+  if (own) return own;
+  const name = forecourt.brand_name?.trim() || forecourt.trading_name?.trim();
+  const place =
+    forecourt.location?.address_line_1?.trim() ||
+    forecourt.location?.city?.trim();
+  return {
+    display_name: name ? tidy(name) : "Fuel station",
+    location: place ? tidy(place) : "",
+  };
+}
+
+/**
+ * Work out which stations are within the radius. A failed read keeps the
+ * last list. So does a read that finds none, which would mean /pfs no longer
+ * carries positions where this expects them.
+ */
+async function syncNearbyStations(): Promise<void> {
+  const found = new Map<string, NearbyStation>();
+  let unplaced = 0;
+
+  // Every batch is read: there is no telling which one holds the last
+  // nearby station.
+  const ok = await readBatches(FUEL_FINDER_STATIONS_URL, (rows) => {
+    for (const forecourt of rows as Forecourt[]) {
+      if (!forecourt?.node_id || forecourt.permanent_closure) continue;
+      const latitude = Number(forecourt.location?.latitude);
+      const longitude = Number(forecourt.location?.longitude);
+      if (
+        forecourt.location?.latitude == null ||
+        forecourt.location?.longitude == null ||
+        !Number.isFinite(latitude) ||
+        !Number.isFinite(longitude)
+      ) {
+        unplaced++;
+        continue;
+      }
+      const distance = milesBetween(STOCKTON_HEATH, { latitude, longitude });
+      if (distance <= RADIUS_MILES) {
+        found.set(forecourt.node_id, {
+          ...displayInfo(forecourt),
+          distance_miles: distance,
+        });
+      }
+    }
+    return false;
+  });
+
+  if (!ok) {
+    console.warn(
+      `[${new Date().toISOString()}] Fuel station list sync failed - keeping the last list.`,
+    );
+    return;
+  }
+  if (found.size === 0) {
+    console.error(
+      `[${new Date().toISOString()}] Fuel Finder listed no stations within ${RADIUS_MILES} miles (${unplaced} had no position) - keeping the last list.`,
+    );
+    return;
+  }
+
+  nearbyStations = { stations: found, fetchedAt: Date.now() };
+  const names = [...found.values()]
+    .sort((a, b) => a.distance_miles - b.distance_miles)
+    .map(
+      (s) =>
+        `${s.display_name}${s.location ? `, ${s.location}` : ""} (${s.distance_miles.toFixed(1)} mi)`,
+    );
+  console.log(
+    `[${new Date().toISOString()}] Fuel stations synced. ${found.size} within ${RADIUS_MILES} miles (${unplaced} with no position skipped): ${names.join("; ")}`,
+  );
+}
+
+function isTrustworthy(price: FuelPrice, now: number): boolean {
+  const pence = Number(price.price);
+  const updated = Date.parse(price.price_last_updated);
+  return (
+    Number.isFinite(pence) &&
+    pence >= MIN_PLAUSIBLE_PENCE &&
+    pence <= MAX_PLAUSIBLE_PENCE &&
+    Number.isFinite(updated) &&
+    now - updated <= MAX_PRICE_AGE_MS
+  );
+}
+
+type Ranked = { prices: StationPrices; distance_miles: number };
+
+/** The cheapest stations for one fuel; a tie goes to the nearer station. */
+function cheapest(stations: Ranked[], fuelType: string): StationPrices[] {
+  const priceOf = (s: Ranked) =>
+    Number(s.prices.fuel_prices.find((p) => p.fuel_type === fuelType)?.price);
+  return stations
+    .filter((s) => Number.isFinite(priceOf(s)))
+    .sort(
+      (a, b) => priceOf(a) - priceOf(b) || a.distance_miles - b.distance_miles,
+    )
+    .slice(0, STATIONS_SHOWN)
+    .map((s) => s.prices);
+}
+
+// Never throws. This runs on a timer inside the same process as the weather,
+// bins and bridge alerts. A failed read keeps the last good prices.
+export async function syncFuelPrices(): Promise<void> {
+  try {
+    if (
+      !nearbyStations ||
+      Date.now() - nearbyStations.fetchedAt >= STATIONS_REFRESH_MS
+    ) {
+      await syncNearbyStations();
+    }
+    // Nothing to price until the first station list has been read; the app
+    // is told to try again shortly.
+    if (!nearbyStations) return;
+
+    const { stations } = nearbyStations;
+    const rows = new Map<string, StationPrices>();
+
+    const ok = await readBatches(FUEL_FINDER_PRICES_URL, (batch) => {
+      for (const row of batch as StationPrices[]) {
+        if (row?.node_id && stations.has(row.node_id)) {
+          rows.set(row.node_id, row);
+        }
+      }
+      return rows.size === stations.size;
+    });
+
+    if (!ok) {
+      console.warn(
+        `[${new Date().toISOString()}] Fuel price sync failed - retaining last cached data.`,
+      );
+      return;
+    }
+
+    const now = Date.now();
+    let dropped = 0;
+    const ranked: Ranked[] = [...rows.values()].map((row) => {
+      const station = stations.get(row.node_id)!;
+      const shown = (row.fuel_prices ?? []).filter(
+        (p) => DISPLAY_FUEL_TYPES.has(p.fuel_type),
+      );
+      const fuel_prices = shown.filter((p) => isTrustworthy(p, now));
+      dropped += shown.length - fuel_prices.length;
+      return {
+        prices: {
+          ...row,
+          display_name: station.display_name,
+          location: station.location,
+          fuel_prices,
+        },
+        distance_miles: station.distance_miles,
+      };
+    });
+
+    cachedFuelPrices = {
+      data: cheapest(ranked, "E10"),
+      diesel: cheapest(ranked, "B7_STANDARD"),
+      fetchedAt: now,
+    };
+    console.log(
+      `[${new Date().toISOString()}] Fuel prices synced. ${rows.size} of ${stations.size} nearby station(s) priced, ${dropped} implausible or stale price(s) left out.`,
+    );
+  } catch (error) {
+    console.error("Fuel price sync error:", error);
+  }
+}

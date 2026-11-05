@@ -1,7 +1,14 @@
 import { theme } from "@/app/styles/theme";
 import { Feather } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { FUEL_FINDER_URL } from "@/utils/dataSources";
 import { globalStyles } from "../app/styles/globalStyles";
 import SourceNote from "./SourceNote";
@@ -20,15 +27,52 @@ type StationPrices = {
   fuel_prices: FuelPrice[];
 };
 
+/**
+ * `data` is the five cheapest stations for petrol and `diesel` the five
+ * cheapest for diesel, both within five miles of Stockton Heath. A backend
+ * from before the diesel list sends `data` alone.
+ */
 type FuelPricesResponse = {
   data: StationPrices[];
+  diesel?: StationPrices[];
   fetchedAt: number;
 };
+
+type Fuel = "E10" | "B7_STANDARD";
+
+const FUEL_OPTIONS: { fuel: Fuel; label: string }[] = [
+  { fuel: "E10", label: "Petrol" },
+  { fuel: "B7_STANDARD", label: "Diesel" },
+];
+
+// Remembered so someone who drives a diesel doesn't have to switch each time.
+const FUEL_CHOICE_KEY = "fuelPricesFuelType";
 
 export function LocalFuelSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [stations, setStations] = useState<StationPrices[]>([]);
+  const [petrolStations, setPetrolStations] = useState<StationPrices[]>([]);
+  const [dieselStations, setDieselStations] = useState<StationPrices[] | null>(
+    null,
+  );
+  const [fuel, setFuel] = useState<Fuel>("E10");
+
+  useEffect(() => {
+    let isMounted = true;
+    AsyncStorage.getItem(FUEL_CHOICE_KEY)
+      .then((saved) => {
+        if (isMounted && saved === "B7_STANDARD") setFuel(saved);
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const chooseFuel = (choice: Fuel) => {
+    setFuel(choice);
+    AsyncStorage.setItem(FUEL_CHOICE_KEY, choice).catch(() => {});
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -44,7 +88,10 @@ export function LocalFuelSection() {
         if (!res.ok) throw new Error(`${res.status}`);
 
         const json = (await res.json()) as FuelPricesResponse;
-        if (isMounted) setStations(json.data ?? []);
+        if (isMounted) {
+          setPetrolStations(json.data ?? []);
+          setDieselStations(Array.isArray(json.diesel) ? json.diesel : null);
+        }
       } catch (err) {
         if (isMounted)
           setError(
@@ -68,12 +115,26 @@ export function LocalFuelSection() {
 
   function getPriceValue(station: StationPrices, fuelType: string): number {
     const entry = station.fuel_prices.find((p) => p.fuel_type === fuelType);
-    return entry ? entry.price : Infinity;
+    return entry ? Number(entry.price) : Infinity;
   }
 
+  // Without a diesel list (an older backend) there is no switch, and the card
+  // shows the petrol list with both columns' lowest prices, as it used to.
+  const canSwitch = dieselStations !== null;
+  const shownFuel: Fuel = canSwitch ? fuel : "E10";
+  const stations =
+    shownFuel === "B7_STANDARD" && dieselStations
+      ? dieselStations
+      : petrolStations;
+
   const sortedStations = [...stations].sort(
-    (a, b) => getPriceValue(a, "E10") - getPriceValue(b, "E10"),
+    (a, b) => getPriceValue(a, shownFuel) - getPriceValue(b, shownFuel),
   );
+
+  // The list is ranked on one fuel, so the other column's lowest price would
+  // only be the lowest of these five - the badge marks the chosen fuel only.
+  const badgePetrol = !canSwitch || shownFuel === "E10";
+  const badgeDiesel = !canSwitch || shownFuel === "B7_STANDARD";
 
   const lowestPetrol = Math.min(
     ...stations.map((s) => getPriceValue(s, "E10")),
@@ -94,8 +155,42 @@ export function LocalFuelSection() {
         <Text style={[globalStyles.body, styles.errorText]}>{error}</Text>
       ) : (
         <View style={styles.table}>
+          {canSwitch && (
+            <View style={styles.fuelSwitch} accessibilityRole="tablist">
+              {FUEL_OPTIONS.map((option) => {
+                const selected = option.fuel === shownFuel;
+                return (
+                  <Pressable
+                    key={option.fuel}
+                    onPress={() => chooseFuel(option.fuel)}
+                    style={[
+                      styles.fuelOption,
+                      selected && styles.fuelOptionSelected,
+                    ]}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected }}
+                  >
+                    <Text
+                      style={[
+                        styles.fuelOptionText,
+                        selected && styles.fuelOptionTextSelected,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+
           {/* Header row */}
-          <View style={styles.tableHeaderRow}>
+          <View
+            style={[
+              styles.tableHeaderRow,
+              canSwitch && styles.tableHeaderRowBelowSwitch,
+            ]}
+          >
             <Text style={styles.tableHeaderStation}>STATION</Text>
             <Text style={styles.tableHeaderFuel}>PETROL E10</Text>
             <Text style={styles.tableHeaderFuel}>DIESEL B7</Text>
@@ -104,8 +199,12 @@ export function LocalFuelSection() {
           {/* Station rows */}
           {sortedStations.map((station) => {
             const isLowestPetrol =
+              badgePetrol &&
+              Number.isFinite(lowestPetrol) &&
               getPriceValue(station, "E10") === lowestPetrol;
             const isLowestDiesel =
+              badgeDiesel &&
+              Number.isFinite(lowestDiesel) &&
               getPriceValue(station, "B7_STANDARD") === lowestDiesel;
             return (
               <View key={station.node_id} style={styles.tableRow}>
@@ -170,11 +269,39 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: "hidden",
   },
+  fuelSwitch: {
+    flexDirection: "row",
+    marginHorizontal: 24,
+    marginTop: 24,
+    padding: 4,
+    borderRadius: 20,
+    backgroundColor: theme.colors.neutral200,
+  },
+  fuelOption: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  fuelOptionSelected: {
+    backgroundColor: theme.colors.primary,
+  },
+  fuelOptionText: {
+    fontFamily: theme.fonts.bodyBold,
+    fontSize: 13,
+    color: theme.colors.neutral900,
+  },
+  fuelOptionTextSelected: {
+    color: theme.colors.white,
+  },
   tableHeaderRow: {
     flexDirection: "row",
     paddingHorizontal: 24,
     paddingTop: 24,
     paddingBottom: 12,
+  },
+  tableHeaderRowBelowSwitch: {
+    paddingTop: 20,
   },
   tableHeaderStation: {
     flex: 2,
