@@ -22,7 +22,8 @@ const FUEL_OPTIONS: { fuel: Fuel; label: string }[] = [
   { fuel: "B7_STANDARD", label: "Diesel" },
 ];
 
-// Remembered so someone who drives a diesel doesn't have to switch each time.
+// Saved on the phone, so the card opens on the fuel last chosen - someone
+// who drives a diesel doesn't have to switch each time they open the app.
 const FUEL_CHOICE_KEY = "fuelPricesFuelType";
 
 export function LocalFuelSection() {
@@ -30,6 +31,9 @@ export function LocalFuelSection() {
   const petrolStations = prices?.data ?? [];
   const dieselStations = Array.isArray(prices?.diesel) ? prices.diesel : null;
   const [fuel, setFuel] = useState<Fuel>("E10");
+  // The list waits for the saved choice, so a diesel driver never sees the
+  // petrol list first. A failed read counts as read: the card shows petrol.
+  const [choiceLoaded, setChoiceLoaded] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -37,7 +41,10 @@ export function LocalFuelSection() {
       .then((saved) => {
         if (isMounted && saved === "B7_STANDARD") setFuel(saved);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (isMounted) setChoiceLoaded(true);
+      });
     return () => {
       isMounted = false;
     };
@@ -72,7 +79,7 @@ export function LocalFuelSection() {
   );
 
   // The list is ranked on one fuel, so the other column's lowest price would
-  // only be the lowest of these five - the badge marks the chosen fuel only.
+  // only be the lowest of these six - the badge marks the chosen fuel only.
   const badgePetrol = !canSwitch || shownFuel === "E10";
   const badgeDiesel = !canSwitch || shownFuel === "B7_STANDARD";
 
@@ -89,7 +96,7 @@ export function LocalFuelSection() {
         Local Fuel Prices
       </Text>
 
-      {loading ? (
+      {loading || !choiceLoaded ? (
         <ActivityIndicator />
       ) : error && !prices ? (
         <Text style={[globalStyles.body, styles.errorText]}>{error}</Text>

@@ -22,6 +22,7 @@ import {
 import { subscriptionPeriod } from "./subscription";
 import { FREE_UNTIL, freeMonthTrialEnd, isLaunched, launchAt } from "./launch";
 import { getCachedNhsDentists, startNhsDentists } from "./nhsDentists";
+import { APP_VERSION_REFRESH_MS, getLatestAppVersion, syncAppVersion } from "./appVersion";
 import { FUEL_PRICES_REFRESH_MS, getCachedFuelPrices, syncFuelPrices } from "./fuel";
 import { getCachedWeather, syncWeather, WEATHER_REFRESH_MS } from "./weather";
 import { PrismaClient } from "./generated/prisma/client";
@@ -682,6 +683,12 @@ app.delete("/bin-subscriptions", async (req: Request, res: Response) => {
     console.error(error);
     return res.status(500).json({ error: "Something went wrong" });
   }
+});
+
+// The newest version in the stores, so the app can ask people on an older
+// one to update. Nulls until the App Store has been read. See appVersion.ts.
+app.get("/app-version", (req: Request, res: Response) => {
+  return res.json(getLatestAppVersion());
 });
 
 // ?v=2 is the app from November 2026; without it, the three village
@@ -2605,6 +2612,7 @@ const SWING_BRIDGE_USER_NAME = "trafficwarr";
 void syncLatestBridgeAlert(SWING_BRIDGE_USER_NAME);
 void syncFuelPrices();
 void syncWeather();
+void syncAppVersion();
 
 setInterval(
   () => {
@@ -2620,6 +2628,10 @@ setInterval(() => {
 setInterval(() => {
   void syncWeather();
 }, WEATHER_REFRESH_MS);
+
+setInterval(() => {
+  void syncAppVersion();
+}, APP_VERSION_REFRESH_MS);
 
 // Daily: practices change their status rarely, and nhs.uk's terms ask for
 // data copied from it to be refreshed every 24 hours. Loads the saved list

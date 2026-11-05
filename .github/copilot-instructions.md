@@ -113,6 +113,7 @@ const LONGITUDE = -2.5811; // Stockton Heath, Warrington
 | `ADMIN_TOKEN` | Shared secret for admin-only routes (`x-admin-token` header) |
 | `TWITTERAPI_IO_API_KEY` | twitterapi.io key for bridge alert tweets |
 | `FUEL_FINDER_CLIENT_ID` / `FUEL_FINDER_CLIENT_SECRET` | Gov.uk Fuel Finder OAuth credentials |
+| `LATEST_ANDROID_VERSION` | Optional: holds the Android update prompt at this version while Google Play is still reviewing a release |
 | `OPENWEATHER_API_KEY` | OpenWeather One Call API 3.0 key; without it `/weather` returns `503` |
 | `CLERK_SECRET_KEY` | Verifies business portal session tokens |
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_ID` / `STRIPE_WEBHOOK_SECRET` | Local Offers subscriptions |
@@ -150,7 +151,7 @@ Admin routes are gated by `requireAdmin` (`x-admin-token`); business routes by
 ### Background polling
 
 - **Bridge alerts:** polls `twitterapi.io` every **10 minutes** for tweets from `trafficwarr` containing "Swingbridge" (excluding test posts); alerts older than 30 minutes are saved but not pushed. Only runs 6am-10pm UK time. Sends Expo push notifications on new alerts.
-- **Fuel prices** (`src/fuel.ts`): reads which Gov.uk Fuel Finder stations are within 5 miles of Stockton Heath once a day, polls their prices every **30 minutes**, and caches the five cheapest for petrol (`data`) and diesel (`diesel`) in memory, served at `/fuel-prices?v=2`. Without `v=2`, `/fuel-prices` still sends the three village stations to app versions from before November 2026.
+- **Fuel prices** (`src/fuel.ts`): reads which Gov.uk Fuel Finder stations are within 5 miles of Stockton Heath once a day, polls their prices every **30 minutes**, and caches the six cheapest for petrol (`data`) and diesel (`diesel`) in memory, served at `/fuel-prices?v=2`. Without `v=2`, `/fuel-prices` still sends the three village stations to app versions from before November 2026.
 - **Weather:** reads OpenWeather One Call 3.0 every **10 minutes** (`src/weather.ts`), caches it in memory and serves it at `/weather` - 144 calls a day however many people use the app. A reading over an hour old is withheld (`503`) rather than shown as live.
 - **Bin reminders:** checked every minute, fires at **18:00 UK**. Groups `BinSubscription` rows by UPRN, queries the council API, and pushes to anyone with a collection tomorrow. De-duplicated per day via `AppMeta`.
 

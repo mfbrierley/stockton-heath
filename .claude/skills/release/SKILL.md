@@ -26,6 +26,7 @@ Version asked for (blank means raise the last number): $ARGUMENTS
   - **iOS:** uploaded to App Store Connect, where it stops. Apple doesn't let EAS submit for review.
   - **Android:** published to the production track (`releaseStatus: completed` in `eas.json`).
 - On the free plan, iOS builds and uploads in about 10 minutes. Android can wait one to two hours in Expo's queue.
+- The app asks people on older versions to update once the new version is live in the App Store (the backend reads it hourly). Android is asked at the same time, so if Google is still reviewing when Apple goes live, have the user set `LATEST_ANDROID_VERSION=<previous version>` in `backend/.env` and run `npm run deploy:backend`. Remove it once Play has the new version.
 - Every iOS upload lands in TestFlight first, so Apple emails "ready to test". That email is expected.
 
 ## 1. Check there's something to release
