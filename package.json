@@ -9,8 +9,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "ui-update": "eas update --branch production --message \"UI update\"",
-    "testflight": "eas build --platform ios --profile production && eas submit --platform ios --latest",
+    "ui-update": "npx eas-cli update --branch production --environment production --message \"UI update\"",
+    "testflight": "npx eas-cli build --platform ios --profile production && npx eas-cli submit --platform ios --latest",
     "deploy:backend": "ssh stockton-heath 'cd /opt/stockton-heath && git pull && docker image prune -f && docker build -t stockton-heath-backend ./backend && docker stop stockton-heath-backend && docker rm stockton-heath-backend && docker run -d --name stockton-heath-backend --restart unless-stopped -p 3001:3001 --env-file ./backend/.env stockton-heath-backend'"
   },
   "dependencies": {

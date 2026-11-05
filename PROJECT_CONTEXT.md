@@ -394,9 +394,9 @@ Two constraints have blocked deploys before:
 - Released on the **iOS App Store**; TestFlight is used for pre-release builds
 - Running `npm run testflight` from the repo root builds and submits in one step:
   ```bash
-  eas build --platform ios --profile production && eas submit --platform ios --latest
+  npx eas-cli build --platform ios --profile production && npx eas-cli submit --platform ios --latest
   ```
-- `npm run ui-update` ships an over-the-air JS-only update to the production channel via `eas update`
+- `npm run ui-update` ships an over-the-air JS-only update to the production channel via `npx eas-cli update` (no global install needed). It passes `--environment production`, so the `EXPO_PUBLIC_*` values come from the production EAS environment variables, as in the workflow below. Without that, `eas update` would use whatever local `.env` there is, and an update built without `EXPO_PUBLIC_BACKEND_URL` breaks weather, fuel and discounts on every phone that takes it
 - `.eas/workflows/ota-production.yml` does the same on Expo's servers (run it from expo.dev → Workflows). It reads the `EXPO_PUBLIC_*` values from the **production** EAS environment variables, since `eas update` does not read the build-profile env in `eas.json`. **Prefer `npm run ui-update` from a local checkout of `main`:** it publishes in about a minute, whereas we're on Expo's free plan and workflow jobs wait in the shared queue (~1 hour seen in September 2026)
 - Push notifications are delivered via the **Expo Push Notification service**, which wraps APNs on iOS. EAS manages the APNs key, so iOS push needs nothing in the repo - unlike Android, see below
 
