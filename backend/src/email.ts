@@ -190,10 +190,10 @@ const SIGN_OFF = "\n\nStockton Heath\nThe community app for the village";
 // actually charges them can never disagree: one variable decides both.
 const vatAdded = (): boolean => Boolean(process.env.STRIPE_TAX_RATE_ID);
 
-// The subscription price as it is advertised. £20 is the price either way -
+// The subscription price as it is advertised. £10 is the price either way -
 // VAT is not ours, it just passes through us - so the only thing that changes
 // is whether we say so.
-const PRICE = (): string => (vatAdded() ? "£20 a month plus VAT" : "£20 a month");
+const PRICE = (): string => (vatAdded() ? "£10 a month plus VAT" : "£10 a month");
 
 // Pence to "£24.00". Stripe reports every amount in the smallest unit, and a
 // receipt that says "2400" is not a receipt.
