@@ -632,14 +632,14 @@ Local Offers (all optional - each route returns `503` until the variables it nee
 - `CLERK_SECRET_KEY` - Clerk backend API key; verifies portal session tokens and reads the signed-in business's email address
 - `STRIPE_SECRET_KEY` - Stripe secret key
 - `STRIPE_WEBHOOK_SECRET` - signing secret for `POST /stripe/webhook`
-- `STRIPE_PRICE_ID` - the £20/month recurring price (VAT is added on top by `STRIPE_TAX_RATE_ID`)
+- `STRIPE_PRICE_ID` - the £10/month recurring price (VAT is added on top by `STRIPE_TAX_RATE_ID`)
 - `LOCAL_OFFERS_LAUNCH_AT` - **optional.** An ISO date-time that moves the launch, e.g.
   `2026-11-06T00:00:00Z` to put it back a week. Unset means 30 October 2026, written in
   `src/launch.ts`. An unreadable value is logged and ignored, never thrown
 - `STRIPE_TAX_RATE_ID` - **optional.** A Stripe Tax Rate id (`txr_...`) for UK VAT at 20%,
-  created once in Dashboard → Tax rates. Set it and VAT is added on top of the £20 at
+  created once in Dashboard → Tax rates. Set it and VAT is added on top of the £10 at
   checkout and on every renewal, the portal advertises the price as excluding VAT, and each
-  payment emails a link to the VAT invoice. Leave it unset and the £20 is the whole of what
+  payment emails a link to the VAT invoice. Leave it unset and the £10 is the whole of what
   is charged, with no VAT mentioned anywhere - which is the correct state until the business
   is VAT registered, because an invoice cannot show a VAT number that does not exist yet.
   Set the portal's `VITE_PRICE_EXCLUDES_VAT` at the same time; one says what is charged, the
@@ -737,8 +737,10 @@ switched off until these are done, which is deliberate.
 
 ### VAT (added August 2026, switched on 16 October 2026)
 
-The price is advertised as £20 excluding VAT, so Stripe adds 20% and every
-payment produces a VAT invoice. **Decided October 2026: launch at £20 plus VAT.**
+The price is advertised as excluding VAT, so Stripe adds 20% and every
+payment produces a VAT invoice. **Decided October 2026: launch at £20 plus VAT;
+dropped to £10 plus VAT on 13 November 2026, ahead of emailing local
+businesses at the new price.**
 Do these in Stripe's live mode, as part of switching to it - tax rates are
 separate per mode. Nothing happens until all five of these are done, and doing
 them in the wrong order is worse than not starting:
@@ -766,8 +768,12 @@ invoice; turning Stripe's on as well means two emails for every payment.
 ### Also outstanding
 
 - **Stripe has been live since 16 October 2026**, in the Zap Digital account
-  (`acct_1U7eLsAYotNwImtB`; Stripe is used for nothing else). Price
-  `price_1URDIyAYotNwImtBCpRy88h3` (£20/month, tax exclusive), tax rate
+  (`acct_1U7eLsAYotNwImtB`; Stripe is used for nothing else). Launched on price
+  `price_1URDIyAYotNwImtBCpRy88h3` (£20/month, tax exclusive); **since 13
+  November 2026** new subscriptions use `price_1UaxYgAYotNwImtBFQ6iIWQv`
+  (£10/month, tax exclusive) instead. The £20 price is not archived - it's
+  left in place for the owner's own test subscription, which stays on it
+  until it cancels on 30 November 2026. Tax rate
   `txr_1URDHEAYotNwImtB5y37MZph` (UK VAT 20%, exclusive), webhook
   `we_1URDYpAYotNwImtBnWxtMAAN` on API version `2026-07-29.dahlia` - the version
   the backend's Stripe library uses, and the payload shape `invoice.paid` is read
@@ -816,7 +822,7 @@ Both reference Rowswood Timber directly, including the logo asset. Changing spon
 
 ### Local Offers
 
-The replacement for the hardcoded sponsor: local businesses pay **£20/month plus VAT** by Stripe subscription to advertise a **genuine discount** to residents - the editorial rule that keeps the feature useful rather than just advertising. Businesses are emailed a link to the portal, sign themselves up, write their own listing and pay for it.
+The replacement for the hardcoded sponsor: local businesses pay **£10/month plus VAT** by Stripe subscription to advertise a **genuine discount** to residents - the editorial rule that keeps the feature useful rather than just advertising. Businesses are emailed a link to the portal, sign themselves up, write their own listing and pay for it.
 
 The portal is a small React app that does not exist yet. It will live in the **`stockton-heath-support`** repo, served at `https://stockton-heath-support.vercel.app/business` - not a separate repository, as originally planned.
 
