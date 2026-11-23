@@ -97,18 +97,7 @@ export default function Discounts() {
         />
       }
     >
-      <View style={styles.intro}>
-        <Text style={globalStyles.heading}>Local discounts</Text>
-        {/* There is no per-listing "how to redeem" field, so the one
-            instruction that applies to all of them is said once, here. */}
-        <Text style={[globalStyles.body, styles.introBody]}>
-          Savings from businesses around Stockton Heath, for people with the
-          app. Show your phone when you pay to claim one.
-        </Text>
-        <Text style={[globalStyles.body, styles.muted]}>
-          We check every discount is genuine before it goes in.
-        </Text>
-      </View>
+      <Text style={globalStyles.heading}>Local discounts</Text>
 
       {loading ? (
         <ActivityIndicator />
@@ -261,12 +250,6 @@ export default function Discounts() {
 }
 
 const styles = StyleSheet.create({
-  intro: {
-    gap: 8,
-  },
-  introBody: {
-    color: theme.colors.neutral800,
-  },
   list: {
     gap: 16,
   },
